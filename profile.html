@@ -1,0 +1,63 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Профиль | VYRN</title>
+  <link rel="stylesheet" href="style.css">
+  <script src="script.js" defer></script>
+</head>
+<body>
+  <main class="profile-page">
+    <button class="profile-edit-button" type="button" aria-label="Изменить профиль">Изм.</button>
+    <div class="profile-content">
+      <section class="profile-summary" aria-labelledby="profile-name">
+        <button class="profile-avatar" type="button" aria-label="Увеличить аватар" aria-expanded="false">V</button>
+        <h1 class="profile-name" id="profile-name">vyrn</h1>
+        <p class="profile-status">в сети</p>
+      </section>
+      <section class="profile-details" aria-label="Информация профиля">
+        <div class="profile-detail">
+          <h2 class="profile-detail-label">Имя пользователя</h2>
+          <p class="profile-detail-value">@username</p>
+        </div>
+        <div class="profile-detail">
+          <h2 class="profile-detail-label">О себе</h2>
+          <p class="profile-detail-value">example description</p>
+        </div>
+      </section>
+      <button class="profile-nft-button" type="button">NFT</button>
+      <section class="profile-nft-grid" aria-label="Коллекция NFT">
+        <div class="profile-nft-cell"><img class="profile-nft-image" src="pepe.gif" alt="Pepe NFT"></div>
+        <div class="profile-nft-cell"><img class="profile-nft-image" src="snoopdog.gif" alt="Snoop Dogg NFT"></div>
+        <div class="profile-nft-cell"><img class="profile-nft-image" src="pepe.gif" alt="Pepe NFT"></div>
+        <div class="profile-nft-cell"><img class="profile-nft-image" src="pepe.gif" alt="Pepe NFT"></div>
+        <div class="profile-nft-cell"><img class="profile-nft-image" src="snoopdog.gif" alt="Snoop Dogg NFT"></div>
+        <div class="profile-nft-cell"><img class="profile-nft-image" src="pepe.gif" alt="Pepe NFT"></div>
+        <div class="profile-nft-cell"><img class="profile-nft-image" src="snoopdog.gif" alt="Snoop Dogg NFT"></div>
+        <div class="profile-nft-cell"><img class="profile-nft-image" src="snoopdog.gif" alt="Snoop Dogg NFT"></div>
+        <div class="profile-nft-cell"><img class="profile-nft-image" src="pepe.gif" alt="Pepe NFT"></div>
+      </section>
+    </div>
+  </main>
+  <nav class="bottom-nav" aria-label="Основная навигация">
+    <span class="nav-indicator" aria-hidden="true"></span>
+    <a class="nav-button" href="index.html#home">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m3 10 9-7 9 7M5 9v11h14V9M9 20v-6h6v6" /></svg>
+      <span>Главное</span>
+    </a>
+    <button class="nav-button" type="button" aria-pressed="false">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 10h18l-1.5-6h-15L3 10Zm0 0v10h18V10M8 20v-6h8v6" /></svg>
+      <span>Рынок</span>
+    </button>
+    <button class="nav-button" type="button" aria-pressed="false">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 11.5a7.5 7.5 0 0 1-7.5 7.5H6l-3 2v-5.5A7.5 7.5 0 1 1 20 11.5Z" /></svg>
+      <span>Чаты</span>
+    </button>
+    <a class="nav-button is-active" href="profile.html" aria-current="page">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="8" r="4" /><path d="M4 21a8 8 0 0 1 16 0" /></svg>
+      <span>Профиль</span>
+    </a>
+  </nav>
+</body>
+</html>
