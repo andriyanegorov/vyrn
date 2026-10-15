@@ -28,18 +28,42 @@
       </section>
       <button class="profile-nft-button" type="button">NFT</button>
       <section class="profile-nft-grid" aria-label="Коллекция NFT">
-        <div class="profile-nft-cell"><img class="profile-nft-image" src="pepe.gif" alt="Pepe NFT"></div>
-        <div class="profile-nft-cell"><img class="profile-nft-image" src="snoopdog.gif" alt="Snoop Dogg NFT"></div>
-        <div class="profile-nft-cell"><img class="profile-nft-image" src="pepe.gif" alt="Pepe NFT"></div>
-        <div class="profile-nft-cell"><img class="profile-nft-image" src="pepe.gif" alt="Pepe NFT"></div>
-        <div class="profile-nft-cell"><img class="profile-nft-image" src="snoopdog.gif" alt="Snoop Dogg NFT"></div>
-        <div class="profile-nft-cell"><img class="profile-nft-image" src="pepe.gif" alt="Pepe NFT"></div>
-        <div class="profile-nft-cell"><img class="profile-nft-image" src="snoopdog.gif" alt="Snoop Dogg NFT"></div>
-        <div class="profile-nft-cell"><img class="profile-nft-image" src="snoopdog.gif" alt="Snoop Dogg NFT"></div>
-        <div class="profile-nft-cell"><img class="profile-nft-image" src="pepe.gif" alt="Pepe NFT"></div>
+        <button class="profile-nft-cell" type="button" data-nft-src="pepe.gif" data-nft-title="Pepe NFT" data-nft-model="Pepe" data-nft-file="pepe.gif" aria-label="Открыть Pepe NFT"><img class="profile-nft-image" src="pepe-preview.png" alt=""></button>
+        <button class="profile-nft-cell" type="button" data-nft-src="snoopdog.gif" data-nft-title="Snoop Dogg NFT" data-nft-model="Snoop Dogg" data-nft-file="snoopdog.gif" aria-label="Открыть Snoop Dogg NFT"><img class="profile-nft-image" src="snoopdog-preview.png" alt=""></button>
+        <button class="profile-nft-cell" type="button" data-nft-src="pepe.gif" data-nft-title="Pepe NFT" data-nft-model="Pepe" data-nft-file="pepe.gif" aria-label="Открыть Pepe NFT"><img class="profile-nft-image" src="pepe-preview.png" alt=""></button>
+        <button class="profile-nft-cell" type="button" data-nft-src="pepe.gif" data-nft-title="Pepe NFT" data-nft-model="Pepe" data-nft-file="pepe.gif" aria-label="Открыть Pepe NFT"><img class="profile-nft-image" src="pepe-preview.png" alt=""></button>
+        <button class="profile-nft-cell" type="button" data-nft-src="snoopdog.gif" data-nft-title="Snoop Dogg NFT" data-nft-model="Snoop Dogg" data-nft-file="snoopdog.gif" aria-label="Открыть Snoop Dogg NFT"><img class="profile-nft-image" src="snoopdog-preview.png" alt=""></button>
+        <button class="profile-nft-cell" type="button" data-nft-src="pepe.gif" data-nft-title="Pepe NFT" data-nft-model="Pepe" data-nft-file="pepe.gif" aria-label="Открыть Pepe NFT"><img class="profile-nft-image" src="pepe-preview.png" alt=""></button>
+        <button class="profile-nft-cell" type="button" data-nft-src="snoopdog.gif" data-nft-title="Snoop Dogg NFT" data-nft-model="Snoop Dogg" data-nft-file="snoopdog.gif" aria-label="Открыть Snoop Dogg NFT"><img class="profile-nft-image" src="snoopdog-preview.png" alt=""></button>
+        <button class="profile-nft-cell" type="button" data-nft-src="snoopdog.gif" data-nft-title="Snoop Dogg NFT" data-nft-model="Snoop Dogg" data-nft-file="snoopdog.gif" aria-label="Открыть Snoop Dogg NFT"><img class="profile-nft-image" src="snoopdog-preview.png" alt=""></button>
+        <button class="profile-nft-cell" type="button" data-nft-src="pepe.gif" data-nft-title="Pepe NFT" data-nft-model="Pepe" data-nft-file="pepe.gif" aria-label="Открыть Pepe NFT"><img class="profile-nft-image" src="pepe-preview.png" alt=""></button>
       </section>
     </div>
   </main>
+  <dialog class="nft-modal" aria-labelledby="nft-modal-title">
+    <section class="nft-modal-card">
+      <div class="nft-modal-art">
+        <img class="nft-modal-backdrop" alt="" aria-hidden="true">
+        <button class="nft-modal-close" type="button" aria-label="Закрыть окно" autofocus>
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6 6 12 12M18 6 6 18" /></svg>
+        </button>
+        <img class="nft-modal-image" alt="">
+        <div class="nft-modal-heading">
+          <h2 id="nft-modal-title"></h2>
+          <p class="nft-modal-collection">Коллекция VYRN</p>
+        </div>
+      </div>
+      <div class="nft-modal-details">
+        <dl class="nft-modal-metadata">
+          <div><dt>Коллекция</dt><dd>VYRN</dd></div>
+          <div><dt>Модель</dt><dd class="nft-modal-model"></dd></div>
+          <div><dt>Формат</dt><dd>GIF-анимация</dd></div>
+          <div><dt>Файл</dt><dd class="nft-modal-file"></dd></div>
+        </dl>
+        <button class="nft-modal-confirm" type="button">OK</button>
+      </div>
+    </section>
+  </dialog>
   <nav class="bottom-nav" aria-label="Основная навигация">
     <span class="nav-indicator" aria-hidden="true"></span>
     <a class="nav-button" href="index.html#home">

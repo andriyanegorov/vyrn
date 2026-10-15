@@ -17,6 +17,55 @@ if (nftGrid) {
 	nftCells.forEach((cell) => nftGrid.append(cell));
 }
 
+const nftModal = document.querySelector('.nft-modal');
+const nftModalImage = document.querySelector('.nft-modal-image');
+const nftModalBackdrop = document.querySelector('.nft-modal-backdrop');
+const nftModalArt = document.querySelector('.nft-modal-art');
+if (nftGrid && nftModal && nftModalImage && nftModalBackdrop && nftModalArt) {
+	const nftModalTitle = document.querySelector('#nft-modal-title');
+	const nftModalModel = document.querySelector('.nft-modal-model');
+	const nftModalFile = document.querySelector('.nft-modal-file');
+
+	nftGrid.addEventListener('click', (event) => {
+		const nftCard = event.target.closest('.profile-nft-cell');
+		if (!nftCard) {
+			return;
+		}
+
+		nftModalTitle.textContent = nftCard.dataset.nftTitle;
+		nftModalModel.textContent = nftCard.dataset.nftModel;
+		nftModalFile.textContent = nftCard.dataset.nftFile;
+		nftModalBackdrop.src = nftCard.querySelector('.profile-nft-image').src;
+		nftModalImage.src = nftCard.dataset.nftSrc;
+		nftModalImage.alt = nftCard.dataset.nftTitle;
+		nftModalArt.classList.remove('has-nft-backdrop');
+		void nftModalArt.offsetWidth;
+		nftModalArt.classList.add('has-nft-backdrop');
+		nftModal.showModal();
+			nftModal.querySelector('.nft-modal-close').focus();
+	});
+
+	const closeNftModal = () => nftModal.close();
+	nftModal.querySelector('.nft-modal-close').addEventListener('click', closeNftModal);
+	nftModal.querySelector('.nft-modal-confirm').addEventListener('click', closeNftModal);
+	nftModal.addEventListener('click', (event) => {
+		if (event.target === nftModal) {
+			closeNftModal();
+		}
+	});
+	document.addEventListener('keydown', (event) => {
+		if (event.key === 'Escape' && nftModal.open) {
+			event.preventDefault();
+			closeNftModal();
+		}
+	});
+	nftModal.addEventListener('close', () => {
+		nftModalImage.removeAttribute('src');
+		nftModalBackdrop.removeAttribute('src');
+		nftModalArt.classList.remove('has-nft-backdrop');
+	});
+}
+
 const moveIndicator = (button, animate) => {
 	const buttonRect = button.getBoundingClientRect();
 	const navRect = bottomNav.getBoundingClientRect();
