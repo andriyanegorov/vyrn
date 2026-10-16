@@ -52,8 +52,9 @@ if (profileEditButton && profileEditorDialog && profileEditorForm && profileAvat
 		avatar: telegramUser?.photo_url || ''
 	};
 	let profileData = defaultProfile;
+	let storedProfile;
 	try {
-		const storedProfile = JSON.parse(localStorage.getItem('vyrn.profile.editor.v1'));
+		storedProfile = JSON.parse(localStorage.getItem('vyrn.profile.editor.v1'));
 		if (storedProfile && typeof storedProfile === 'object') {
 			profileData = { ...defaultProfile, ...storedProfile };
 		}
@@ -61,16 +62,18 @@ if (profileEditButton && profileEditorDialog && profileEditorForm && profileAvat
 		profileData = defaultProfile;
 	}
 	if (telegramUser) {
-		if (!profileData.firstName || profileData.firstName === storedName[0]) {
+		const hasCustomName = storedProfile?.nameIsCustom ?? (
+			profileData.firstName !== storedName[0]
+			|| profileData.lastName !== storedName.slice(1).join(' ')
+		);
+		if (!hasCustomName) {
 			profileData.firstName = defaultProfile.firstName;
-		}
-		if (!profileData.lastName || profileData.lastName === storedName.slice(1).join(' ')) {
 			profileData.lastName = defaultProfile.lastName;
 		}
 		if (!profileData.username || profileData.username === profileDetailValues[0].textContent.trim()) {
 			profileData.username = defaultProfile.username;
 		}
-		if (!profileData.avatar) {
+		if (telegramUser.photo_url) {
 			profileData.avatar = defaultProfile.avatar;
 		}
 	}
@@ -135,9 +138,14 @@ if (profileEditButton && profileEditorDialog && profileEditorForm && profileAvat
 		}
 
 		const username = profileEditorForm.elements.namedItem('username').value.trim().replace(/^@+/, '');
+		const firstName = profileEditorForm.elements.namedItem('firstName').value.trim();
+		const lastName = profileEditorForm.elements.namedItem('lastName').value.trim();
 		const nextProfile = {
-			firstName: profileEditorForm.elements.namedItem('firstName').value.trim(),
-			lastName: profileEditorForm.elements.namedItem('lastName').value.trim(),
+			firstName,
+			lastName,
+			nameIsCustom: telegramUser
+				? firstName !== defaultProfile.firstName || lastName !== defaultProfile.lastName
+				: firstName !== storedName[0] || lastName !== storedName.slice(1).join(' '),
 			about: profileEditorForm.elements.namedItem('about').value.trim(),
 			username: username ? `@${username}` : '',
 			birthday: profileEditorForm.elements.namedItem('birthday').value,
@@ -666,104 +674,14 @@ if (chatRows.length && conversationDialog) {
 	const playerProfileStatus = conversationProfile.querySelector('.profile-status');
 	const playerProfileUsername = conversationProfile.querySelector('.player-profile-username');
 	const playerProfileBio = conversationProfile.querySelector('.player-profile-bio');
-	const playerProfileNftGrid = conversationProfile.querySelector('.player-profile-nft-grid');
-	const conversationInput = conversationDialog.querySelector('.conversation-input');
-	const conversationForm = conversationDialog.querySelector('.conversation-composer');
 	const playerProfiles = [
-		{ username: '@anya_v', status: 'в сети', bio: 'Коллекционирую подарки и люблю путешествия' },
-		{ username: '@whoosh_support', status: 'бот', bio: 'Поддержка Whoosh. Помогаем с поездками каждый день' },
-		{ username: '@apple_sale', status: 'был(а) недавно', bio: 'Техника Apple, проверка при встрече' },
-		{ username: '@fennel', status: 'был(а) недавно', bio: 'Мемы, музыка и немного хаоса' },
-		{ username: '@radar_chuvashia', status: 'в сети', bio: 'Новости региона без паники' },
-		{ username: '@vyrn_team', status: 'в сети', bio: 'Создаём игровой NFT-проект VYRN' },
-		{ username: '@masha_k', status: 'была недавно', bio: 'Фотографии, музыка и путешествия' },
-		{ username: '@green_home', status: 'был(а) недавно', bio: 'Растения и всё о домашнем уюте' },
-		{ username: '@parcel_news', status: 'бот', bio: 'Обновления заказов и доставки' },
-		{ username: '@denis_orlov', status: 'в сети', bio: 'Велосипед, игры и хороший кофе' },
-		{ username: '@pizza_near', status: 'бот', bio: 'Пицца и доставка по городу' },
-		{ username: '@house_12', status: 'был(а) недавно', bio: 'Соседи, дом 12' },
-		{ username: '@tech_today', status: 'в сети', bio: 'Новости технологий каждый день' },
-		{ username: '@travel_together', status: 'был(а) недавно', bio: 'Путешествия и планы' },
-		{ username: '@coffee_corner', status: 'в сети', bio: 'Кофе, десерты и завтраки' }
+		{ username: 'Канал', status: 'официальный канал', bio: 'Новости и обновления проекта VYRN' }
 	];
-	const playerNftAnimations = new Set();
 	const conversationThreads = [
 		[
-			{ text: 'Ты уже дома?', time: '14:10' },
-			{ text: 'Да, всё хорошо ❤️', outgoing: true, time: '14:12' },
-			{ text: 'спокойной ночи, любимый', time: '14:15' }
-		],
-		[
-			{ text: 'Добрый день! Где можно посмотреть тарифы?', outgoing: true, time: '14:02' },
-			{ text: 'Все тарифы есть в приложении Whoosh', time: '14:18' },
-			{ text: 'Новые поездки уже доступны в приложении', time: '14:27' }
-		],
-		[
-			{ text: 'Добрый день, объявление ещё актуально?', outgoing: true, time: '14:02' },
-			{ text: 'Да, телефон в отличном состоянии', time: '14:12' },
-			{ text: 'ПРОДАЖА: iPhone 16 Pro, отличное состояние', time: '14:20' }
-		],
-		[
-			{ text: 'Ты видел, что там произошло?', time: '14:06' },
-			{ text: 'ещё нет, сейчас гляну', outgoing: true, time: '14:09' },
-			{ text: 'ща ща, всё будет', time: '14:13' }
-		],
-		[
-			{ text: 'Есть обновления по ситуации?', outgoing: true, time: '13:58' },
-			{ text: 'Пока всё спокойно', time: '14:03' },
-			{ text: 'Обстановка спокойная, новых сообщений нет', time: '14:10' }
-		],
-		[
-			{ text: 'Подвинул карточки и проверил мобилку', outgoing: true, time: '13:51' },
-			{ text: 'Класс, стало заметно лучше', time: '13:54' },
-			{ text: 'Вы: отправил новый макет профиля', outgoing: true, time: '13:58' }
-		],
-		[
-			{ text: 'Я уже почти у дома', outgoing: true, time: '13:34' },
-			{ text: 'Окей, сейчас спущусь', time: '13:39' },
-			{ text: 'голосовое сообщение', time: '13:42' }
-		],
-		[
-			{ text: 'Кто-нибудь знает, что это за растение?', time: '13:11' },
-			{ text: 'Похоже на монстеру', time: '13:20' },
-			{ text: 'вот так выглядит после пересадки', time: '13:26' }
-		],
-		[
-			{ text: 'Подскажите, посылка уже приехала?', outgoing: true, time: '12:52' },
-			{ text: 'Да, можно забрать до закрытия', time: '12:57' },
-			{ text: 'Заказ готов к получению до 21:00', time: '13:04' }
-		],
-		[
-			{ text: 'Смотри, что нашёл', time: '12:43' },
-			{ text: 'О, выглядит интересно', outgoing: true, time: '12:47' },
-			{ text: 'кинул тебе ссылку, посмотри', time: '12:51' }
-		],
-		[
-			{ text: 'Спасибо, заказ приняли', outgoing: true, time: '12:22' },
-			{ text: 'Готовим и скоро передадим курьеру', time: '12:28' },
-			{ text: 'Ваш заказ уже у курьера', time: '12:35' }
-		],
-		[
-			{ text: 'Кто забрал пакет у двери?', time: '12:03' },
-			{ text: 'Я занесла к себе, напишите в личку', time: '12:10' },
-			{ text: 'спасибо, забрали посылку', time: '12:18' }
-		],
-		[
-			{ text: 'Какие новинки сегодня обсуждаем?', outgoing: true, time: '11:42' },
-			{ text: 'Собрали главное за неделю', time: '11:49' },
-			{ text: 'Что показали на презентации этой недели', time: '11:56' }
-		],
-		[
-			{ text: 'Билеты уже купили?', outgoing: true, time: '11:19' },
-			{ text: 'Да, отправил всем детали', time: '11:25' },
-			{ text: 'Сбор в аэропорту в 06:30', time: '11:32' }
-		],
-		[
-			{ text: 'У вас сегодня работает летняя веранда?', outgoing: true, time: '10:34' },
-			{ text: 'Да, ждём вас до 22:00', time: '10:41' },
-			{ text: 'Сегодня новый сезонный напиток', time: '10:47' }
+			{ text: 'Добро пожаловать в VYRN — Портал. Здесь будут публиковаться новости и обновления проекта.', time: '12:00' }
 		]
-	].map((thread) => thread.map((message) => ({ ...message })));
+	];
 	let activeChatIndex = -1;
 
 	const renderConversationMessages = () => {
@@ -803,58 +721,11 @@ if (chatRows.length && conversationDialog) {
 		conversationProfile.hidden = !showProfile;
 	};
 
-	const clearPlayerNfts = () => {
-		playerNftAnimations.forEach((animation) => animation.destroy());
-		playerNftAnimations.clear();
-		playerProfileNftGrid.replaceChildren();
-	};
-
-	const renderPlayerNfts = (playerIndex) => {
-		clearPlayerNfts();
-		Array.from({ length: 6 }, (_, offset) => nftCollection[(playerIndex * 3 + offset) % nftCollection.length])
-			.forEach((gift) => {
-				const file = `${gift.slug}-${gift.id}.tgs`;
-				const source = getNftAnimationUrl(file);
-				const card = document.createElement('button');
-				card.className = 'profile-nft-cell';
-				card.type = 'button';
-				card.dataset.nftSrc = source;
-				card.dataset.nftLink = `https://fragment.com/gift/${gift.slug}-${gift.id}`;
-				card.dataset.nftPreview = getNftPreviewUrl(gift.slug, gift.id);
-				card.dataset.nftTitle = `${gift.name} #${gift.id}`;
-				card.dataset.nftModel = gift.name;
-				card.dataset.nftFile = file;
-				card.setAttribute('aria-label', `${gift.name} #${gift.id}`);
-
-				const host = document.createElement('div');
-				host.className = 'profile-nft-animation is-loading';
-				host.setAttribute('aria-hidden', 'true');
-				card.append(host);
-				playerProfileNftGrid.append(card);
-
-				createTgsPreview(host, source).then((animation) => {
-					host.classList.remove('is-loading');
-					if (animation && host.isConnected) {
-						playerNftAnimations.add(animation);
-					} else {
-						animation?.destroy();
-					}
-				}).catch(() => {
-					host.classList.remove('is-loading');
-					host.classList.add('has-nft-preview');
-					host.replaceChildren(createNftPreviewImage(
-						card.dataset.nftPreview,
-						card.dataset.nftTitle,
-						'profile-nft-preview'
-					));
-				});
-			});
-	};
-
 	chatRows.forEach((chatRow, index) => {
 		chatRow.addEventListener('click', () => {
 			activeChatIndex = index;
 			const name = chatRow.querySelector('.chat-name').textContent.replace(/\s+/g, ' ').trim();
+			const channelBadge = chatRow.querySelector('.channel-verified');
 			const avatar = chatRow.querySelector('.chat-avatar').cloneNode(true);
 			const headerAvatar = avatar.cloneNode(true);
 			headerAvatar.classList.add('conversation-peer-avatar');
@@ -867,13 +738,15 @@ if (chatRows.length && conversationDialog) {
 			profileAvatar.replaceChildren(profileAvatarArt);
 			profileAvatar.setAttribute('aria-label', `Увеличить аватар ${name}`);
 			profileAvatar.setAttribute('aria-expanded', 'false');
-			conversationPeerName.textContent = name;
+			conversationPeerName.replaceChildren(document.createTextNode(name));
+			if (channelBadge) {
+				conversationPeerName.append(channelBadge.cloneNode(true));
+			}
 			playerProfileName.textContent = name;
 			playerProfileStatus.textContent = playerProfiles[index].status;
 			playerProfileUsername.textContent = playerProfiles[index].username;
 			playerProfileBio.textContent = playerProfiles[index].bio;
 			conversationDialog.setAttribute('aria-label', `Переписка: ${name}`);
-			renderPlayerNfts(index);
 			showConversationProfile(false);
 			renderConversationMessages();
 			conversationDialog.showModal();
@@ -884,24 +757,8 @@ if (chatRows.length && conversationDialog) {
 	conversationDialog.querySelector('.conversation-back').addEventListener('click', () => conversationDialog.close());
 	conversationDialog.querySelector('.conversation-peer').addEventListener('click', () => showConversationProfile(true));
 	conversationDialog.querySelector('.player-profile-back').addEventListener('click', () => showConversationProfile(false));
-	conversationForm.addEventListener('submit', (event) => {
-		event.preventDefault();
-		const text = conversationInput.value.trim();
-		if (!text || activeChatIndex < 0) {
-			return;
-		}
-
-		const time = new Intl.DateTimeFormat('ru-RU', { hour: '2-digit', minute: '2-digit' }).format(new Date());
-		conversationThreads[activeChatIndex].push({ text, outgoing: true, time });
-		chatRows[activeChatIndex].querySelector('.chat-message').textContent = `Вы: ${text}`;
-		conversationInput.value = '';
-		renderConversationMessages();
-		conversationInput.focus();
-	});
 	conversationDialog.addEventListener('close', () => {
 		showConversationProfile(false);
-		clearPlayerNfts();
-		conversationInput.value = '';
 		activeChatIndex = -1;
 	});
 }
