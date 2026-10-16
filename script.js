@@ -58,27 +58,15 @@ const nftCollection = [
 	{ slug: 'gemsignet', id: 76, name: 'Gem Signets' }
 ];
 
-const tgsDataCache = new Map();
-const loadTgsData = (source) => {
-	if (!tgsDataCache.has(source)) {
-		const request = fetch(source)
-			.then((response) => {
-				if (!response.ok) {
-					throw new Error(`NFT request failed: ${response.status}`);
-				}
-
-				return new Response(
-					response.body.pipeThrough(new DecompressionStream('gzip'))
-				).json();
-			})
-			.catch((error) => {
-				tgsDataCache.delete(source);
-				throw error;
-			});
-		tgsDataCache.set(source, request);
+	const loadTgsData = async (source) => {
+	const response = await fetch(source, { cache: 'no-store' });
+	if (!response.ok) {
+		throw new Error(`NFT request failed: ${response.status}`);
 	}
 
-	return tgsDataCache.get(source);
+	return new Response(
+		response.body.pipeThrough(new DecompressionStream('gzip'))
+	).json();
 };
 
 const createTgsPreview = async (container, source) => {
@@ -103,19 +91,21 @@ const createTgsPreview = async (container, source) => {
 	return animation;
 };
 
-const nftGrid = document.querySelector('.profile-nft-grid');
+const nftGrid = document.querySelector('.profile-page:not(.player-profile-page) .profile-nft-grid');
 if (nftGrid) {
 	const startedNftCards = new WeakSet();
 	const renderNftCard = (gift) => {
 		const title = `${gift.name} #${gift.id}`;
-		const source = `https://nft.fragment.com/gift/${gift.slug}-${gift.id}.tgs`;
+		const file = `${gift.slug}-${gift.id}.tgs`;
+		const source = `/api/tgs/${file}`;
 		const card = document.createElement('button');
 		card.className = 'profile-nft-cell';
 		card.type = 'button';
 		card.dataset.nftSrc = source;
+		card.dataset.nftLink = `https://nft.fragment.com/gift/${file}`;
 		card.dataset.nftTitle = title;
 		card.dataset.nftModel = gift.name;
-		card.dataset.nftFile = `${gift.slug}-${gift.id}.tgs`;
+		card.dataset.nftFile = file;
 		card.setAttribute('aria-label', `Открыть ${title}`);
 
 		const animationHost = document.createElement('div');
@@ -156,13 +146,14 @@ if (nftGrid) {
 	updateVisibleNftCards();
 }
 
+const nftGrids = [...document.querySelectorAll('.profile-nft-grid')];
 const nftModal = document.querySelector('.nft-modal');
 const nftModalAnimation = document.querySelector('.nft-modal-animation');
 const nftModalBackdrop = document.querySelector('.nft-modal-backdrop');
-if (nftGrid && nftModal && nftModalAnimation && nftModalBackdrop) {
-	const nftModalTitle = document.querySelector('#nft-modal-title');
-	const nftModalModel = document.querySelector('.nft-modal-model');
-	const nftModalFile = document.querySelector('.nft-modal-file');
+if (nftGrids.length && nftModal && nftModalAnimation && nftModalBackdrop) {
+	const nftModalTitle = nftModal.querySelector('#nft-modal-title');
+	const nftModalModel = nftModal.querySelector('.nft-modal-model');
+	const nftModalFile = nftModal.querySelector('.nft-modal-file');
 	let activeNftAnimation;
 	let activeNftBackdrop;
 	let animationRequestId = 0;
@@ -216,20 +207,26 @@ if (nftGrid && nftModal && nftModalAnimation && nftModalBackdrop) {
 		}
 	};
 
-	nftGrid.addEventListener('click', (event) => {
-		const nftCard = event.target.closest('.profile-nft-cell');
-		if (!nftCard) {
-			return;
-		}
+	nftGrids.forEach((grid) => {
+		grid.addEventListener('click', (event) => {
+			const nftCard = event.target.closest('.profile-nft-cell');
+			if (!nftCard) {
+				return;
+			}
 
-		nftModalTitle.textContent = nftCard.dataset.nftTitle;
-		nftModalModel.textContent = nftCard.dataset.nftModel;
-		nftModalFile.href = nftCard.dataset.nftSrc;
-		nftModalFile.textContent = nftCard.dataset.nftFile;
-		clearNftAnimation();
-		nftModal.showModal();
-		nftModal.querySelector('.nft-modal-close').focus();
-		loadModalAnimation(nftCard.dataset.nftSrc);
+			if (nftCard.tagName === 'A') {
+				event.preventDefault();
+			}
+
+			nftModalTitle.textContent = nftCard.dataset.nftTitle;
+			nftModalModel.textContent = nftCard.dataset.nftModel;
+			nftModalFile.href = nftCard.dataset.nftLink || nftCard.dataset.nftSrc;
+			nftModalFile.textContent = nftCard.dataset.nftFile;
+			clearNftAnimation();
+			nftModal.showModal();
+			nftModal.querySelector('.nft-modal-close').focus();
+			loadModalAnimation(nftCard.dataset.nftSrc);
+		});
 	});
 
 	const closeNftModal = () => nftModal.close();
@@ -314,6 +311,254 @@ navItems.filter((item) => item.tagName === 'A').forEach((link) => {
 		window.setTimeout(() => window.location.assign(destination.href), duration);
 	});
 });
+
+const chatRows = [...document.querySelectorAll('.chat-row')];
+const conversationDialog = document.querySelector('.conversation-dialog');
+if (chatRows.length && conversationDialog) {
+	const conversationScreen = conversationDialog.querySelector('.conversation-screen');
+	const conversationProfile = conversationDialog.querySelector('.conversation-profile');
+	const conversationMessages = conversationDialog.querySelector('.conversation-messages');
+	const conversationMessageList = conversationDialog.querySelector('.conversation-message-list');
+	const conversationPeerName = conversationDialog.querySelector('.conversation-peer-name');
+	const conversationAvatarSlot = conversationDialog.querySelector('.conversation-avatar-slot');
+	const playerProfileName = conversationProfile.querySelector('.profile-name');
+	const playerProfileStatus = conversationProfile.querySelector('.profile-status');
+	const playerProfileUsername = conversationProfile.querySelector('.player-profile-username');
+	const playerProfileBio = conversationProfile.querySelector('.player-profile-bio');
+	const playerProfileNftGrid = conversationProfile.querySelector('.player-profile-nft-grid');
+	const conversationInput = conversationDialog.querySelector('.conversation-input');
+	const conversationForm = conversationDialog.querySelector('.conversation-composer');
+	const playerProfiles = [
+		{ username: '@anya_v', status: 'в сети', bio: 'Коллекционирую подарки и люблю путешествия' },
+		{ username: '@whoosh_support', status: 'бот', bio: 'Поддержка Whoosh. Помогаем с поездками каждый день' },
+		{ username: '@apple_sale', status: 'был(а) недавно', bio: 'Техника Apple, проверка при встрече' },
+		{ username: '@fennel', status: 'был(а) недавно', bio: 'Мемы, музыка и немного хаоса' },
+		{ username: '@radar_chuvashia', status: 'в сети', bio: 'Новости региона без паники' },
+		{ username: '@vyrn_team', status: 'в сети', bio: 'Создаём игровой NFT-проект VYRN' },
+		{ username: '@masha_k', status: 'была недавно', bio: 'Фотографии, музыка и путешествия' },
+		{ username: '@green_home', status: 'был(а) недавно', bio: 'Растения и всё о домашнем уюте' },
+		{ username: '@parcel_news', status: 'бот', bio: 'Обновления заказов и доставки' },
+		{ username: '@denis_orlov', status: 'в сети', bio: 'Велосипед, игры и хороший кофе' },
+		{ username: '@pizza_near', status: 'бот', bio: 'Пицца и доставка по городу' },
+		{ username: '@house_12', status: 'был(а) недавно', bio: 'Соседи, дом 12' },
+		{ username: '@tech_today', status: 'в сети', bio: 'Новости технологий каждый день' },
+		{ username: '@travel_together', status: 'был(а) недавно', bio: 'Путешествия и планы' },
+		{ username: '@coffee_corner', status: 'в сети', bio: 'Кофе, десерты и завтраки' }
+	];
+	const playerNftAnimations = new Set();
+	const conversationThreads = [
+		[
+			{ text: 'Ты уже дома?', time: '14:10' },
+			{ text: 'Да, всё хорошо ❤️', outgoing: true, time: '14:12' },
+			{ text: 'спокойной ночи, любимый', time: '14:15' }
+		],
+		[
+			{ text: 'Добрый день! Где можно посмотреть тарифы?', outgoing: true, time: '14:02' },
+			{ text: 'Все тарифы есть в приложении Whoosh', time: '14:18' },
+			{ text: 'Новые поездки уже доступны в приложении', time: '14:27' }
+		],
+		[
+			{ text: 'Добрый день, объявление ещё актуально?', outgoing: true, time: '14:02' },
+			{ text: 'Да, телефон в отличном состоянии', time: '14:12' },
+			{ text: 'ПРОДАЖА: iPhone 16 Pro, отличное состояние', time: '14:20' }
+		],
+		[
+			{ text: 'Ты видел, что там произошло?', time: '14:06' },
+			{ text: 'ещё нет, сейчас гляну', outgoing: true, time: '14:09' },
+			{ text: 'ща ща, всё будет', time: '14:13' }
+		],
+		[
+			{ text: 'Есть обновления по ситуации?', outgoing: true, time: '13:58' },
+			{ text: 'Пока всё спокойно', time: '14:03' },
+			{ text: 'Обстановка спокойная, новых сообщений нет', time: '14:10' }
+		],
+		[
+			{ text: 'Подвинул карточки и проверил мобилку', outgoing: true, time: '13:51' },
+			{ text: 'Класс, стало заметно лучше', time: '13:54' },
+			{ text: 'Вы: отправил новый макет профиля', outgoing: true, time: '13:58' }
+		],
+		[
+			{ text: 'Я уже почти у дома', outgoing: true, time: '13:34' },
+			{ text: 'Окей, сейчас спущусь', time: '13:39' },
+			{ text: 'голосовое сообщение', time: '13:42' }
+		],
+		[
+			{ text: 'Кто-нибудь знает, что это за растение?', time: '13:11' },
+			{ text: 'Похоже на монстеру', time: '13:20' },
+			{ text: 'вот так выглядит после пересадки', time: '13:26' }
+		],
+		[
+			{ text: 'Подскажите, посылка уже приехала?', outgoing: true, time: '12:52' },
+			{ text: 'Да, можно забрать до закрытия', time: '12:57' },
+			{ text: 'Заказ готов к получению до 21:00', time: '13:04' }
+		],
+		[
+			{ text: 'Смотри, что нашёл', time: '12:43' },
+			{ text: 'О, выглядит интересно', outgoing: true, time: '12:47' },
+			{ text: 'кинул тебе ссылку, посмотри', time: '12:51' }
+		],
+		[
+			{ text: 'Спасибо, заказ приняли', outgoing: true, time: '12:22' },
+			{ text: 'Готовим и скоро передадим курьеру', time: '12:28' },
+			{ text: 'Ваш заказ уже у курьера', time: '12:35' }
+		],
+		[
+			{ text: 'Кто забрал пакет у двери?', time: '12:03' },
+			{ text: 'Я занесла к себе, напишите в личку', time: '12:10' },
+			{ text: 'спасибо, забрали посылку', time: '12:18' }
+		],
+		[
+			{ text: 'Какие новинки сегодня обсуждаем?', outgoing: true, time: '11:42' },
+			{ text: 'Собрали главное за неделю', time: '11:49' },
+			{ text: 'Что показали на презентации этой недели', time: '11:56' }
+		],
+		[
+			{ text: 'Билеты уже купили?', outgoing: true, time: '11:19' },
+			{ text: 'Да, отправил всем детали', time: '11:25' },
+			{ text: 'Сбор в аэропорту в 06:30', time: '11:32' }
+		],
+		[
+			{ text: 'У вас сегодня работает летняя веранда?', outgoing: true, time: '10:34' },
+			{ text: 'Да, ждём вас до 22:00', time: '10:41' },
+			{ text: 'Сегодня новый сезонный напиток', time: '10:47' }
+		]
+	].map((thread) => thread.map((message) => ({ ...message })));
+	let activeChatIndex = -1;
+
+	const renderConversationMessages = () => {
+		conversationMessageList.replaceChildren();
+		conversationThreads[activeChatIndex].forEach((message) => {
+			const row = document.createElement('article');
+			row.className = `conversation-message${message.outgoing ? ' is-outgoing' : ' is-incoming'}`;
+
+			const bubble = document.createElement('div');
+			bubble.className = 'conversation-bubble';
+			const text = document.createElement('span');
+			text.className = 'conversation-message-text';
+			text.textContent = message.text;
+
+			const meta = document.createElement('span');
+			meta.className = 'conversation-message-meta';
+			const time = document.createElement('time');
+			time.textContent = message.time;
+			meta.append(time);
+			if (message.outgoing) {
+				const checks = document.createElement('span');
+				checks.className = 'conversation-message-checks';
+				checks.setAttribute('aria-label', 'Прочитано');
+				checks.textContent = '✓✓';
+				meta.append(checks);
+			}
+
+			bubble.append(text, meta);
+			row.append(bubble);
+			conversationMessageList.append(row);
+		});
+		conversationMessages.scrollTop = conversationMessages.scrollHeight;
+	};
+
+	const showConversationProfile = (showProfile) => {
+		conversationScreen.hidden = showProfile;
+		conversationProfile.hidden = !showProfile;
+	};
+
+	const clearPlayerNfts = () => {
+		playerNftAnimations.forEach((animation) => animation.destroy());
+		playerNftAnimations.clear();
+		playerProfileNftGrid.replaceChildren();
+	};
+
+	const renderPlayerNfts = (playerIndex) => {
+		clearPlayerNfts();
+		Array.from({ length: 6 }, (_, offset) => nftCollection[(playerIndex * 3 + offset) % nftCollection.length])
+			.forEach((gift) => {
+				const file = `${gift.slug}-${gift.id}.tgs`;
+				const source = `/api/tgs/${file}`;
+				const card = document.createElement('button');
+				card.className = 'profile-nft-cell';
+				card.type = 'button';
+				card.dataset.nftSrc = source;
+				card.dataset.nftLink = `https://fragment.com/gift/${gift.slug}-${gift.id}`;
+				card.dataset.nftTitle = `${gift.name} #${gift.id}`;
+				card.dataset.nftModel = gift.name;
+				card.dataset.nftFile = file;
+				card.setAttribute('aria-label', `${gift.name} #${gift.id}`);
+
+				const host = document.createElement('div');
+				host.className = 'profile-nft-animation is-loading';
+				host.setAttribute('aria-hidden', 'true');
+				card.append(host);
+				playerProfileNftGrid.append(card);
+
+				createTgsPreview(host, source).then((animation) => {
+					host.classList.remove('is-loading');
+					if (animation && host.isConnected) {
+						playerNftAnimations.add(animation);
+					} else {
+						animation?.destroy();
+					}
+				}).catch(() => {
+					host.classList.remove('is-loading');
+					host.classList.add('is-unavailable');
+					host.textContent = 'NFT недоступен';
+				});
+			});
+	};
+
+	chatRows.forEach((chatRow, index) => {
+		chatRow.addEventListener('click', () => {
+			activeChatIndex = index;
+			const name = chatRow.querySelector('.chat-name').textContent.replace(/\s+/g, ' ').trim();
+			const avatar = chatRow.querySelector('.chat-avatar').cloneNode(true);
+			const headerAvatar = avatar.cloneNode(true);
+			headerAvatar.classList.add('conversation-peer-avatar');
+			headerAvatar.setAttribute('aria-hidden', 'true');
+			conversationAvatarSlot.replaceChildren(headerAvatar);
+			const profileAvatar = conversationProfile.querySelector('.profile-avatar');
+			const profileAvatarArt = avatar.cloneNode(true);
+			profileAvatarArt.classList.remove('chat-avatar');
+			profileAvatarArt.classList.add('player-profile-avatar-art');
+			profileAvatar.replaceChildren(profileAvatarArt);
+			profileAvatar.setAttribute('aria-label', `Увеличить аватар ${name}`);
+			profileAvatar.setAttribute('aria-expanded', 'false');
+			conversationPeerName.textContent = name;
+			playerProfileName.textContent = name;
+			playerProfileStatus.textContent = playerProfiles[index].status;
+			playerProfileUsername.textContent = playerProfiles[index].username;
+			playerProfileBio.textContent = playerProfiles[index].bio;
+			conversationDialog.setAttribute('aria-label', `Переписка: ${name}`);
+			renderPlayerNfts(index);
+			showConversationProfile(false);
+			renderConversationMessages();
+			conversationDialog.showModal();
+			conversationDialog.querySelector('.conversation-back').focus();
+		});
+	});
+
+	conversationDialog.querySelector('.conversation-back').addEventListener('click', () => conversationDialog.close());
+	conversationDialog.querySelector('.conversation-peer').addEventListener('click', () => showConversationProfile(true));
+	conversationDialog.querySelector('.player-profile-back').addEventListener('click', () => showConversationProfile(false));
+	conversationForm.addEventListener('submit', (event) => {
+		event.preventDefault();
+		const text = conversationInput.value.trim();
+		if (!text || activeChatIndex < 0) {
+			return;
+		}
+
+		const time = new Intl.DateTimeFormat('ru-RU', { hour: '2-digit', minute: '2-digit' }).format(new Date());
+		conversationThreads[activeChatIndex].push({ text, outgoing: true, time });
+		chatRows[activeChatIndex].querySelector('.chat-message').textContent = `Вы: ${text}`;
+		conversationInput.value = '';
+		renderConversationMessages();
+		conversationInput.focus();
+	});
+	conversationDialog.addEventListener('close', () => {
+		showConversationProfile(false);
+		clearPlayerNfts();
+		conversationInput.value = '';
+		activeChatIndex = -1;
+	});
+}
 
 const profileSummary = document.querySelector('.profile-summary');
 const profileContent = document.querySelector('.profile-content');
