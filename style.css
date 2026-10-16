@@ -1423,29 +1423,42 @@ body.chats-screen {
   display: grid;
   min-height: 76px;
   flex: 0 0 auto;
-  grid-template-columns: 44px minmax(0, 1fr) 96px;
+  grid-template-columns: 60px minmax(0, 1fr) 96px;
   align-items: center;
   gap: 8px;
   padding: calc(8px + env(safe-area-inset-top, 0px)) 12px 8px;
 }
 
 .conversation-back,
+.conversation-profile-back,
+.conversation-peer,
+.conversation-actions,
+.conversation-input-shell,
+.conversation-attach,
+.conversation-send {
+  box-sizing: border-box;
+  border: 1px solid rgba(255, 255, 255, 0.32);
+  background: rgba(255, 255, 255, 0.78);
+  box-shadow: 0 1px 3px rgba(25, 35, 45, 0.025), inset 0 1px 0 rgba(255, 255, 255, 0.36);
+  -webkit-backdrop-filter: blur(5px) saturate(115%);
+  backdrop-filter: blur(5px) saturate(115%);
+}
+
+.conversation-back,
 .conversation-profile-back {
   display: grid;
-  width: 44px;
-  height: 44px;
+  width: 60px;
+  height: 60px;
   place-items: center;
-  border: 0;
   border-radius: 50%;
-  background: rgba(255, 255, 255, 0.9);
   color: #172123;
   cursor: pointer;
 }
 
 .conversation-back svg,
 .conversation-profile-back svg {
-  width: 25px;
-  height: 25px;
+  width: 28px;
+  height: 28px;
   fill: none;
   stroke: currentColor;
   stroke-linecap: round;
@@ -1461,15 +1474,11 @@ body.chats-screen {
   gap: 10px;
   padding: 4px 12px 4px 4px;
   overflow: hidden;
-  border: 0;
   border-radius: 36px;
-  background: rgba(255, 255, 255, 0.86);
   color: #172123;
   font: inherit;
   text-align: left;
   cursor: pointer;
-  -webkit-backdrop-filter: blur(14px);
-  backdrop-filter: blur(14px);
 }
 
 .conversation-avatar-slot,
@@ -1513,11 +1522,10 @@ body.chats-screen {
 
 .conversation-actions {
   display: flex;
-  height: 56px;
+  height: 60px;
   align-items: center;
   justify-content: space-evenly;
   border-radius: 32px;
-  background: rgba(255, 255, 255, 0.9);
 }
 
 .conversation-actions button,
@@ -1536,7 +1544,7 @@ body.chats-screen {
 
 .conversation-actions button {
   width: 40px;
-  height: 44px;
+  height: 60px;
 }
 
 .conversation-actions svg {
@@ -1549,9 +1557,18 @@ body.chats-screen {
   stroke-width: 2;
 }
 
-.conversation-actions button:first-child svg {
-  fill: currentColor;
-  stroke-width: 1;
+.conversation-actions .btn-menu-item-icon {
+  display: grid;
+  width: 28px;
+  height: 27px;
+  place-items: center;
+}
+
+.conversation-actions .btn-menu-item-icon svg {
+  width: 28px;
+  height: 27px;
+  stroke: #242424;
+  stroke-width: 1.45;
 }
 
 .conversation-messages {
@@ -1580,6 +1597,12 @@ body.chats-screen {
   font-size: 12px;
   line-height: 1;
   text-transform: uppercase;
+}
+
+.conversation-message-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
 }
 
 .conversation-message {
@@ -1632,9 +1655,23 @@ body.chats-screen {
 }
 
 .conversation-message-checks {
+  display: inline-flex;
+  width: 14px;
+  height: 14px;
+  flex: 0 0 14px;
+  align-items: center;
   color: #42bd69;
-  font-size: 12px;
-  font-weight: 700;
+}
+
+.conversation-message-checks svg {
+  display: block;
+  width: 14px;
+  height: 14px;
+  fill: none;
+  stroke: currentColor;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 2;
 }
 
 .conversation-composer {
@@ -1645,26 +1682,27 @@ body.chats-screen {
   align-items: center;
   gap: 8px;
   padding: 8px 12px calc(10px + env(safe-area-inset-bottom, 0px));
-  background: rgba(250, 252, 247, 0.92);
-  -webkit-backdrop-filter: blur(16px);
-  backdrop-filter: blur(16px);
+  background: transparent;
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
 }
 
-.conversation-gif {
-  width: 42px;
-  height: 34px;
-  border: 2px solid #828b8d;
-  border-radius: 9px;
-  color: #667174;
-  font-size: 13px;
-  font-weight: 700;
+.conversation-input-shell {
+  display: flex;
+  min-width: 0;
+  height: 52px;
+  flex: 1;
+  align-items: center;
+  gap: 0;
+  padding: 0 14px;
+  border-radius: 999px;
 }
 
 .conversation-input {
   min-width: 0;
-  height: 44px;
+  height: 48px;
   flex: 1;
-  padding: 0 6px;
+  padding: 0;
   border: 0;
   outline: 0;
   background: transparent;
@@ -1678,37 +1716,44 @@ body.chats-screen {
 }
 
 .conversation-attach {
-  width: 38px;
-  height: 42px;
-  color: #6f777a;
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  border: 1px solid rgba(255, 255, 255, 0.32);
+  background: rgba(255, 255, 255, 0.78);
+  box-shadow: 0 1px 3px rgba(25, 35, 45, 0.025), inset 0 1px 0 rgba(255, 255, 255, 0.36);
+  color: #35413d;
+  -webkit-backdrop-filter: blur(5px) saturate(115%);
+  backdrop-filter: blur(5px) saturate(115%);
 }
 
 .conversation-attach svg {
-  width: 28px;
-  height: 28px;
-  fill: none;
+  width: 27px;
+  height: 27px;
+  fill: currentColor;
   stroke: currentColor;
   stroke-linecap: round;
   stroke-linejoin: round;
-  stroke-width: 2;
+  stroke-width: 3;
 }
 
 .conversation-send {
   width: 48px;
   height: 48px;
+  flex: 0 0 48px;
   border-radius: 50%;
-  background: #269fe3;
+  border: 0;
+  background: #1b92d1;
+  box-shadow: 0 2px 5px rgba(27, 146, 209, 0.2);
   color: #fff;
 }
 
 .conversation-send svg {
-  width: 23px;
-  height: 23px;
-  fill: none;
-  stroke: currentColor;
-  stroke-linecap: round;
-  stroke-linejoin: round;
-  stroke-width: 2;
+  width: 28px;
+  height: 28px;
+  transform: translateY(0.3px);
+  fill: currentColor;
+  stroke: none;
 }
 
 .conversation-profile {
@@ -1750,15 +1795,15 @@ body.chats-screen {
 
 @media (max-width: 420px) {
   .conversation-header {
-    grid-template-columns: 40px minmax(0, 1fr) 84px;
+    grid-template-columns: 60px minmax(0, 1fr) 84px;
     gap: 6px;
     padding-right: 8px;
     padding-left: 8px;
   }
 
   .conversation-back {
-    width: 40px;
-    height: 40px;
+    width: 60px;
+    height: 60px;
   }
 
   .conversation-peer {
@@ -1776,6 +1821,7 @@ body.chats-screen {
 
   .conversation-actions button {
     width: 34px;
+    height: 60px;
   }
 
   .conversation-messages {
@@ -1814,6 +1860,594 @@ body.chats-screen {
     font: inherit;
     font-size: 13px;
     cursor: pointer;
+}
+
+.market-screen {
+  background: #f5f5f5;
+  color: #17191f;
+}
+
+.market-page {
+  max-width: 1120px;
+  box-sizing: border-box;
+  margin: 0 auto;
+  padding: 24px 20px calc(112px + env(safe-area-inset-bottom, 0px));
+}
+
+.market-heading {
+  margin: 0;
+}
+
+.market-heading h1 {
+  margin: 0;
+  color: #17191f;
+  font-size: 28px;
+  line-height: 1.15;
+}
+
+.market-tools {
+  display: grid;
+  grid-template-columns: minmax(180px, 1fr) minmax(170px, 0.58fr) minmax(190px, 0.68fr);
+  gap: 10px;
+  margin-top: 20px;
+}
+
+.market-search,
+.market-collection-select,
+.market-sort-select {
+  display: flex;
+  min-width: 0;
+  height: 46px;
+  align-items: center;
+  gap: 9px;
+  box-sizing: border-box;
+  padding: 0 13px;
+  border: 1px solid #e4e5e9;
+  border-radius: 999px;
+  background: #fff;
+  color: #696d76;
+}
+
+.market-search svg {
+  width: 19px;
+  height: 19px;
+  flex: 0 0 auto;
+  fill: none;
+  stroke: currentColor;
+  stroke-linecap: round;
+  stroke-width: 1.8;
+}
+
+.market-search input,
+.market-tools select {
+  width: 100%;
+  min-width: 0;
+  border: 0;
+  outline: 0;
+  background: transparent;
+  color: #24262c;
+  font: inherit;
+  font-size: 14px;
+}
+
+.market-tools select {
+  height: 100%;
+  cursor: pointer;
+}
+
+.market-search input::placeholder {
+  color: #90939b;
+}
+
+.market-search:focus-within,
+.market-collection-select:focus-within,
+.market-sort-select:focus-within {
+  outline: 2px solid #2586e8;
+  outline-offset: 2px;
+}
+
+.market-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.market-card {
+  min-width: 0;
+  overflow: hidden;
+  border: 1px solid #e6e7eb;
+  border-radius: 12px;
+  background: #fff;
+  box-shadow: 0 3px 12px rgba(25, 35, 45, 0.035);
+}
+
+.market-card-image-frame {
+  display: block;
+  aspect-ratio: 1;
+  overflow: hidden;
+  background: #eceef3;
+}
+
+.market-card-image {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transition: transform 180ms ease;
+}
+
+.market-card-image-frame:hover .market-card-image {
+  transform: scale(1.025);
+}
+
+.market-card-content {
+  padding: 12px;
+}
+
+.market-card-heading {
+  display: flex;
+  min-height: 34px;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 7px;
+}
+
+.market-card-name {
+  min-width: 0;
+  margin: 0;
+  color: #202127;
+  font-size: 14px;
+  font-weight: 600;
+  line-height: 1.3;
+  text-decoration: none;
+  overflow-wrap: anywhere;
+}
+
+.market-card-price {
+  display: flex;
+  min-height: 38px;
+  flex-wrap: wrap;
+  align-content: flex-start;
+  align-items: center;
+  gap: 2px 6px;
+  padding-top: 2px;
+  color: #252831;
+}
+
+.market-card-price-label {
+  width: 100%;
+  color: #858992;
+  font-size: 11px;
+  line-height: 1.2;
+}
+
+.market-card-price-value {
+  font-size: 16px;
+  font-weight: 650;
+  font-variant-numeric: tabular-nums;
+}
+
+.market-card-price img {
+  width: 17px;
+  height: 17px;
+  object-fit: contain;
+}
+
+.market-trade-nav {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+  margin: 12px 0 16px;
+}
+
+.market-trade-button {
+  display: block;
+  min-width: 0;
+  height: 46px;
+  padding: 0 12px;
+  border: 1px solid #e4e5e9;
+  border-radius: 999px;
+  background: #fff;
+  color: #626671;
+  font: inherit;
+  font-size: 14px;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.market-trade-button.is-active {
+  border-color: #c5def2;
+  background: #eaf4fc;
+  color: #2481cc;
+  font-weight: 600;
+}
+
+.market-trade-button:focus-visible {
+  outline: 2px solid #2481cc;
+  outline-offset: 1px;
+}
+
+.market-empty {
+  margin: 30px 0;
+  color: #777b84;
+  font-size: 14px;
+  text-align: center;
+}
+
+.market-empty[hidden] {
+  display: none;
+}
+
+.profile-editor-dialog {
+  position: fixed;
+  inset: 0;
+  width: 100vw;
+  height: 100dvh;
+  max-width: none;
+  max-height: none;
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+  overflow: hidden;
+  border: 0;
+  background: #f5f5f5;
+  color: #17171a;
+}
+
+.profile-editor-dialog::backdrop {
+  background: rgba(25, 25, 32, 0.3);
+}
+
+.profile-editor-dialog[open] {
+  animation: profile-editor-enter 280ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
+}
+
+.profile-editor-dialog[open]::backdrop {
+  animation: profile-editor-backdrop-enter 200ms ease-out both;
+}
+
+@keyframes profile-editor-enter {
+  from {
+    opacity: 0.65;
+    transform: translateY(14px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes profile-editor-backdrop-enter {
+  from {
+    background: rgba(25, 25, 32, 0);
+  }
+
+  to {
+    background: rgba(25, 25, 32, 0.3);
+  }
+}
+
+@keyframes profile-editor-reduced-enter {
+  from {
+    opacity: 0.65;
+  }
+
+  to {
+    opacity: 1;
+  }
+}
+
+.profile-editor-form {
+  position: relative;
+  width: 100%;
+  height: 100%;
+}
+
+.profile-editor-header {
+  position: absolute;
+  z-index: 3;
+  inset: 0 0 auto;
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  box-sizing: border-box;
+  padding: max(20px, env(safe-area-inset-top, 0px)) 17px 0;
+  pointer-events: none;
+}
+
+.profile-editor-header button {
+  min-width: 112px;
+  height: 52px;
+  padding: 0 18px;
+  border: 1px solid rgba(255, 255, 255, 0.62);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.58);
+  box-shadow: 0 5px 18px rgba(54, 54, 72, 0.06), inset 0 1px 0 rgba(255, 255, 255, 0.7);
+  -webkit-backdrop-filter: blur(8px) saturate(120%);
+  backdrop-filter: blur(8px) saturate(120%);
+  color: #17171a;
+  font: inherit;
+  font-size: 17px;
+  cursor: pointer;
+  pointer-events: auto;
+}
+
+.profile-editor-save {
+  font-weight: 750 !important;
+}
+
+.profile-editor-avatar {
+  position: absolute;
+  z-index: 2;
+  top: max(38px, calc(env(safe-area-inset-top, 0px) + 16px));
+  left: 50%;
+  display: grid;
+  width: 136px;
+  height: 136px;
+  padding: 0;
+  place-items: center;
+  overflow: hidden;
+  transform: translateX(-50%);
+  border: 0;
+  border-radius: 50%;
+  background: #29282a;
+  color: #fff;
+  font-size: 48px;
+  font-weight: 650;
+  cursor: default;
+}
+
+.profile-editor-avatar-image,
+.profile-avatar-image {
+  position: absolute;
+  inset: 0;
+  display: block;
+  width: 100%;
+  height: 100%;
+  border-radius: inherit;
+  object-fit: cover;
+}
+
+.profile-avatar {
+  position: relative;
+  overflow: hidden;
+}
+
+.profile-avatar > span,
+.profile-editor-avatar > span {
+  position: relative;
+  z-index: 1;
+}
+
+.profile-editor-scroll {
+  width: 100%;
+  height: 100%;
+  box-sizing: border-box;
+  padding: max(205px, calc(env(safe-area-inset-top, 0px) + 187px)) 17px calc(32px + env(safe-area-inset-bottom, 0px));
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-width: none;
+}
+
+.profile-editor-scroll::-webkit-scrollbar {
+  display: none;
+}
+
+.profile-editor-name-fields,
+.profile-editor-about,
+.profile-editor-birthday-row,
+.profile-editor-settings {
+  border-radius: 28px;
+  background: #fff;
+}
+
+.profile-editor-name-fields {
+  padding: 0 22px;
+  overflow: hidden;
+}
+
+.profile-editor-name-fields label {
+  display: block;
+}
+
+.profile-editor-name-fields label + label {
+  border-top: 1px solid #e5e5e8;
+}
+
+.profile-editor-name-fields input {
+  display: block;
+  width: 100%;
+  height: 67px;
+  box-sizing: border-box;
+  padding: 0;
+  border: 0;
+  outline: 0;
+  background: transparent;
+  color: #161619;
+  font: inherit;
+  font-size: 18px;
+}
+
+.profile-editor-name-fields input::placeholder,
+.profile-editor-about textarea::placeholder {
+  color: #c3c3c8;
+  opacity: 1;
+}
+
+.profile-editor-hint {
+  margin: 10px 22px 38px;
+  color: #898990;
+  font-size: 15px;
+  line-height: 1.35;
+  text-align: left;
+}
+
+.profile-editor-about {
+  display: block;
+  min-height: 68px;
+  padding: 0 22px;
+}
+
+.profile-editor-about textarea {
+  display: block;
+  width: 100%;
+  min-height: 68px;
+  box-sizing: border-box;
+  padding: 20px 0 12px;
+  resize: none;
+  border: 0;
+  outline: 0;
+  background: transparent;
+  color: #161619;
+  font: inherit;
+  font-size: 18px;
+}
+
+.profile-editor-about-hint {
+  margin-bottom: 40px;
+}
+
+.profile-editor-birthday-row {
+  position: relative;
+  display: flex;
+  min-height: 72px;
+  align-items: center;
+  gap: 14px;
+  padding: 0 19px;
+  box-sizing: border-box;
+}
+
+.profile-editor-icon {
+  display: grid;
+  width: 40px;
+  height: 40px;
+  flex: 0 0 40px;
+  place-items: center;
+  border-radius: 11px;
+  color: #fff;
+  font-size: 22px;
+  line-height: 1;
+}
+
+.profile-editor-icon svg {
+  width: 23px;
+  height: 23px;
+  fill: none;
+  stroke: currentColor;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 1.8;
+}
+
+.profile-editor-icon.is-birthday { background: #399cf0; }
+.profile-editor-icon.is-phone { background: #4bd36c; }
+.profile-editor-icon.is-username { background: #8272f5; }
+
+.profile-editor-row-title {
+  min-width: 0;
+  color: #17171a;
+  font-size: 17px;
+  text-align: left;
+}
+
+.profile-editor-birthday-row input,
+.profile-editor-setting-row input:not([type="checkbox"]):not([type="color"]) {
+  min-width: 0;
+  margin-left: auto;
+  padding: 0;
+  border: 0;
+  outline: 0;
+  background: transparent;
+  color: #929298;
+  font: inherit;
+  font-size: 16px;
+  text-align: right;
+}
+
+.profile-editor-birthday-row input {
+  position: absolute;
+  inset: 0 14px 0 auto;
+  width: 150px;
+  height: 100%;
+  margin: 0;
+  opacity: 0;
+  cursor: pointer;
+}
+
+.profile-editor-birthday-value {
+  margin-left: auto;
+  color: #929298;
+  font-size: 16px;
+}
+
+.profile-editor-birthday-hint {
+  margin-top: 10px;
+  margin-bottom: 40px;
+}
+
+.profile-editor-birthday-hint span {
+  color: #3296ed;
+}
+
+.profile-editor-settings {
+  padding: 0 19px;
+  overflow: hidden;
+}
+
+.profile-editor-setting-row {
+  position: relative;
+  display: flex;
+  min-height: 70px;
+  align-items: center;
+  gap: 14px;
+}
+
+.profile-editor-setting-row + .profile-editor-setting-row {
+  border-top: 1px solid #e5e5e8;
+}
+
+.profile-editor-setting-row .profile-editor-row-title {
+  flex: 1 1 auto;
+  white-space: nowrap;
+}
+
+.profile-editor-setting-row input:not([type="checkbox"]):not([type="color"]) {
+  width: 120px;
+  flex: 0 1 42%;
+}
+
+.profile-editor-setting-row input::placeholder {
+  color: #929298;
+  opacity: 1;
+}
+
+.profile-editor-chevron {
+  color: #b8b8bd;
+  font-size: 25px;
+  line-height: 1;
+}
+
+.profile-editor-error {
+  margin: 0 12px 12px;
+  color: #c62828;
+  font-size: 14px;
+  text-align: left;
+}
+
+.profile-editor-error[hidden] {
+  display: none;
+}
+
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  clip-path: inset(50%);
 }
 
 .profile-nft-button {
@@ -1884,9 +2518,12 @@ body.chats-screen {
 }
 
 .nft-modal {
+  position: fixed;
+  inset: auto 14px 12px;
   width: min(420px, calc(100vw - 28px));
   max-width: none;
   max-height: min(88vh, 720px);
+  margin: 0 auto;
   padding: 0;
   overflow: auto;
   border: 0;
@@ -1908,13 +2545,13 @@ body.chats-screen {
 
 @keyframes nft-modal-enter {
   from {
-    opacity: 0;
-    transform: translateY(8px) scale(0.98);
+    opacity: 0.8;
+    transform: translateY(100%);
   }
 
   to {
     opacity: 1;
-    transform: translateY(0) scale(1);
+    transform: translateY(0);
   }
 }
 
@@ -1922,14 +2559,14 @@ body.chats-screen {
   position: relative;
   isolation: isolate;
   display: flex;
-  min-height: 300px;
+  min-height: 260px;
   flex-direction: column;
   align-items: center;
   justify-content: center;
   gap: 14px;
-  padding: 30px 24px 20px;
+  padding: 24px 24px 0;
   overflow: hidden;
-  background: #241a28;
+  background: transparent;
   color: #fff;
   text-align: center;
 }
@@ -1941,11 +2578,17 @@ body.chats-screen {
 .nft-modal-backdrop {
   position: absolute;
   z-index: 0;
-  inset: -55%;
-  opacity: 0.82;
-  filter: blur(38px) brightness(0.72) saturate(1.4);
-  transform: scale(1.08);
+  inset: -4%;
+  opacity: 0;
+  filter: none;
+  transform: none;
   pointer-events: none;
+  transition: opacity 140ms ease-out;
+}
+
+.nft-modal-backdrop.is-ready,
+.nft-modal-animation.is-ready {
+  opacity: 1;
 }
 
 .nft-modal-backdrop svg {
@@ -1991,12 +2634,12 @@ body.chats-screen {
 }
 
 .nft-modal-animation {
-  position: relative;
+  position: absolute;
   z-index: 1;
-  width: min(220px, 64vw);
-  height: min(220px, 64vw);
+  inset: 0;
   overflow: hidden;
-  border-radius: 20px;
+  opacity: 0;
+  transition: opacity 140ms ease-out;
 }
 
 .nft-modal-animation svg {
@@ -2008,7 +2651,7 @@ body.chats-screen {
   display: block;
   width: 100%;
   height: 100%;
-  object-fit: contain;
+  object-fit: cover;
 }
 
 .nft-modal-file {
@@ -2024,21 +2667,50 @@ body.chats-screen {
   line-height: 1.3;
 }
 
+.nft-modal-heading {
+  position: relative;
+  z-index: 2;
+  align-self: stretch;
+  width: calc(100% + 48px);
+  box-sizing: border-box;
+  margin-top: auto;
+  margin-right: -24px;
+  margin-left: -24px;
+  padding: 44px 24px 0;
+}
+
+.nft-modal-heading::before {
+  position: absolute;
+  z-index: 0;
+  inset: 0;
+  background: linear-gradient(transparent, rgba(0, 0, 0, 0.66));
+  content: '';
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 140ms ease-out;
+}
+
+.nft-modal-art.is-ready .nft-modal-heading::before {
+  opacity: 1;
+}
+
 .nft-modal-collection {
+  position: relative;
+  z-index: 1;
   margin: 6px 0 0;
   color: rgba(255, 255, 255, 0.68);
   font-size: 14px;
 }
 
 .nft-modal-details {
-  padding: 20px 22px 22px;
+  padding: 12px 22px 22px;
 }
 
 .nft-modal-metadata {
   margin: 0;
   overflow: hidden;
   border: 1px solid #dedede;
-  border-radius: 10px;
+  border-radius: 14px;
 }
 
 .nft-modal-metadata > div {
@@ -2067,12 +2739,25 @@ body.chats-screen {
   border-left: 1px solid #dedede;
 }
 
+.nft-modal-price {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.nft-modal-price-icon {
+  width: 18px;
+  height: 18px;
+  flex: 0 0 auto;
+  object-fit: contain;
+}
+
 .nft-modal-confirm {
   width: 100%;
   min-height: 46px;
   margin-top: 20px;
   border: 0;
-  border-radius: 7px;
+  border-radius: 999px;
   background: #3ca6df;
   color: #fff;
   font: inherit;
@@ -2087,6 +2772,7 @@ body.chats-screen {
 
 .profile-content {
   width: min(100%, 460px);
+  padding-bottom: var(--profile-avatar-content-shift, 0px);
 }
 
 .profile-summary {
@@ -2098,24 +2784,17 @@ body.chats-screen {
   -webkit-user-select: none;
 }
 
-.profile-summary.is-pulling .profile-name,
-.profile-summary.is-pulling .profile-status {
-  z-index: 1;
-  color: #fff;
-}
-
-.profile-summary.is-dragging .profile-name,
-.profile-summary.is-dragging .profile-status {
-  transition: none;
-}
-
 .profile-summary.is-expanded {
   width: var(--profile-viewport-width, 100vw);
   margin-left: calc((100% - var(--profile-viewport-width, 100vw)) / 2);
 }
 
-.profile-summary.is-dragging {
-  cursor: grabbing;
+.profile-content > .profile-summary ~ * {
+  transition: transform 280ms cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+.profile-content > .profile-summary.is-expanded ~ * {
+  transform: translateY(var(--profile-avatar-content-shift, 0px));
 }
 
 .profile-avatar {
@@ -2128,20 +2807,16 @@ body.chats-screen {
   place-items: center;
   box-sizing: border-box;
   border-radius: 50%;
+  transform-origin: top center;
   background: #777777;
   color: #171717;
   font-size: 44px;
   font-weight: 700;
   font-family: inherit;
-  cursor: grab;
-  transition: width 360ms cubic-bezier(0.2, 0.8, 0.2, 1),
-    height 360ms cubic-bezier(0.2, 0.8, 0.2, 1),
-    border-radius 360ms cubic-bezier(0.2, 0.8, 0.2, 1),
-    margin-top 360ms cubic-bezier(0.2, 0.8, 0.2, 1), color 180ms ease;
-}
-
-.profile-summary.is-dragging .profile-avatar {
-  transition: none;
+  cursor: pointer;
+  transition: transform 280ms cubic-bezier(0.2, 0.8, 0.2, 1),
+    border-radius 280ms cubic-bezier(0.2, 0.8, 0.2, 1), color 180ms ease;
+  will-change: transform;
 }
 
 .profile-summary.is-expanded .profile-avatar {
@@ -2159,12 +2834,12 @@ body.chats-screen {
 }
 
 .profile-summary.is-expanded .profile-name {
-  bottom: 44px;
+  bottom: calc(44px - var(--profile-avatar-content-shift, 0px));
   font-size: 24px;
 }
 
 .profile-summary.is-expanded .profile-status {
-  bottom: 18px;
+  bottom: calc(18px - var(--profile-avatar-content-shift, 0px));
 }
 
 .profile-name {
@@ -2218,12 +2893,24 @@ body.chats-screen {
 }
 
 @media (prefers-reduced-motion: reduce) {
+  .profile-editor-dialog[open] {
+    animation: profile-editor-reduced-enter 220ms ease-out both;
+  }
+
+  .profile-editor-dialog[open]::backdrop {
+    animation-duration: 220ms;
+  }
+
   .nav-indicator {
     transition-duration: 240ms;
   }
 
   .profile-avatar {
-    transition-duration: 180ms;
+    transition-duration: 160ms;
+  }
+
+  .profile-content > .profile-summary ~ * {
+    transition-duration: 160ms;
   }
 
   .profile-summary.is-expanded .profile-name,
@@ -2245,10 +2932,42 @@ body.chats-screen {
 
 }
 
+@media (max-width: 900px) {
+  .market-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
 @media (max-width: 480px) {
   .site-header {
     min-height: 64px;
     padding: 0 1rem;
+  }
+
+  .market-page {
+    padding: 18px 12px calc(112px + env(safe-area-inset-bottom, 0px));
+  }
+
+  .market-tools {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
+  }
+
+  .market-search {
+    grid-column: 1 / -1;
+  }
+
+  .market-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 10px;
+  }
+
+  .market-card-content {
+    padding: 10px;
+  }
+
+  .market-card-heading {
+    min-height: 40px;
   }
 
   .bottom-nav {

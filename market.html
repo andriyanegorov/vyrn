@@ -1,0 +1,69 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Рынок | VYRN</title>
+  <link rel="stylesheet" href="style.css">
+  <script src="script.js" defer></script>
+</head>
+<body class="market-screen">
+  <header class="site-header">
+    <a class="brand" href="index.html#home" aria-label="Рынок VYRN">РЫНОК</a>
+    <div class="star-balance" aria-label="Баланс: 12 450 звёзд">
+      <img src="stars.png" alt="" aria-hidden="true">
+      <span>12 450</span>
+    </div>
+  </header>
+  <main class="market-page">
+    <header class="market-heading">
+    </header>
+    <section class="market-tools" aria-label="Поиск и фильтры рынка">
+      <label class="market-search">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="10.8" cy="10.8" r="6.8"/><path d="m16 16 5 5"/></svg>
+        <input class="market-search-input" type="search" placeholder="Название или номер" aria-label="Поиск подарков">
+      </label>
+      <label class="market-collection-select">
+        <span class="visually-hidden">Коллекция</span>
+        <select class="market-collection-filter" aria-label="Фильтр коллекции">
+          <option value="">Все коллекции</option>
+        </select>
+      </label>
+      <label class="market-sort-select">
+        <span class="visually-hidden">Сортировка</span>
+        <select class="market-sort" aria-label="Сортировка подарков">
+          <option value="name">По названию</option>
+          <option value="price-asc">Цена: сначала дешевле</option>
+          <option value="price-desc">Цена: сначала дороже</option>
+        </select>
+      </label>
+    </section>
+    <nav class="market-trade-nav" aria-label="Разделы рынка">
+      <button class="market-trade-button is-active" type="button" data-market-mode="all" aria-pressed="true">Все</button>
+      <button class="market-trade-button" type="button" data-market-mode="sales" aria-pressed="false">Продажи</button>
+      <button class="market-trade-button" type="button" data-market-mode="purchases" aria-pressed="false">Покупки</button>
+    </nav>
+    <section class="market-grid" aria-label="Подарки на рынке"></section>
+    <p class="market-empty" hidden>Ничего не найдено</p>
+  </main>
+  <nav class="bottom-nav" aria-label="Основная навигация">
+    <span class="nav-indicator" aria-hidden="true"></span>
+    <a class="nav-button" href="index.html#home">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m3 10 9-7 9 7M5 9v11h14V9M9 20v-6h6v6" /></svg>
+      <span>Главное</span>
+    </a>
+    <a class="nav-button is-active" href="market.html" aria-current="page">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 10h18l-1.5-6h-15L3 10Zm0 0v10h18V10M8 20v-6h8v6" /></svg>
+      <span>Рынок</span>
+    </a>
+    <a class="nav-button" href="chats.html">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 11.5a7.5 7.5 0 0 1-7.5 7.5H6l-3 2v-5.5A7.5 7.5 0 1 1 20 11.5Z" /></svg>
+      <span>Чаты</span>
+    </a>
+    <a class="nav-button" href="profile.html">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="8" r="4" /><path d="M4 21a8 8 0 0 1 16 0" /></svg>
+      <span>Профиль</span>
+    </a>
+  </nav>
+</body>
+</html>

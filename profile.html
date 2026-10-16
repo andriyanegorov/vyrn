@@ -4,16 +4,19 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Профиль | VYRN</title>
-  <link rel="stylesheet" href="style.css">
+  <link rel="stylesheet" href="style.css?v=gift-scale-20261016">
   <script src="https://cdnjs.cloudflare.com/ajax/libs/lottie-web/5.12.2/lottie.min.js" defer></script>
-  <script src="script.js" defer></script>
+  <script src="script.js?v=gift-scale-20261016" defer></script>
 </head>
 <body>
   <main class="profile-page">
     <button class="profile-edit-button" type="button" aria-label="Изменить профиль">Изм.</button>
     <div class="profile-content">
       <section class="profile-summary" aria-labelledby="profile-name">
-        <button class="profile-avatar" type="button" aria-label="Увеличить аватар" aria-expanded="false">V</button>
+        <button class="profile-avatar" type="button" aria-label="Увеличить аватар" aria-expanded="false">
+          <img class="profile-avatar-image" alt="" hidden>
+          <span>V</span>
+        </button>
         <h1 class="profile-name" id="profile-name">vyrn</h1>
         <p class="profile-status">в сети</p>
       </section>
@@ -32,6 +35,54 @@
       </section>
     </div>
   </main>
+  <dialog class="profile-editor-dialog" aria-label="Редактирование профиля">
+    <form class="profile-editor-form">
+      <header class="profile-editor-header">
+        <button class="profile-editor-cancel" type="button">Отмена</button>
+        <button class="profile-editor-save" type="submit">Готово</button>
+      </header>
+      <div class="profile-editor-avatar" aria-hidden="true">
+        <img class="profile-editor-avatar-image" alt="" hidden>
+        <span>V</span>
+      </div>
+      <div class="profile-editor-scroll">
+        <p class="profile-editor-error" role="alert" hidden></p>
+        <section class="profile-editor-name-fields">
+          <label><span class="visually-hidden">Имя</span><input name="firstName" autocomplete="given-name" placeholder="Имя" maxlength="64" required></label>
+          <label><span class="visually-hidden">Фамилия</span><input name="lastName" autocomplete="family-name" placeholder="Фамилия" maxlength="64"></label>
+        </section>
+        <p class="profile-editor-hint">Укажите имя и фамилию для Вашего профиля.</p>
+        <label class="profile-editor-about">
+          <span class="visually-hidden">О себе</span>
+          <textarea name="about" placeholder="О себе" maxlength="160" rows="2"></textarea>
+        </label>
+        <p class="profile-editor-hint profile-editor-about-hint">Напишите несколько строк о себе.</p>
+        <label class="profile-editor-birthday-row">
+          <span class="profile-editor-icon is-birthday" aria-hidden="true">
+            <svg viewBox="0 0 24 24"><path d="M4 13h16v8H4zM2 13h20M6 13v-3h12v3M9 7c0 1-1 1-1 2m4-4c0 1-1 1-1 2m4 0c0 1-1 1-1 2M8 16v1m4-1v1m4-1v1" /></svg>
+          </span>
+          <span class="profile-editor-row-title">День рождения</span>
+          <span class="profile-editor-birthday-value">Добавить</span>
+          <input name="birthday" type="date" aria-label="День рождения">
+        </label>
+        <p class="profile-editor-hint profile-editor-birthday-hint">Ваш день рождения скрыт от всех. <span>Изменить ›</span></p>
+        <section class="profile-editor-settings" aria-label="Настройки профиля">
+          <label class="profile-editor-setting-row">
+            <span class="profile-editor-icon is-phone" aria-hidden="true">☎</span>
+            <span class="profile-editor-row-title">Номер</span>
+            <input name="phone" type="tel" autocomplete="tel" placeholder="Добавить" aria-label="Номер">
+            <span class="profile-editor-chevron" aria-hidden="true">›</span>
+          </label>
+          <label class="profile-editor-setting-row">
+            <span class="profile-editor-icon is-username" aria-hidden="true">@</span>
+            <span class="profile-editor-row-title">Имя пользователя</span>
+            <input name="username" autocomplete="username" placeholder="Добавить" aria-label="Имя пользователя">
+            <span class="profile-editor-chevron" aria-hidden="true">›</span>
+          </label>
+        </section>
+      </div>
+    </form>
+  </dialog>
   <dialog class="nft-modal" aria-labelledby="nft-modal-title">
     <section class="nft-modal-card">
       <div class="nft-modal-art">
@@ -47,10 +98,10 @@
       </div>
       <div class="nft-modal-details">
         <dl class="nft-modal-metadata">
+          <div><dt>Владелец</dt><dd class="nft-modal-owner"></dd></div>
           <div><dt>Коллекция</dt><dd>VYRN</dd></div>
           <div><dt>Модель</dt><dd class="nft-modal-model"></dd></div>
-          <div><dt>Формат</dt><dd class="nft-modal-format">Telegram TGS-анимация</dd></div>
-          <div><dt>Источник</dt><dd><a class="nft-modal-file" target="_blank" rel="noopener noreferrer"></a></dd></div>
+          <div><dt>Стоимость</dt><dd class="nft-modal-price">—</dd></div>
         </dl>
         <button class="nft-modal-confirm" type="button">OK</button>
       </div>
@@ -62,10 +113,10 @@
       <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m3 10 9-7 9 7M5 9v11h14V9M9 20v-6h6v6" /></svg>
       <span>Главное</span>
     </a>
-    <button class="nav-button" type="button" aria-pressed="false">
+    <a class="nav-button" href="market.html">
       <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 10h18l-1.5-6h-15L3 10Zm0 0v10h18V10M8 20v-6h8v6" /></svg>
       <span>Рынок</span>
-    </button>
+    </a>
     <a class="nav-button" href="chats.html">
       <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 11.5a7.5 7.5 0 0 1-7.5 7.5H6l-3 2v-5.5A7.5 7.5 0 1 1 20 11.5Z" /></svg>
       <span>Чаты</span>

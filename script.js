@@ -25,6 +25,123 @@ if (collectionCarousel) {
 	});
 }
 
+requestAnimationFrame(() => {
+	const profileEditButton = document.querySelector('.profile-page:not(.player-profile-page) .profile-edit-button');
+const profileEditorDialog = document.querySelector('.profile-editor-dialog');
+const profileEditorForm = profileEditorDialog?.querySelector('.profile-editor-form');
+const profileEditorPhotoImage = profileEditorForm?.querySelector('.profile-editor-avatar-image');
+	const profileEditorPhotoFallback = profileEditorForm?.querySelector('.profile-editor-avatar span');
+const profileEditorError = profileEditorForm?.querySelector('.profile-editor-error');
+const profileEditorBirthdayValue = profileEditorForm?.querySelector('.profile-editor-birthday-value');
+const profileAvatarImage = profileAvatar?.querySelector('.profile-avatar-image');
+const profileAvatarFallback = profileAvatar?.querySelector('span');
+const profileDetailValues = profileContent ? [...profileContent.querySelectorAll('.profile-detail-value')] : [];
+
+if (profileEditButton && profileEditorDialog && profileEditorForm && profileAvatar && profileName && profileDetailValues.length >= 2) {
+	const storedName = profileName.textContent.trim().split(/\s+/);
+	const defaultProfile = {
+		firstName: storedName.shift() || '',
+		lastName: storedName.join(' '),
+		about: profileDetailValues[1].textContent.trim(),
+		username: profileDetailValues[0].textContent.trim(),
+		birthday: '',
+		phone: '',
+		avatar: ''
+	};
+	let profileData = defaultProfile;
+	try {
+		const storedProfile = JSON.parse(localStorage.getItem('vyrn.profile.editor.v1'));
+		if (storedProfile && typeof storedProfile === 'object') {
+			profileData = { ...defaultProfile, ...storedProfile };
+		}
+	} catch {
+		profileData = defaultProfile;
+	}
+
+	const setAvatarImage = (image, fallback, source) => {
+		if (source) {
+			image.src = source;
+			image.hidden = false;
+			fallback.hidden = true;
+		} else {
+			image.removeAttribute('src');
+			image.hidden = true;
+			fallback.hidden = false;
+		}
+	};
+	const formatBirthday = (value) => {
+		if (!value) {
+			return 'Добавить';
+		}
+
+		return new Intl.DateTimeFormat('ru-RU', { day: 'numeric', month: 'short' })
+			.format(new Date(`${value}T00:00:00`))
+			.replace(/\.$/, '');
+	};
+
+	const renderProfile = () => {
+		profileName.textContent = [profileData.firstName, profileData.lastName].filter(Boolean).join(' ') || 'vyrn';
+		profileDetailValues[0].textContent = profileData.username || '';
+		profileDetailValues[1].textContent = profileData.about || '';
+		setAvatarImage(profileAvatarImage, profileAvatarFallback, profileData.avatar);
+	};
+
+	const loadProfileEditor = () => {
+		for (const field of profileEditorForm.elements) {
+			if (field.name && Object.hasOwn(profileData, field.name)) {
+				if (field.type === 'checkbox') {
+					field.checked = Boolean(profileData[field.name]);
+				} else {
+					field.value = String(profileData[field.name] ?? '');
+				}
+			}
+		}
+		profileEditorBirthdayValue.textContent = formatBirthday(profileData.birthday);
+		profileEditorError.hidden = true;
+		setAvatarImage(profileEditorPhotoImage, profileEditorPhotoFallback, profileData.avatar);
+	};
+
+	renderProfile();
+	profileEditButton.addEventListener('click', () => {
+		loadProfileEditor();
+		profileEditorDialog.showModal();
+		profileEditorForm.elements.namedItem('firstName').focus();
+	});
+	profileEditorForm.querySelector('.profile-editor-cancel').addEventListener('click', () => profileEditorDialog.close());
+	profileEditorForm.elements.namedItem('birthday').addEventListener('input', (event) => {
+		profileEditorBirthdayValue.textContent = formatBirthday(event.target.value);
+	});
+	profileEditorForm.addEventListener('submit', (event) => {
+		event.preventDefault();
+		if (!profileEditorForm.reportValidity()) {
+			return;
+		}
+
+		const username = profileEditorForm.elements.namedItem('username').value.trim().replace(/^@+/, '');
+		const nextProfile = {
+			firstName: profileEditorForm.elements.namedItem('firstName').value.trim(),
+			lastName: profileEditorForm.elements.namedItem('lastName').value.trim(),
+			about: profileEditorForm.elements.namedItem('about').value.trim(),
+			username: username ? `@${username}` : '',
+			birthday: profileEditorForm.elements.namedItem('birthday').value,
+			phone: profileEditorForm.elements.namedItem('phone').value.trim(),
+			avatar: profileData.avatar
+		};
+		try {
+			localStorage.setItem('vyrn.profile.editor.v1', JSON.stringify(nextProfile));
+		} catch {
+			profileEditorError.textContent = 'Не удалось сохранить изменения.';
+			profileEditorError.hidden = false;
+			return;
+		}
+
+		profileData = nextProfile;
+		renderProfile();
+		profileEditorDialog.close();
+	});
+}
+});
+
 const nftCollection = [
 	{ slug: 'algorithmcup', id: 64, name: 'Algorithm Cups' },
 	{ slug: 'artisanbrick', id: 5821, name: 'Artisan Bricks' },
@@ -66,6 +183,153 @@ const createNftPreviewImage = (source, title, className) => {
 	image.alt = title;
 	return image;
 };
+
+const marketGrid = document.querySelector('.market-grid');
+if (marketGrid) {
+	const marketSearch = document.querySelector('.market-search-input');
+	const marketCollectionFilter = document.querySelector('.market-collection-filter');
+	const marketSort = document.querySelector('.market-sort');
+	const marketEmpty = document.querySelector('.market-empty');
+	const marketTradeButtons = [...document.querySelectorAll('.market-trade-button')];
+	const marketCards = [];
+	const startedMarketPrices = new WeakSet();
+	let marketMode = 'all';
+
+	nftCollection.forEach((gift) => {
+		const title = `${gift.name} #${gift.id}`;
+		const card = document.createElement('article');
+		card.className = 'market-card';
+		card.dataset.marketName = title.toLocaleLowerCase('ru-RU');
+		card.dataset.marketCollection = gift.name;
+		card.dataset.marketPrice = '';
+
+		const imageFrame = document.createElement('div');
+		imageFrame.className = 'market-card-image-frame';
+		const image = createNftPreviewImage(getNftPreviewUrl(gift.slug, gift.id), title, 'market-card-image');
+		image.loading = 'lazy';
+		imageFrame.append(image);
+
+		const content = document.createElement('div');
+		content.className = 'market-card-content';
+		const heading = document.createElement('div');
+		heading.className = 'market-card-heading';
+		const name = document.createElement('h2');
+		name.className = 'market-card-name';
+		name.textContent = title;
+		heading.append(name);
+
+		const price = document.createElement('div');
+		price.className = 'market-card-price';
+		price.textContent = 'Загрузка цены';
+		content.append(heading, price);
+		card.append(imageFrame, content);
+		marketCards.push(card);
+		marketCollectionFilter.add(new Option(gift.name, gift.name));
+	});
+
+	const renderMarketList = () => {
+		const query = marketSearch.value.trim().toLocaleLowerCase('ru-RU');
+		const collection = marketCollectionFilter.value;
+		const visibleCards = marketMode === 'all' ? marketCards.filter((card) => {
+			const matchesQuery = !query || card.dataset.marketName.includes(query);
+			const matchesCollection = !collection || card.dataset.marketCollection === collection;
+			return matchesQuery && matchesCollection;
+		}) : [];
+		if (marketSort.value === 'price-asc' || marketSort.value === 'price-desc') {
+			const direction = marketSort.value === 'price-asc' ? 1 : -1;
+			visibleCards.sort((first, second) => {
+				const firstPrice = Number(first.dataset.marketPrice) || Number.POSITIVE_INFINITY;
+				const secondPrice = Number(second.dataset.marketPrice) || Number.POSITIVE_INFINITY;
+				return (firstPrice - secondPrice) * direction;
+			});
+		} else {
+			visibleCards.sort((first, second) => first.dataset.marketName.localeCompare(second.dataset.marketName, 'ru'));
+		}
+
+		marketGrid.replaceChildren(...visibleCards);
+		marketEmpty.textContent = marketMode === 'sales'
+			? 'У вас пока нет объявлений о продаже'
+			: marketMode === 'purchases'
+				? 'Покупок пока нет'
+				: 'Ничего не найдено';
+		marketEmpty.hidden = visibleCards.length > 0;
+		updateVisibleMarketPrices();
+	};
+
+	const loadMarketPrice = async (card) => {
+		const title = card.dataset.marketName;
+		const gift = nftCollection.find((item) => title === `${item.name} #${item.id}`.toLocaleLowerCase('ru-RU'));
+		if (!gift) {
+			return;
+		}
+
+		const priceElement = card.querySelector('.market-card-price');
+		try {
+			const response = await fetch(`/api/fragment/${gift.slug}-${gift.id}`, { cache: 'no-store' });
+			if (!response.ok) {
+				throw new Error(`Fragment request failed: ${response.status}`);
+			}
+
+			const fragmentPage = new DOMParser().parseFromString(await response.text(), 'text/html');
+			const statusText = fragmentPage.querySelector('.tm-section-header-status')?.textContent.trim();
+			const priceText = fragmentPage.querySelector('.table-cell-value.icon-ton')?.textContent.trim();
+			const priceTon = priceText ? Number(priceText.replace(/,/g, '')) : Number.NaN;
+			if (!Number.isFinite(priceTon)) {
+				throw new Error('Fragment price unavailable.');
+			}
+
+			const priceStars = Math.round(priceTon * 100);
+			card.dataset.marketPrice = String(priceStars);
+			priceElement.replaceChildren();
+			const label = document.createElement('span');
+			label.className = 'market-card-price-label';
+			label.textContent = /for sale/i.test(statusText || '') ? 'Цена' : 'Последняя продажа';
+			const value = document.createElement('span');
+			value.className = 'market-card-price-value';
+			value.textContent = priceStars.toLocaleString('ru-RU');
+			const icon = document.createElement('img');
+			icon.src = 'stars.png';
+			icon.alt = '';
+			icon.setAttribute('aria-hidden', 'true');
+			priceElement.append(label, value, icon);
+		} catch {
+			priceElement.textContent = 'Цена недоступна';
+		}
+		renderMarketList();
+	};
+
+	function updateVisibleMarketPrices() {
+		const viewportHeight = window.innerHeight;
+		marketCards.forEach((card) => {
+			if (startedMarketPrices.has(card) || !card.isConnected) {
+				return;
+			}
+			const rect = card.getBoundingClientRect();
+			if (rect.bottom >= -120 && rect.top <= viewportHeight + 180) {
+				startedMarketPrices.add(card);
+			loadMarketPrice(card);
+			}
+		});
+	}
+
+	marketSearch.addEventListener('input', renderMarketList);
+	marketCollectionFilter.addEventListener('change', renderMarketList);
+	marketSort.addEventListener('change', renderMarketList);
+	marketTradeButtons.forEach((button) => {
+		button.addEventListener('click', () => {
+			marketMode = button.dataset.marketMode;
+			marketTradeButtons.forEach((item) => {
+				const active = item === button;
+				item.classList.toggle('is-active', active);
+				item.setAttribute('aria-pressed', String(active));
+			});
+			renderMarketList();
+		});
+	});
+	window.addEventListener('scroll', updateVisibleMarketPrices, { passive: true });
+	window.addEventListener('resize', updateVisibleMarketPrices);
+	renderMarketList();
+}
 
 	const loadTgsData = async (source) => {
 	const response = await fetch(source, { cache: 'no-store' });
@@ -165,34 +429,127 @@ const nftModal = document.querySelector('.nft-modal');
 const nftModalAnimation = document.querySelector('.nft-modal-animation');
 const nftModalBackdrop = document.querySelector('.nft-modal-backdrop');
 if (nftGrids.length && nftModal && nftModalAnimation && nftModalBackdrop) {
+	const nftModalArt = nftModal.querySelector('.nft-modal-art');
 	const nftModalTitle = nftModal.querySelector('#nft-modal-title');
+	const nftModalOwner = nftModal.querySelector('.nft-modal-owner');
 	const nftModalModel = nftModal.querySelector('.nft-modal-model');
-	const nftModalFile = nftModal.querySelector('.nft-modal-file');
+	const nftModalPrice = nftModal.querySelector('.nft-modal-price');
 	let activeNftAnimation;
 	let activeNftBackdrop;
 	let animationRequestId = 0;
+	let priceRequestId = 0;
 
 	const clearNftAnimation = () => {
 		animationRequestId++;
+		priceRequestId++;
+		nftModalPrice.textContent = '—';
 		activeNftAnimation?.destroy();
 		activeNftAnimation = null;
 		activeNftBackdrop?.destroy();
 		activeNftBackdrop = null;
 		nftModalAnimation.replaceChildren();
 		nftModalAnimation.hidden = true;
+		nftModalAnimation.classList.remove('is-ready');
+		nftModalArt.classList.remove('is-ready');
 		nftModalBackdrop.replaceChildren();
 		nftModalBackdrop.hidden = true;
+		nftModalBackdrop.classList.remove('is-ready');
+	};
+
+	const createNftGiftOverlayData = (animationData) => {
+		const overlayData = structuredClone(animationData);
+		const giftLayer = overlayData.layers.find((layer) => layer.nm === 'Gift');
+		if (!giftLayer) {
+			return overlayData;
+		}
+
+		const scaleData = giftLayer.ks?.s?.k;
+		const shrinkScale = (values) => {
+			if (Array.isArray(values) && values.length >= 2) {
+				values[0] *= 0.7;
+				values[1] *= 0.7;
+			}
+		};
+		if (Array.isArray(scaleData)) {
+			if (typeof scaleData[0] === 'number') {
+				shrinkScale(scaleData);
+			} else {
+				scaleData.forEach((keyframe) => {
+					shrinkScale(keyframe.s);
+					shrinkScale(keyframe.e);
+				});
+			}
+		}
+
+		overlayData.layers = [giftLayer];
+		return overlayData;
+	};
+
+	const loadNftPrice = async (fileName) => {
+		const requestId = ++priceRequestId;
+		const giftId = fileName.replace(/\.tgs$/, '');
+		nftModalPrice.textContent = 'Загрузка...';
+		try {
+			const response = await fetch(`/api/fragment/${giftId}`, { cache: 'no-store' });
+			if (!response.ok) {
+				throw new Error(`Fragment price request failed: ${response.status}`);
+			}
+
+			const fragmentPage = new DOMParser().parseFromString(await response.text(), 'text/html');
+			const priceText = fragmentPage.querySelector('.table-cell-value.icon-ton')?.textContent.trim();
+			const priceTon = priceText ? Number(priceText.replace(/,/g, '')) : Number.NaN;
+			if (requestId !== priceRequestId || !nftModal.open) {
+				return;
+			}
+
+			if (Number.isFinite(priceTon)) {
+				const priceValue = document.createElement('span');
+				priceValue.textContent = Math.round(priceTon * 100).toLocaleString('ru-RU');
+				const currencyIcon = document.createElement('img');
+				currencyIcon.className = 'nft-modal-price-icon';
+				currencyIcon.src = 'stars.png';
+				currencyIcon.alt = '';
+				currencyIcon.setAttribute('aria-hidden', 'true');
+				nftModalPrice.replaceChildren(priceValue, currencyIcon);
+			} else {
+				nftModalPrice.textContent = 'Нет данных';
+			}
+		} catch {
+			if (requestId === priceRequestId && nftModal.open) {
+				nftModalPrice.textContent = 'Нет данных';
+			}
+		}
+	};
+
+	const createNftBackdropData = (animationData) => {
+		const backdropData = structuredClone(animationData);
+		backdropData.layers = backdropData.layers.filter((layer) => layer.nm !== 'Gift');
+		return backdropData;
+	};
+
+	const setNftArtAspectRatio = (container) => {
+		container.querySelector('svg')?.setAttribute('preserveAspectRatio', 'xMidYMid slice');
 	};
 
 	const loadModalAnimation = async (source, preview, title) => {
 		const requestId = animationRequestId;
 		nftModalAnimation.hidden = false;
-		nftModalAnimation.textContent = 'Загрузка NFT...';
+		nftModalAnimation.replaceChildren();
 		try {
 			const animationData = await loadTgsData(source);
 			if (requestId !== animationRequestId || !nftModal.open) {
 				return;
 			}
+
+			let loadedLayers = 0;
+			const revealAnimation = () => {
+				loadedLayers++;
+				if (loadedLayers === 2 && requestId === animationRequestId) {
+					nftModalBackdrop.classList.add('is-ready');
+					nftModalAnimation.classList.add('is-ready');
+					nftModalArt.classList.add('is-ready');
+				}
+			};
 
 			nftModalBackdrop.replaceChildren();
 			nftModalBackdrop.hidden = false;
@@ -201,27 +558,46 @@ if (nftGrids.length && nftModal && nftModalAnimation && nftModalBackdrop) {
 				renderer: 'svg',
 				loop: false,
 				autoplay: false,
-				animationData
+				animationData: createNftBackdropData(animationData)
 			});
 			activeNftBackdrop.goToAndStop(0, true);
-			activeNftBackdrop.addEventListener('DOMLoaded', () => activeNftBackdrop?.goToAndStop(0, true));
+			activeNftBackdrop.addEventListener('DOMLoaded', () => {
+				setNftArtAspectRatio(nftModalBackdrop);
+				activeNftBackdrop?.goToAndStop(0, true);
+				revealAnimation();
+			});
 
 			nftModalAnimation.replaceChildren();
 			activeNftAnimation = window.lottie.loadAnimation({
 				container: nftModalAnimation,
 				renderer: 'svg',
-				loop: true,
+				loop: false,
 				autoplay: true,
-				animationData
+				animationData: createNftGiftOverlayData(animationData)
+			});
+			activeNftAnimation.addEventListener('DOMLoaded', () => {
+				setNftArtAspectRatio(nftModalAnimation);
+				revealAnimation();
 			});
 		} catch {
 			if (requestId === animationRequestId) {
 				nftModalAnimation.replaceChildren(createNftPreviewImage(preview, title, 'nft-modal-preview'));
 				nftModalBackdrop.replaceChildren(createNftPreviewImage(preview, title, 'nft-modal-backdrop-preview'));
 				nftModalBackdrop.hidden = false;
+				nftModalBackdrop.classList.add('is-ready');
+				nftModalAnimation.classList.add('is-ready');
+				nftModalArt.classList.add('is-ready');
 			}
 		}
 	};
+
+	nftModalAnimation.addEventListener('click', (event) => {
+		const target = event.target;
+		const svg = target instanceof Element ? target.closest('svg') : null;
+		if (svg && target !== svg) {
+			activeNftAnimation?.goToAndPlay(0, true);
+		}
+	});
 
 	nftGrids.forEach((grid) => {
 		grid.addEventListener('click', (event) => {
@@ -235,13 +611,13 @@ if (nftGrids.length && nftModal && nftModalAnimation && nftModalBackdrop) {
 			}
 
 			nftModalTitle.textContent = nftCard.dataset.nftTitle;
+			nftModalOwner.textContent = nftCard.closest('.profile-page')?.querySelector('.profile-name')?.textContent.trim() || '';
 			nftModalModel.textContent = nftCard.dataset.nftModel;
-			nftModalFile.href = nftCard.dataset.nftLink || nftCard.dataset.nftSrc;
-			nftModalFile.textContent = nftCard.dataset.nftFile;
 			clearNftAnimation();
 			nftModal.showModal();
 			nftModal.querySelector('.nft-modal-close').focus();
 			loadModalAnimation(nftCard.dataset.nftSrc, nftCard.dataset.nftPreview, nftCard.dataset.nftTitle);
+			loadNftPrice(nftCard.dataset.nftFile);
 		});
 	});
 
@@ -460,9 +836,9 @@ if (chatRows.length && conversationDialog) {
 			meta.append(time);
 			if (message.outgoing) {
 				const checks = document.createElement('span');
-				checks.className = 'conversation-message-checks';
-				checks.setAttribute('aria-label', 'Прочитано');
-				checks.textContent = '✓✓';
+				checks.className = 'tgico sending-status-is-read time-sending-status conversation-message-checks';
+				checks.setAttribute('aria-hidden', 'true');
+				checks.innerHTML = '<svg viewBox="0 0 24 24"><path d="M18 6 7 17l-5-5" /><path d="m22 10-7.5 7.5L13 16" /></svg>';
 				meta.append(checks);
 			}
 
@@ -589,227 +965,62 @@ const profileStatus = document.querySelector('.profile-status');
 
 if (profileSummary && profileContent && profileAvatar && profileName && profileStatus) {
 	const baseAvatarSize = 112;
+	const avatarTransitionDuration = window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 160 : 280;
 	let isExpanded = false;
-	let dragState = null;
 	let settleTimeout;
-	let suppressAvatarClick = false;
-	let suppressClickTimeout;
+	let collapsedSummaryHeight;
 
 	const setAvatarSize = (size) => {
 		const maxSize = Math.max(baseAvatarSize, document.documentElement.clientWidth);
 		const progress = Math.min(1, Math.max(0, (size - baseAvatarSize) / (maxSize - baseAvatarSize || 1)));
 		const contentWidth = profileContent.clientWidth;
 		const summaryWidth = contentWidth + (maxSize - contentWidth) * progress;
+		const expandedSummaryHeight = size - 56 * progress;
+		const contentShift = isExpanded
+			? Math.max(0, expandedSummaryHeight - (collapsedSummaryHeight ?? profileSummary.offsetHeight))
+			: 0;
 
 		profileSummary.style.setProperty('--profile-viewport-width', `${maxSize}px`);
 		profileSummary.style.width = `${summaryWidth}px`;
 		profileSummary.style.marginLeft = `${(contentWidth - summaryWidth) / 2}px`;
-		profileAvatar.style.width = `${size}px`;
-		profileAvatar.style.height = `${size}px`;
+		profileSummary.style.height = isExpanded ? `${collapsedSummaryHeight}px` : '';
+		profileContent.style.setProperty('--profile-avatar-content-shift', `${contentShift}px`);
+		profileAvatar.style.transform = `translateY(${-56 * progress}px) scale(${size / baseAvatarSize})`;
 		profileAvatar.style.borderRadius = `${50 * (1 - progress)}%`;
-		profileAvatar.style.marginTop = `${-56 * progress}px`;
-		profileSummary.classList.toggle('is-pulling', progress > 0.02);
-
-		profileName.style.removeProperty('transform');
-		profileStatus.style.removeProperty('transform');
-		if (dragState) {
-			const avatarRect = profileAvatar.getBoundingClientRect();
-			const moveLabel = (label, bottomOffset) => {
-				const rect = label.getBoundingClientRect();
-				const offsetX = (24 - rect.left) * progress;
-				const targetTop = avatarRect.bottom - bottomOffset - rect.height;
-				const offsetY = (targetTop - rect.top) * progress;
-				label.style.transform = `translate(${offsetX}px, ${offsetY}px)`;
-			};
-
-			moveLabel(profileName, 44);
-			moveLabel(profileStatus, 18);
-		}
-	};
-
-	const canStartDrag = (target) => {
-		if (target.closest('button:not(.profile-avatar), a, input, textarea, select')) {
-			return;
-		}
-
-		return true;
-	};
-
-	const startAvatarDrag = (pointerId, startY, input, target) => {
-		const avatarSize = profileAvatar.getBoundingClientRect().width;
-		dragState = {
-			pointerId,
-			input,
-			startY,
-			startSize: avatarSize,
-			wasExpanded: isExpanded,
-			size: avatarSize,
-			lastY: startY,
-			startedOnAvatar: Boolean(target.closest('.profile-avatar'))
-		};
-
-		clearTimeout(settleTimeout);
-		profileSummary.classList.add('is-dragging');
-	};
-
-	const resizeAvatarDuringDrag = (currentY) => {
-		const maxSize = Math.max(baseAvatarSize, document.documentElement.clientWidth);
-		const nextSize = Math.min(maxSize, Math.max(baseAvatarSize, dragState.startSize + currentY - dragState.startY));
-		dragState.size = nextSize;
-		setAvatarSize(nextSize);
-	};
-
-	profileContent.addEventListener('pointerdown', (event) => {
-		if (!event.isPrimary || event.pointerType === 'touch' || (event.pointerType === 'mouse' && event.button !== 0)) {
-			return;
-		}
-
-		if (!canStartDrag(event.target)) {
-			return;
-		}
-
-		startAvatarDrag(event.pointerId, event.clientY, 'pointer', event.target);
-		const captureTarget = dragState.startedOnAvatar ? profileAvatar : profileContent;
-		captureTarget.setPointerCapture(event.pointerId);
-	});
-
-	profileContent.addEventListener('pointermove', (event) => {
-		if (!dragState || dragState.input !== 'pointer' || event.pointerId !== dragState.pointerId) {
-			return;
-		}
-
-		dragState.lastY = event.clientY;
-		resizeAvatarDuringDrag(event.clientY);
-		event.preventDefault();
-	});
-
-	const finishAvatarDrag = (pointerId, input) => {
-		if (!dragState || dragState.input !== input || pointerId !== dragState.pointerId) {
-			return;
-		}
-
-		const currentDrag = dragState;
-		const verticalMovement = Math.abs(currentDrag.lastY - currentDrag.startY);
-		if (currentDrag.startedOnAvatar && verticalMovement > 8) {
-			suppressAvatarClick = true;
-			clearTimeout(suppressClickTimeout);
-			suppressClickTimeout = setTimeout(() => {
-				suppressAvatarClick = false;
-			}, 350);
-		}
-
-		const maxSize = Math.max(baseAvatarSize, document.documentElement.clientWidth);
-		const threshold = Math.min(120, (maxSize - baseAvatarSize) * 0.32);
-		isExpanded = currentDrag.wasExpanded
-			? maxSize - currentDrag.size < threshold
-			: currentDrag.size - baseAvatarSize >= threshold;
-		const finalSize = isExpanded ? maxSize : baseAvatarSize;
-
-		profileSummary.classList.remove('is-dragging');
-		profileSummary.classList.toggle('is-expanded', isExpanded);
-		profileAvatar.setAttribute('aria-expanded', String(isExpanded));
-		profileAvatar.setAttribute('aria-label', isExpanded ? 'Свернуть аватар' : 'Увеличить аватар');
-		dragState = null;
-		setAvatarSize(finalSize);
-
-		if (!isExpanded) {
-			settleTimeout = setTimeout(() => {
-				if (!isExpanded && !dragState) {
-					profileAvatar.style.removeProperty('width');
-					profileAvatar.style.removeProperty('height');
-					profileAvatar.style.removeProperty('border-radius');
-					profileAvatar.style.removeProperty('margin-top');
-					profileSummary.style.removeProperty('--profile-viewport-width');
-					profileSummary.style.removeProperty('width');
-					profileSummary.style.removeProperty('margin-left');
-				}
-			}, 400);
-		}
 	};
 
 	profileAvatar.addEventListener('click', () => {
-		if (suppressAvatarClick) {
-			suppressAvatarClick = false;
-			clearTimeout(suppressClickTimeout);
-			return;
+		clearTimeout(settleTimeout);
+		const currentSummaryHeight = profileSummary.getBoundingClientRect().height;
+		if (!isExpanded) {
+			collapsedSummaryHeight = currentSummaryHeight;
 		}
-
+		profileSummary.style.height = `${currentSummaryHeight}px`;
 		isExpanded = !isExpanded;
 		profileSummary.classList.toggle('is-expanded', isExpanded);
 		profileAvatar.setAttribute('aria-expanded', String(isExpanded));
 		profileAvatar.setAttribute('aria-label', isExpanded ? 'Свернуть аватар' : 'Увеличить аватар');
-		clearTimeout(settleTimeout);
+		void profileSummary.offsetHeight;
 		setAvatarSize(isExpanded ? Math.max(baseAvatarSize, document.documentElement.clientWidth) : baseAvatarSize);
 
 		if (!isExpanded) {
 			settleTimeout = setTimeout(() => {
-				if (!isExpanded && !dragState) {
-					profileAvatar.style.removeProperty('width');
-					profileAvatar.style.removeProperty('height');
+				if (!isExpanded) {
+					profileAvatar.style.removeProperty('transform');
 					profileAvatar.style.removeProperty('border-radius');
-					profileAvatar.style.removeProperty('margin-top');
 					profileSummary.style.removeProperty('--profile-viewport-width');
 					profileSummary.style.removeProperty('width');
 					profileSummary.style.removeProperty('margin-left');
+					profileSummary.style.removeProperty('height');
+					profileContent.style.removeProperty('--profile-avatar-content-shift');
+					collapsedSummaryHeight = undefined;
 				}
-			}, 400);
-		}
-	});
-
-	profileAvatar.addEventListener('keydown', (event) => {
-		if (event.key === 'Enter' || event.key === ' ') {
-			event.preventDefault();
-			profileAvatar.click();
-		}
-	});
-
-	profileContent.addEventListener('pointerup', (event) => finishAvatarDrag(event.pointerId, 'pointer'));
-	profileContent.addEventListener('pointercancel', (event) => finishAvatarDrag(event.pointerId, 'pointer'));
-
-	profileContent.addEventListener('touchstart', (event) => {
-		if (event.touches.length !== 1 || !canStartDrag(event.target)) {
-			return;
-		}
-
-		startAvatarDrag(event.touches[0].identifier, event.touches[0].clientY, 'touch', event.target);
-	}, { passive: true });
-
-	profileContent.addEventListener('touchmove', (event) => {
-		if (!dragState || dragState.input !== 'touch') {
-			return;
-		}
-
-		const touch = [...event.changedTouches].find((item) => item.identifier === dragState.pointerId);
-		if (!touch) {
-			return;
-		}
-
-		dragState.lastY = touch.clientY;
-		const deltaY = touch.clientY - dragState.startY;
-		const isExpandGesture = !dragState.wasExpanded && deltaY > 0;
-		const isCollapseGesture = dragState.wasExpanded && deltaY < 0;
-		if (!isExpandGesture && !isCollapseGesture) {
-			return;
-		}
-
-		event.preventDefault();
-		resizeAvatarDuringDrag(touch.clientY);
-	}, { passive: false });
-
-	profileContent.addEventListener('touchend', (event) => {
-		if (dragState?.input === 'touch') {
-			finishAvatarDrag(dragState.pointerId, 'touch');
-		}
-	});
-
-	profileContent.addEventListener('touchcancel', (event) => {
-		if (dragState?.input === 'touch') {
-			finishAvatarDrag(dragState.pointerId, 'touch');
+			}, avatarTransitionDuration + 40);
 		}
 	});
 
 	window.addEventListener('resize', () => {
-		if (isExpanded && !dragState) {
+		if (isExpanded) {
 			setAvatarSize(document.documentElement.clientWidth);
 		}
 	});

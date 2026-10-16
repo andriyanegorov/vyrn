@@ -20,6 +20,7 @@ try {
 	while ($listener.IsListening) {
 		$context = $listener.GetContext()
 		$response = $context.Response
+		$responseStarted = $false
 
 		try {
 			$path = [Uri]::UnescapeDataString($context.Request.Url.AbsolutePath)
@@ -42,15 +43,38 @@ try {
 				$response.AddHeader('Pragma', 'no-cache')
 				$response.AddHeader('Expires', '0')
 				$response.ContentLength64 = $bytes.Length
+				$responseStarted = $true
 				$response.OutputStream.Write($bytes, 0, $bytes.Length)
 				$upstreamStream.Dispose()
 				$upstream.Dispose()
 				$memory.Dispose()
+			} elseif ($path -match '^/api/fragment/([a-z0-9]+-\d+)$') {
+				$giftId = $Matches[1]
+				$request = [Net.HttpWebRequest]::Create("https://fragment.com/gift/$giftId")
+				$request.Method = 'GET'
+				$request.Timeout = 20000
+				$request.ReadWriteTimeout = 20000
+				$request.UserAgent = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/131.0.0.0 Safari/537.36'
+				$request.AutomaticDecompression = [Net.DecompressionMethods]::GZip -bor [Net.DecompressionMethods]::Deflate
+				$request.CachePolicy = [Net.Cache.HttpRequestCachePolicy]::new([Net.Cache.HttpRequestCacheLevel]::NoCacheNoStore)
+				$upstream = $request.GetResponse()
+				$reader = [IO.StreamReader]::new($upstream.GetResponseStream(), [Text.Encoding]::UTF8)
+				$html = $reader.ReadToEnd()
+				$bytes = [Text.Encoding]::UTF8.GetBytes($html)
+				$response.StatusCode = 200
+				$response.ContentType = 'text/html; charset=utf-8'
+				$response.AddHeader('Cache-Control', 'no-store, no-cache, must-revalidate')
+				$response.ContentLength64 = $bytes.Length
+				$responseStarted = $true
+				$response.OutputStream.Write($bytes, 0, $bytes.Length)
+				$reader.Dispose()
+				$upstream.Dispose()
 			} elseif ($path.StartsWith('/api/')) {
 				$response.StatusCode = 404
 				$response.ContentType = 'text/plain; charset=utf-8'
 				$bytes = [Text.Encoding]::UTF8.GetBytes('Not found')
 				$response.ContentLength64 = $bytes.Length
+				$responseStarted = $true
 				$response.OutputStream.Write($bytes, 0, $bytes.Length)
 			} else {
 				$relativePath = if ($path -eq '/') { 'index.html' } else { $path.TrimStart('/').Replace('/', '\') }
@@ -72,21 +96,27 @@ try {
 				$response.AddHeader('Pragma', 'no-cache')
 				$response.AddHeader('Expires', '0')
 				$response.ContentLength64 = $bytes.Length
+				$responseStarted = $true
 				$response.OutputStream.Write($bytes, 0, $bytes.Length)
 			}
 		} catch {
-			if (-not $response.OutputStream.CanWrite) {
-				continue
+			if (-not $responseStarted) {
+				try {
+					$response.StatusCode = 502
+					$response.ContentType = 'text/plain; charset=utf-8'
+					$response.AddHeader('Cache-Control', 'no-store')
+					$bytes = [Text.Encoding]::UTF8.GetBytes('Fragment request failed')
+					$response.ContentLength64 = $bytes.Length
+					$responseStarted = $true
+					$response.OutputStream.Write($bytes, 0, $bytes.Length)
+				} catch {
+				}
 			}
-
-			$response.StatusCode = 502
-			$response.ContentType = 'text/plain; charset=utf-8'
-			$response.AddHeader('Cache-Control', 'no-store')
-			$bytes = [Text.Encoding]::UTF8.GetBytes('Fragment request failed')
-			$response.ContentLength64 = $bytes.Length
-			$response.OutputStream.Write($bytes, 0, $bytes.Length)
 		} finally {
-			$response.Close()
+			try {
+				$response.Close()
+			} catch {
+			}
 		}
 	}
 } finally {
