@@ -58,6 +58,15 @@ const nftCollection = [
 	{ slug: 'gemsignet', id: 76, name: 'Gem Signets' }
 ];
 
+const getNftPreviewUrl = (slug, id) => `https://nft.fragment.com/gift/${slug}-${id}.webp?fresh=${Date.now()}`;
+const createNftPreviewImage = (source, title, className) => {
+	const image = document.createElement('img');
+	image.className = className;
+	image.src = source;
+	image.alt = title;
+	return image;
+};
+
 	const loadTgsData = async (source) => {
 	const response = await fetch(source, { cache: 'no-store' });
 	if (!response.ok) {
@@ -103,6 +112,7 @@ if (nftGrid) {
 		card.type = 'button';
 		card.dataset.nftSrc = source;
 		card.dataset.nftLink = `https://nft.fragment.com/gift/${file}`;
+		card.dataset.nftPreview = getNftPreviewUrl(gift.slug, gift.id);
 		card.dataset.nftTitle = title;
 		card.dataset.nftModel = gift.name;
 		card.dataset.nftFile = file;
@@ -123,8 +133,12 @@ if (nftGrid) {
 			animationHost.classList.remove('is-loading');
 		} catch {
 			animationHost.classList.remove('is-loading');
-			animationHost.classList.add('is-unavailable');
-			animationHost.textContent = 'NFT недоступен';
+			animationHost.classList.add('has-nft-preview');
+			animationHost.replaceChildren(createNftPreviewImage(
+				card.dataset.nftPreview,
+				card.dataset.nftTitle,
+				'profile-nft-preview'
+			));
 		}
 	};
 
@@ -170,7 +184,7 @@ if (nftGrids.length && nftModal && nftModalAnimation && nftModalBackdrop) {
 		nftModalBackdrop.hidden = true;
 	};
 
-	const loadModalAnimation = async (source) => {
+	const loadModalAnimation = async (source, preview, title) => {
 		const requestId = animationRequestId;
 		nftModalAnimation.hidden = false;
 		nftModalAnimation.textContent = 'Загрузка NFT...';
@@ -202,7 +216,9 @@ if (nftGrids.length && nftModal && nftModalAnimation && nftModalBackdrop) {
 			});
 		} catch {
 			if (requestId === animationRequestId) {
-				nftModalAnimation.textContent = 'Анимация недоступна';
+				nftModalAnimation.replaceChildren(createNftPreviewImage(preview, title, 'nft-modal-preview'));
+				nftModalBackdrop.replaceChildren(createNftPreviewImage(preview, title, 'nft-modal-backdrop-preview'));
+				nftModalBackdrop.hidden = false;
 			}
 		}
 	};
@@ -225,7 +241,7 @@ if (nftGrids.length && nftModal && nftModalAnimation && nftModalBackdrop) {
 			clearNftAnimation();
 			nftModal.showModal();
 			nftModal.querySelector('.nft-modal-close').focus();
-			loadModalAnimation(nftCard.dataset.nftSrc);
+			loadModalAnimation(nftCard.dataset.nftSrc, nftCard.dataset.nftPreview, nftCard.dataset.nftTitle);
 		});
 	});
 
@@ -479,6 +495,7 @@ if (chatRows.length && conversationDialog) {
 				card.type = 'button';
 				card.dataset.nftSrc = source;
 				card.dataset.nftLink = `https://fragment.com/gift/${gift.slug}-${gift.id}`;
+				card.dataset.nftPreview = getNftPreviewUrl(gift.slug, gift.id);
 				card.dataset.nftTitle = `${gift.name} #${gift.id}`;
 				card.dataset.nftModel = gift.name;
 				card.dataset.nftFile = file;
@@ -499,8 +516,12 @@ if (chatRows.length && conversationDialog) {
 					}
 				}).catch(() => {
 					host.classList.remove('is-loading');
-					host.classList.add('is-unavailable');
-					host.textContent = 'NFT недоступен';
+					host.classList.add('has-nft-preview');
+					host.replaceChildren(createNftPreviewImage(
+						card.dataset.nftPreview,
+						card.dataset.nftTitle,
+						'profile-nft-preview'
+					));
 				});
 			});
 	};
