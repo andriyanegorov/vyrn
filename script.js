@@ -3,6 +3,8 @@ const navButtons = navItems.filter((item) => item.tagName === 'BUTTON');
 const bottomNav = document.querySelector('.bottom-nav');
 const navIndicator = document.querySelector('.nav-indicator');
 let activeItem = document.querySelector('.nav-button.is-active');
+const telegramWebApp = window.Telegram?.WebApp;
+telegramWebApp?.ready();
 
 const collectionCarousel = document.querySelector('.collection-carousel');
 if (collectionCarousel) {
@@ -38,15 +40,16 @@ const profileAvatarFallback = profileAvatar?.querySelector('span');
 const profileDetailValues = profileContent ? [...profileContent.querySelectorAll('.profile-detail-value')] : [];
 
 if (profileEditButton && profileEditorDialog && profileEditorForm && profileAvatar && profileName && profileDetailValues.length >= 2) {
+	const telegramUser = telegramWebApp?.initDataUnsafe?.user;
 	const storedName = profileName.textContent.trim().split(/\s+/);
 	const defaultProfile = {
-		firstName: storedName.shift() || '',
-		lastName: storedName.join(' '),
+		firstName: telegramUser?.first_name || storedName[0] || '',
+		lastName: telegramUser ? telegramUser.last_name || '' : storedName.slice(1).join(' '),
 		about: profileDetailValues[1].textContent.trim(),
-		username: profileDetailValues[0].textContent.trim(),
+		username: telegramUser?.username ? `@${telegramUser.username}` : profileDetailValues[0].textContent.trim(),
 		birthday: '',
 		phone: '',
-		avatar: ''
+		avatar: telegramUser?.photo_url || ''
 	};
 	let profileData = defaultProfile;
 	try {
@@ -56,6 +59,20 @@ if (profileEditButton && profileEditorDialog && profileEditorForm && profileAvat
 		}
 	} catch {
 		profileData = defaultProfile;
+	}
+	if (telegramUser) {
+		if (!profileData.firstName || profileData.firstName === storedName[0]) {
+			profileData.firstName = defaultProfile.firstName;
+		}
+		if (!profileData.lastName || profileData.lastName === storedName.slice(1).join(' ')) {
+			profileData.lastName = defaultProfile.lastName;
+		}
+		if (!profileData.username || profileData.username === profileDetailValues[0].textContent.trim()) {
+			profileData.username = defaultProfile.username;
+		}
+		if (!profileData.avatar) {
+			profileData.avatar = defaultProfile.avatar;
+		}
 	}
 
 	const setAvatarImage = (image, fallback, source) => {
@@ -143,39 +160,40 @@ if (profileEditButton && profileEditorDialog && profileEditorForm && profileAvat
 });
 
 const nftCollection = [
-	{ slug: 'algorithmcup', id: 64, name: 'Algorithm Cups' },
-	{ slug: 'artisanbrick', id: 5821, name: 'Artisan Bricks' },
-	{ slug: 'astralshard', id: 5129, name: 'Astral Shards' },
-	{ slug: 'bdaycandle', id: 220304, name: 'B-Day Candles' },
-	{ slug: 'berrybox', id: 444, name: 'Berry Boxes' },
-	{ slug: 'bigyear', id: 11599, name: 'Big Years' },
-	{ slug: 'blingbinky', id: 1234, name: 'Bling Binkies' },
-	{ slug: 'bondedring', id: 1001, name: 'Bonded Rings' },
-	{ slug: 'bowtie', id: 31485, name: 'Bow Ties' },
-	{ slug: 'bunnymuffin', id: 38, name: 'Bunny Muffins' },
-	{ slug: 'candycane', id: 49040, name: 'Candy Canes' },
-	{ slug: 'chillflame', id: 113221, name: 'Chill Flames' },
-	{ slug: 'cloverpin', id: 888, name: 'Clover Pins' },
-	{ slug: 'cookieheart', id: 28888, name: 'Cookie Hearts' },
-	{ slug: 'crystalball', id: 7446, name: 'Crystal Balls' },
-	{ slug: 'cupidcharm', id: 3396, name: 'Cupid Charms' },
-	{ slug: 'deskcalendar', id: 111216, name: 'Desk Calendars' },
-	{ slug: 'diamondring', id: 27070, name: 'Diamond Rings' },
-	{ slug: 'durovscap', id: 1142, name: 'Durov’s Caps' },
-	{ slug: 'durovsglasses', id: 1305, name: 'Durov’s Glasses' },
-	{ slug: 'easteregg', id: 103928, name: 'Easter Eggs' },
-	{ slug: 'electricskull', id: 8193, name: 'Electric Skulls' },
-	{ slug: 'eternalcandle', id: 6666, name: 'Eternal Candles' },
-	{ slug: 'eternalrose', id: 28435, name: 'Eternal Roses' },
-	{ slug: 'evileye', id: 7777, name: 'Evil Eyes' },
-	{ slug: 'faithamulet', id: 9494, name: 'Faith Amulets' },
-	{ slug: 'finepen', id: 33333, name: 'Fine Pens' },
-	{ slug: 'flyingbroom', id: 22528, name: 'Flying Brooms' },
-	{ slug: 'freshsocks', id: 141858, name: 'Fresh Socks' },
-	{ slug: 'gemsignet', id: 76, name: 'Gem Signets' }
+	{ slug: 'algorithmcup', id: 64, name: 'Algorithm Cups', lastSaleTon: 5000 },
+	{ slug: 'artisanbrick', id: 5821, name: 'Artisan Bricks', lastSaleTon: 588 },
+	{ slug: 'astralshard', id: 5129, name: 'Astral Shards', lastSaleTon: 3222 },
+	{ slug: 'bdaycandle', id: 220304, name: 'B-Day Candles', lastSaleTon: 99 },
+	{ slug: 'berrybox', id: 444, name: 'Berry Boxes', lastSaleTon: 111 },
+	{ slug: 'bigyear', id: 11599, name: 'Big Years', lastSaleTon: 1000 },
+	{ slug: 'blingbinky', id: 1234, name: 'Bling Binkies', lastSaleTon: 250 },
+	{ slug: 'bondedring', id: 1001, name: 'Bonded Rings', lastSaleTon: 3000 },
+	{ slug: 'bowtie', id: 31485, name: 'Bow Ties', lastSaleTon: 333 },
+	{ slug: 'bunnymuffin', id: 38, name: 'Bunny Muffins', lastSaleTon: 500 },
+	{ slug: 'candycane', id: 49040, name: 'Candy Canes', lastSaleTon: 200 },
+	{ slug: 'chillflame', id: 113221, name: 'Chill Flames', lastSaleTon: 133 },
+	{ slug: 'cloverpin', id: 888, name: 'Clover Pins', lastSaleTon: 3333 },
+	{ slug: 'cookieheart', id: 28888, name: 'Cookie Hearts', lastSaleTon: 300 },
+	{ slug: 'crystalball', id: 7446, name: 'Crystal Balls', lastSaleTon: 230 },
+	{ slug: 'cupidcharm', id: 3396, name: 'Cupid Charms', lastSaleTon: 730 },
+	{ slug: 'deskcalendar', id: 111216, name: 'Desk Calendars', lastSaleTon: 1049 },
+	{ slug: 'diamondring', id: 27070, name: 'Diamond Rings', lastSaleTon: 1050 },
+	{ slug: 'durovscap', id: 1142, name: 'Durov’s Caps', lastSaleTon: 6555 },
+	{ slug: 'durovsglasses', id: 1305, name: 'Durov’s Glasses', lastSaleTon: 555 },
+	{ slug: 'easteregg', id: 103928, name: 'Easter Eggs', lastSaleTon: 525 },
+	{ slug: 'electricskull', id: 8193, name: 'Electric Skulls', lastSaleTon: 479 },
+	{ slug: 'eternalcandle', id: 6666, name: 'Eternal Candles', lastSaleTon: 388 },
+	{ slug: 'eternalrose', id: 28435, name: 'Eternal Roses', lastSaleTon: 380 },
+	{ slug: 'evileye', id: 7777, name: 'Evil Eyes', lastSaleTon: 777 },
+	{ slug: 'faithamulet', id: 9494, name: 'Faith Amulets', lastSaleTon: 1111 },
+	{ slug: 'finepen', id: 33333, name: 'Fine Pens', lastSaleTon: 233 },
+	{ slug: 'flyingbroom', id: 22528, name: 'Flying Brooms', lastSaleTon: 150 },
+	{ slug: 'freshsocks', id: 141858, name: 'Fresh Socks', lastSaleTon: 500 },
+	{ slug: 'gemsignet', id: 76, name: 'Gem Signets', lastSaleTon: 800 }
 ];
 
 const getNftPreviewUrl = (slug, id) => `https://nft.fragment.com/gift/${slug}-${id}.webp?fresh=${Date.now()}`;
+const getNftAnimationUrl = (fileName) => `https://nft.fragment.com/gift/${fileName}`;
 const createNftPreviewImage = (source, title, className) => {
 	const image = document.createElement('img');
 	image.className = className;
@@ -192,7 +210,6 @@ if (marketGrid) {
 	const marketEmpty = document.querySelector('.market-empty');
 	const marketTradeButtons = [...document.querySelectorAll('.market-trade-button')];
 	const marketCards = [];
-	const startedMarketPrices = new WeakSet();
 	let marketMode = 'all';
 
 	nftCollection.forEach((gift) => {
@@ -201,7 +218,7 @@ if (marketGrid) {
 		card.className = 'market-card';
 		card.dataset.marketName = title.toLocaleLowerCase('ru-RU');
 		card.dataset.marketCollection = gift.name;
-		card.dataset.marketPrice = '';
+		card.dataset.marketPrice = String(Math.round(gift.lastSaleTon * 100));
 
 		const imageFrame = document.createElement('div');
 		imageFrame.className = 'market-card-image-frame';
@@ -220,7 +237,18 @@ if (marketGrid) {
 
 		const price = document.createElement('div');
 		price.className = 'market-card-price';
-		price.textContent = 'Загрузка цены';
+		const priceStars = Math.round(gift.lastSaleTon * 100);
+		const label = document.createElement('span');
+		label.className = 'market-card-price-label';
+		label.textContent = 'Последняя продажа';
+		const value = document.createElement('span');
+		value.className = 'market-card-price-value';
+		value.textContent = priceStars.toLocaleString('ru-RU');
+		const icon = document.createElement('img');
+		icon.src = 'stars.png';
+		icon.alt = '';
+		icon.setAttribute('aria-hidden', 'true');
+		price.append(label, value, icon);
 		content.append(heading, price);
 		card.append(imageFrame, content);
 		marketCards.push(card);
@@ -253,64 +281,7 @@ if (marketGrid) {
 				? 'Покупок пока нет'
 				: 'Ничего не найдено';
 		marketEmpty.hidden = visibleCards.length > 0;
-		updateVisibleMarketPrices();
 	};
-
-	const loadMarketPrice = async (card) => {
-		const title = card.dataset.marketName;
-		const gift = nftCollection.find((item) => title === `${item.name} #${item.id}`.toLocaleLowerCase('ru-RU'));
-		if (!gift) {
-			return;
-		}
-
-		const priceElement = card.querySelector('.market-card-price');
-		try {
-			const response = await fetch(`/api/fragment/${gift.slug}-${gift.id}`, { cache: 'no-store' });
-			if (!response.ok) {
-				throw new Error(`Fragment request failed: ${response.status}`);
-			}
-
-			const fragmentPage = new DOMParser().parseFromString(await response.text(), 'text/html');
-			const statusText = fragmentPage.querySelector('.tm-section-header-status')?.textContent.trim();
-			const priceText = fragmentPage.querySelector('.table-cell-value.icon-ton')?.textContent.trim();
-			const priceTon = priceText ? Number(priceText.replace(/,/g, '')) : Number.NaN;
-			if (!Number.isFinite(priceTon)) {
-				throw new Error('Fragment price unavailable.');
-			}
-
-			const priceStars = Math.round(priceTon * 100);
-			card.dataset.marketPrice = String(priceStars);
-			priceElement.replaceChildren();
-			const label = document.createElement('span');
-			label.className = 'market-card-price-label';
-			label.textContent = /for sale/i.test(statusText || '') ? 'Цена' : 'Последняя продажа';
-			const value = document.createElement('span');
-			value.className = 'market-card-price-value';
-			value.textContent = priceStars.toLocaleString('ru-RU');
-			const icon = document.createElement('img');
-			icon.src = 'stars.png';
-			icon.alt = '';
-			icon.setAttribute('aria-hidden', 'true');
-			priceElement.append(label, value, icon);
-		} catch {
-			priceElement.textContent = 'Цена недоступна';
-		}
-		renderMarketList();
-	};
-
-	function updateVisibleMarketPrices() {
-		const viewportHeight = window.innerHeight;
-		marketCards.forEach((card) => {
-			if (startedMarketPrices.has(card) || !card.isConnected) {
-				return;
-			}
-			const rect = card.getBoundingClientRect();
-			if (rect.bottom >= -120 && rect.top <= viewportHeight + 180) {
-				startedMarketPrices.add(card);
-			loadMarketPrice(card);
-			}
-		});
-	}
 
 	marketSearch.addEventListener('input', renderMarketList);
 	marketCollectionFilter.addEventListener('change', renderMarketList);
@@ -326,8 +297,6 @@ if (marketGrid) {
 			renderMarketList();
 		});
 	});
-	window.addEventListener('scroll', updateVisibleMarketPrices, { passive: true });
-	window.addEventListener('resize', updateVisibleMarketPrices);
 	renderMarketList();
 }
 
@@ -370,7 +339,7 @@ if (nftGrid) {
 	const renderNftCard = (gift) => {
 		const title = `${gift.name} #${gift.id}`;
 		const file = `${gift.slug}-${gift.id}.tgs`;
-		const source = `/api/tgs/${file}`;
+		const source = getNftAnimationUrl(file);
 		const card = document.createElement('button');
 		card.className = 'profile-nft-cell';
 		card.type = 'button';
@@ -437,11 +406,9 @@ if (nftGrids.length && nftModal && nftModalAnimation && nftModalBackdrop) {
 	let activeNftAnimation;
 	let activeNftBackdrop;
 	let animationRequestId = 0;
-	let priceRequestId = 0;
 
 	const clearNftAnimation = () => {
 		animationRequestId++;
-		priceRequestId++;
 		nftModalPrice.textContent = '—';
 		activeNftAnimation?.destroy();
 		activeNftAnimation = null;
@@ -485,40 +452,22 @@ if (nftGrids.length && nftModal && nftModalAnimation && nftModalBackdrop) {
 		return overlayData;
 	};
 
-	const loadNftPrice = async (fileName) => {
-		const requestId = ++priceRequestId;
+	const loadNftPrice = (fileName) => {
 		const giftId = fileName.replace(/\.tgs$/, '');
-		nftModalPrice.textContent = 'Загрузка...';
-		try {
-			const response = await fetch(`/api/fragment/${giftId}`, { cache: 'no-store' });
-			if (!response.ok) {
-				throw new Error(`Fragment price request failed: ${response.status}`);
-			}
-
-			const fragmentPage = new DOMParser().parseFromString(await response.text(), 'text/html');
-			const priceText = fragmentPage.querySelector('.table-cell-value.icon-ton')?.textContent.trim();
-			const priceTon = priceText ? Number(priceText.replace(/,/g, '')) : Number.NaN;
-			if (requestId !== priceRequestId || !nftModal.open) {
-				return;
-			}
-
-			if (Number.isFinite(priceTon)) {
-				const priceValue = document.createElement('span');
-				priceValue.textContent = Math.round(priceTon * 100).toLocaleString('ru-RU');
-				const currencyIcon = document.createElement('img');
-				currencyIcon.className = 'nft-modal-price-icon';
-				currencyIcon.src = 'stars.png';
-				currencyIcon.alt = '';
-				currencyIcon.setAttribute('aria-hidden', 'true');
-				nftModalPrice.replaceChildren(priceValue, currencyIcon);
-			} else {
-				nftModalPrice.textContent = 'Нет данных';
-			}
-		} catch {
-			if (requestId === priceRequestId && nftModal.open) {
-				nftModalPrice.textContent = 'Нет данных';
-			}
+		const gift = nftCollection.find((item) => `${item.slug}-${item.id}` === giftId);
+		if (!gift) {
+			nftModalPrice.textContent = 'Нет данных';
+			return;
 		}
+
+		const priceValue = document.createElement('span');
+		priceValue.textContent = Math.round(gift.lastSaleTon * 100).toLocaleString('ru-RU');
+		const currencyIcon = document.createElement('img');
+		currencyIcon.className = 'nft-modal-price-icon';
+		currencyIcon.src = 'stars.png';
+		currencyIcon.alt = '';
+		currencyIcon.setAttribute('aria-hidden', 'true');
+		nftModalPrice.replaceChildren(priceValue, currencyIcon);
 	};
 
 	const createNftBackdropData = (animationData) => {
@@ -865,7 +814,7 @@ if (chatRows.length && conversationDialog) {
 		Array.from({ length: 6 }, (_, offset) => nftCollection[(playerIndex * 3 + offset) % nftCollection.length])
 			.forEach((gift) => {
 				const file = `${gift.slug}-${gift.id}.tgs`;
-				const source = `/api/tgs/${file}`;
+				const source = getNftAnimationUrl(file);
 				const card = document.createElement('button');
 				card.className = 'profile-nft-cell';
 				card.type = 'button';
