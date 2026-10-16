@@ -25,27 +25,196 @@ if (collectionCarousel) {
 	});
 }
 
-const nftGrid = document.querySelector('.profile-nft-grid');
-if (nftGrid) {
-	const nftCells = [...nftGrid.children];
-	for (let index = nftCells.length - 1; index > 0; index--) {
-		const swapIndex = Math.floor(Math.random() * (index + 1));
-		const currentCell = nftCells[index];
-		nftCells[index] = nftCells[swapIndex];
-		nftCells[swapIndex] = currentCell;
+const nftCollection = [
+	{ slug: 'algorithmcup', id: 64, name: 'Algorithm Cups' },
+	{ slug: 'artisanbrick', id: 5821, name: 'Artisan Bricks' },
+	{ slug: 'astralshard', id: 5129, name: 'Astral Shards' },
+	{ slug: 'bdaycandle', id: 220304, name: 'B-Day Candles' },
+	{ slug: 'berrybox', id: 444, name: 'Berry Boxes' },
+	{ slug: 'bigyear', id: 11599, name: 'Big Years' },
+	{ slug: 'blingbinky', id: 1234, name: 'Bling Binkies' },
+	{ slug: 'bondedring', id: 1001, name: 'Bonded Rings' },
+	{ slug: 'bowtie', id: 31485, name: 'Bow Ties' },
+	{ slug: 'bunnymuffin', id: 38, name: 'Bunny Muffins' },
+	{ slug: 'candycane', id: 49040, name: 'Candy Canes' },
+	{ slug: 'chillflame', id: 113221, name: 'Chill Flames' },
+	{ slug: 'cloverpin', id: 888, name: 'Clover Pins' },
+	{ slug: 'cookieheart', id: 28888, name: 'Cookie Hearts' },
+	{ slug: 'crystalball', id: 7446, name: 'Crystal Balls' },
+	{ slug: 'cupidcharm', id: 3396, name: 'Cupid Charms' },
+	{ slug: 'deskcalendar', id: 111216, name: 'Desk Calendars' },
+	{ slug: 'diamondring', id: 27070, name: 'Diamond Rings' },
+	{ slug: 'durovscap', id: 1142, name: 'Durov’s Caps' },
+	{ slug: 'durovsglasses', id: 1305, name: 'Durov’s Glasses' },
+	{ slug: 'easteregg', id: 103928, name: 'Easter Eggs' },
+	{ slug: 'electricskull', id: 8193, name: 'Electric Skulls' },
+	{ slug: 'eternalcandle', id: 6666, name: 'Eternal Candles' },
+	{ slug: 'eternalrose', id: 28435, name: 'Eternal Roses' },
+	{ slug: 'evileye', id: 7777, name: 'Evil Eyes' },
+	{ slug: 'faithamulet', id: 9494, name: 'Faith Amulets' },
+	{ slug: 'finepen', id: 33333, name: 'Fine Pens' },
+	{ slug: 'flyingbroom', id: 22528, name: 'Flying Brooms' },
+	{ slug: 'freshsocks', id: 141858, name: 'Fresh Socks' },
+	{ slug: 'gemsignet', id: 76, name: 'Gem Signets' }
+];
+
+const tgsDataCache = new Map();
+const loadTgsData = (source) => {
+	if (!tgsDataCache.has(source)) {
+		const request = fetch(source)
+			.then((response) => {
+				if (!response.ok) {
+					throw new Error(`NFT request failed: ${response.status}`);
+				}
+
+				return new Response(
+					response.body.pipeThrough(new DecompressionStream('gzip'))
+				).json();
+			})
+			.catch((error) => {
+				tgsDataCache.delete(source);
+				throw error;
+			});
+		tgsDataCache.set(source, request);
 	}
 
-	nftCells.forEach((cell) => nftGrid.append(cell));
+	return tgsDataCache.get(source);
+};
+
+const createTgsPreview = async (container, source) => {
+	if (!window.lottie || typeof DecompressionStream === 'undefined') {
+		throw new Error('TGS animation is not supported in this browser.');
+	}
+
+	const animationData = await loadTgsData(source);
+	if (!container.isConnected) {
+		return;
+	}
+
+	const animation = window.lottie.loadAnimation({
+		container,
+		renderer: 'svg',
+		loop: false,
+		autoplay: false,
+		animationData
+	});
+	animation.goToAndStop(0, true);
+	animation.addEventListener('DOMLoaded', () => animation.goToAndStop(0, true));
+	return animation;
+};
+
+const nftGrid = document.querySelector('.profile-nft-grid');
+if (nftGrid) {
+	const startedNftCards = new WeakSet();
+	const renderNftCard = (gift) => {
+		const title = `${gift.name} #${gift.id}`;
+		const source = `https://nft.fragment.com/gift/${gift.slug}-${gift.id}.tgs`;
+		const card = document.createElement('button');
+		card.className = 'profile-nft-cell';
+		card.type = 'button';
+		card.dataset.nftSrc = source;
+		card.dataset.nftTitle = title;
+		card.dataset.nftModel = gift.name;
+		card.dataset.nftFile = `${gift.slug}-${gift.id}.tgs`;
+		card.setAttribute('aria-label', `Открыть ${title}`);
+
+		const animationHost = document.createElement('div');
+		animationHost.className = 'profile-nft-animation is-loading';
+		animationHost.setAttribute('aria-hidden', 'true');
+		card.append(animationHost);
+		nftGrid.append(card);
+		return card;
+	};
+
+	const loadNftCard = async (card) => {
+		const animationHost = card.querySelector('.profile-nft-animation');
+		try {
+			await createTgsPreview(animationHost, card.dataset.nftSrc);
+			animationHost.classList.remove('is-loading');
+		} catch {
+			animationHost.classList.remove('is-loading');
+			animationHost.classList.add('is-unavailable');
+			animationHost.textContent = 'NFT недоступен';
+		}
+	};
+
+	const cards = nftCollection.map(renderNftCard);
+	const updateVisibleNftCards = () => {
+		const viewportHeight = window.innerHeight;
+		cards.forEach((card) => {
+			const rect = card.getBoundingClientRect();
+			const isNearViewport = rect.bottom >= -120 && rect.top <= viewportHeight + 120;
+			if (isNearViewport && !startedNftCards.has(card)) {
+				startedNftCards.add(card);
+				loadNftCard(card);
+			}
+		});
+	};
+
+	window.addEventListener('scroll', updateVisibleNftCards, { passive: true });
+	window.addEventListener('resize', updateVisibleNftCards);
+	updateVisibleNftCards();
 }
 
 const nftModal = document.querySelector('.nft-modal');
-const nftModalImage = document.querySelector('.nft-modal-image');
+const nftModalAnimation = document.querySelector('.nft-modal-animation');
 const nftModalBackdrop = document.querySelector('.nft-modal-backdrop');
-const nftModalArt = document.querySelector('.nft-modal-art');
-if (nftGrid && nftModal && nftModalImage && nftModalBackdrop && nftModalArt) {
+if (nftGrid && nftModal && nftModalAnimation && nftModalBackdrop) {
 	const nftModalTitle = document.querySelector('#nft-modal-title');
 	const nftModalModel = document.querySelector('.nft-modal-model');
 	const nftModalFile = document.querySelector('.nft-modal-file');
+	let activeNftAnimation;
+	let activeNftBackdrop;
+	let animationRequestId = 0;
+
+	const clearNftAnimation = () => {
+		animationRequestId++;
+		activeNftAnimation?.destroy();
+		activeNftAnimation = null;
+		activeNftBackdrop?.destroy();
+		activeNftBackdrop = null;
+		nftModalAnimation.replaceChildren();
+		nftModalAnimation.hidden = true;
+		nftModalBackdrop.replaceChildren();
+		nftModalBackdrop.hidden = true;
+	};
+
+	const loadModalAnimation = async (source) => {
+		const requestId = animationRequestId;
+		nftModalAnimation.hidden = false;
+		nftModalAnimation.textContent = 'Загрузка NFT...';
+		try {
+			const animationData = await loadTgsData(source);
+			if (requestId !== animationRequestId || !nftModal.open) {
+				return;
+			}
+
+			nftModalBackdrop.replaceChildren();
+			nftModalBackdrop.hidden = false;
+			activeNftBackdrop = window.lottie.loadAnimation({
+				container: nftModalBackdrop,
+				renderer: 'svg',
+				loop: false,
+				autoplay: false,
+				animationData
+			});
+			activeNftBackdrop.goToAndStop(0, true);
+			activeNftBackdrop.addEventListener('DOMLoaded', () => activeNftBackdrop?.goToAndStop(0, true));
+
+			nftModalAnimation.replaceChildren();
+			activeNftAnimation = window.lottie.loadAnimation({
+				container: nftModalAnimation,
+				renderer: 'svg',
+				loop: true,
+				autoplay: true,
+				animationData
+			});
+		} catch {
+			if (requestId === animationRequestId) {
+				nftModalAnimation.textContent = 'Анимация недоступна';
+			}
+		}
+	};
 
 	nftGrid.addEventListener('click', (event) => {
 		const nftCard = event.target.closest('.profile-nft-cell');
@@ -55,15 +224,12 @@ if (nftGrid && nftModal && nftModalImage && nftModalBackdrop && nftModalArt) {
 
 		nftModalTitle.textContent = nftCard.dataset.nftTitle;
 		nftModalModel.textContent = nftCard.dataset.nftModel;
+		nftModalFile.href = nftCard.dataset.nftSrc;
 		nftModalFile.textContent = nftCard.dataset.nftFile;
-		nftModalBackdrop.src = nftCard.querySelector('.profile-nft-image').src;
-		nftModalImage.src = nftCard.dataset.nftSrc;
-		nftModalImage.alt = nftCard.dataset.nftTitle;
-		nftModalArt.classList.remove('has-nft-backdrop');
-		void nftModalArt.offsetWidth;
-		nftModalArt.classList.add('has-nft-backdrop');
+		clearNftAnimation();
 		nftModal.showModal();
-			nftModal.querySelector('.nft-modal-close').focus();
+		nftModal.querySelector('.nft-modal-close').focus();
+		loadModalAnimation(nftCard.dataset.nftSrc);
 	});
 
 	const closeNftModal = () => nftModal.close();
@@ -80,11 +246,7 @@ if (nftGrid && nftModal && nftModalImage && nftModalBackdrop && nftModalArt) {
 			closeNftModal();
 		}
 	});
-	nftModal.addEventListener('close', () => {
-		nftModalImage.removeAttribute('src');
-		nftModalBackdrop.removeAttribute('src');
-		nftModalArt.classList.remove('has-nft-backdrop');
-	});
+	nftModal.addEventListener('close', clearNftAnimation);
 }
 
 const moveIndicator = (button, animate) => {
