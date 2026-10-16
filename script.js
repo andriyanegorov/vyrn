@@ -4,6 +4,27 @@ const bottomNav = document.querySelector('.bottom-nav');
 const navIndicator = document.querySelector('.nav-indicator');
 let activeItem = document.querySelector('.nav-button.is-active');
 
+const collectionCarousel = document.querySelector('.collection-carousel');
+if (collectionCarousel) {
+	const collectionSlides = [...collectionCarousel.querySelectorAll('.collection-slide')];
+	const collectionPanel = collectionCarousel.closest('.collection-panel');
+	const collectionDots = [...collectionPanel.querySelectorAll('.collection-dot')];
+
+	collectionDots.forEach((dot, activeIndex) => {
+		dot.addEventListener('click', () => {
+			collectionSlides.forEach((slide, index) => {
+				slide.hidden = index !== activeIndex;
+			});
+
+			collectionDots.forEach((item, index) => {
+				const isActive = index === activeIndex;
+				item.classList.toggle('is-active', isActive);
+				item.setAttribute('aria-pressed', String(isActive));
+			});
+		});
+	});
+}
+
 const nftGrid = document.querySelector('.profile-nft-grid');
 if (nftGrid) {
 	const nftCells = [...nftGrid.children];
