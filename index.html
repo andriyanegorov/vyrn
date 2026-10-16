@@ -1,0 +1,160 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>VYRN</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
+  <script src="script.js" defer></script>
+</head>
+<body>
+  <header class="site-header">
+    <a class="brand" href="#home" aria-label="VYRN, главная">VYRN</a>
+    <div class="star-balance" aria-label="Баланс: 12 450 звёзд">
+      <img src="stars.png" alt="" aria-hidden="true">
+      <span>12 450</span>
+    </div>
+  </header>
+  <main id="home">
+    <section class="welcome-hero" aria-labelledby="welcome-title">
+      <div class="welcome-copy">
+        <p class="welcome-badge"><span aria-hidden="true">★</span> Добро пожаловать!</p>
+        <h1 id="welcome-title">Собирай, улучшай и зарабатывай с VYRN!</h1>
+        <p class="welcome-description">Коллекционируйте уникальные NFT, развивайте свою коллекцию и получайте награды.</p>
+      </div>
+      <button class="welcome-action" type="button">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 4.8v14.4a1 1 0 0 0 1.5.87l11-7.2a1 1 0 0 0 0-1.74l-11-7.2A1 1 0 0 0 7 4.8Z" /></svg>
+        <span>Начать игру</span>
+      </button>
+      <img class="welcome-art" src="mainlogo.png" alt="Коллекция VYRN: NFT-карты и сундук с сокровищами">
+    </section>
+    <section class="resource-panel" aria-label="Ресурсы аккаунта">
+      <div class="resource-item">
+        <img class="resource-icon" src="stars.png" alt="" aria-hidden="true">
+        <div class="resource-details">
+          <span class="resource-value resource-balance-value">17 280</span>
+          <span class="resource-label">Баланс VYRN</span>
+        </div>
+      </div>
+      <div class="resource-item resource-item-energy">
+        <img class="resource-icon" src="energy.svg" alt="" aria-hidden="true">
+        <div class="resource-details">
+          <span class="resource-value">3/5</span>
+          <span class="resource-label">Энергия</span>
+        </div>
+        <button class="energy-add" type="button" aria-label="Пополнить энергию">+</button>
+      </div>
+      <div class="resource-item resource-item-timer">
+        <img class="resource-icon" src="time.svg" alt="" aria-hidden="true">
+        <div class="resource-details">
+          <span class="resource-value">02:34:17</span>
+          <span class="resource-label">До восстановления</span>
+        </div>
+      </div>
+    </section>
+    <section class="home-action-grid" aria-label="Разделы VYRN">
+      <button class="home-action-card" type="button">
+        <img src="./capsule.png" alt="" aria-hidden="true">
+        <span>Открыть капсулы</span>
+      </button>
+      <button class="home-action-card" type="button">
+        <img src="./nextnft.png" alt="" aria-hidden="true">
+        <span>Улучшить NFT</span>
+      </button>
+      <button class="home-action-card" type="button">
+        <img src="./marketplace.png" alt="" aria-hidden="true">
+        <span>Маркетплейс</span>
+      </button>
+      <button class="home-action-card" type="button">
+        <img src="./tournaments.png" alt="" aria-hidden="true">
+        <span>Турниры</span>
+      </button>
+    </section>
+    <section class="collection-panel" aria-labelledby="collection-title">
+      <header class="collection-heading">
+        <h2 id="collection-title">Моя коллекция</h2>
+        <a class="collection-link" href="profile.html">
+          <span>Перейти</span>
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m9 5 7 7-7 7" /></svg>
+        </a>
+      </header>
+      <div class="collection-content">
+        <div class="collection-count" aria-label="12 NFT">
+          <img class="collection-gem" src="./crown.png" alt="" aria-hidden="true">
+          <div class="collection-count-copy">
+            <strong>12</strong>
+            <span>NFT</span>
+          </div>
+        </div>
+        <div class="collection-carousel" aria-label="Превью коллекции">
+          <div class="collection-slides">
+            <div class="collection-slide">
+              <img src="snoopdog-preview.png" alt="Snoop Dogg NFT">
+              <img src="pepe-preview.png" alt="Pepe NFT">
+              <img src="snoopdog-preview.png" alt="Snoop Dogg NFT">
+            </div>
+            <div class="collection-slide" hidden>
+              <img src="pepe-preview.png" alt="Pepe NFT">
+              <img src="snoopdog-preview.png" alt="Snoop Dogg NFT">
+              <img src="pepe-preview.png" alt="Pepe NFT">
+            </div>
+            <div class="collection-slide" hidden>
+              <img src="snoopdog-preview.png" alt="Snoop Dogg NFT">
+              <img src="snoopdog-preview.png" alt="Snoop Dogg NFT">
+              <img src="pepe-preview.png" alt="Pepe NFT">
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="collection-pagination" role="group" aria-label="Страницы коллекции">
+        <button class="collection-dot is-active" type="button" aria-label="Страница 1" aria-pressed="true"></button>
+        <button class="collection-dot" type="button" aria-label="Страница 2" aria-pressed="false"></button>
+        <button class="collection-dot" type="button" aria-label="Страница 3" aria-pressed="false"></button>
+      </div>
+    </section>
+    <section class="daily-quests" aria-labelledby="daily-quests-title">
+      <div class="daily-quests-copy">
+        <p class="daily-quests-badge"><span aria-hidden="true">★</span> Ежедневные задания</p>
+        <h2 id="daily-quests-title">Выполняйте задания и получайте награды!</h2>
+        <button class="daily-quests-action" type="button">Перейти к заданиям</button>
+      </div>
+      <div class="daily-quests-art" aria-hidden="true">
+        <img class="daily-quests-gem-effect" src="./gemeffect.png" alt="">
+        <img class="daily-quests-gems" src="VYRN_asset_pack_v2/purple_gems.png" alt="">
+        <div class="daily-clipboard">
+          <span class="daily-clipboard-clip"></span>
+          <span class="daily-check-row"><span class="daily-checkmark"></span><span class="daily-rule"></span></span>
+          <span class="daily-check-row"><span class="daily-checkmark"></span><span class="daily-rule"></span></span>
+          <span class="daily-check-row"><span class="daily-checkmark"></span><span class="daily-rule"></span></span>
+        </div>
+      </div>
+      <div class="daily-quests-timer" aria-label="До завершения заданий: 6 дней 12 часов">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8.5"/><path d="M12 7v5l3 2"/></svg>
+        <span>6д 12ч</span>
+      </div>
+    </section>
+  </main>
+  <nav class="bottom-nav" aria-label="Основная навигация">
+    <span class="nav-indicator" aria-hidden="true"></span>
+    <button class="nav-button is-active" type="button" aria-pressed="true">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m3 10 9-7 9 7M5 9v11h14V9M9 20v-6h6v6" /></svg>
+      <span>Главное</span>
+    </button>
+    <a class="nav-button" href="market.html">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 10h18l-1.5-6h-15L3 10Zm0 0v10h18V10M8 20v-6h8v6" /></svg>
+      <span>Рынок</span>
+    </a>
+    <a class="nav-button" href="chats.html">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 11.5a7.5 7.5 0 0 1-7.5 7.5H6l-3 2v-5.5A7.5 7.5 0 1 1 20 11.5Z" /></svg>
+      <span>Чаты</span>
+    </a>
+    <a class="nav-button" href="profile.html">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="8" r="4" /><path d="M4 21a8 8 0 0 1 16 0" /></svg>
+      <span>Профиль</span>
+    </a>
+  </nav>
+</body>
+</html>
