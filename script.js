@@ -14,19 +14,33 @@ const bottomNav = document.querySelector('.bottom-nav');
 const navIndicator = document.querySelector('.nav-indicator');
 let activeItem = document.querySelector('.nav-button.is-active');
 const telegramWebApp = window.Telegram?.WebApp;
+const telegramUserStorageKey = 'vyrn.telegram.user.v1';
 const getTelegramUser = () => {
-	if (telegramWebApp?.initDataUnsafe?.user) {
-		return telegramWebApp.initDataUnsafe.user;
+	let telegramUser = telegramWebApp?.initDataUnsafe?.user;
+	if (!telegramUser) {
+		try {
+			const userData = new URLSearchParams(telegramWebApp?.initData || '').get('user');
+			telegramUser = userData ? JSON.parse(userData) : null;
+		} catch {
+			telegramUser = null;
+		}
 	}
-
+	if (telegramUser) {
+		try {
+			sessionStorage.setItem(telegramUserStorageKey, JSON.stringify(telegramUser));
+		} catch {
+		}
+		return telegramUser;
+	}
 	try {
-		const userData = new URLSearchParams(telegramWebApp?.initData || '').get('user');
-		return userData ? JSON.parse(userData) : null;
+		const storedUser = JSON.parse(sessionStorage.getItem(telegramUserStorageKey) || 'null');
+		return storedUser && typeof storedUser.first_name === 'string' ? storedUser : null;
 	} catch {
 		return null;
 	}
 };
 telegramWebApp?.ready();
+getTelegramUser();
 
 {
 	const profileEditButton = document.querySelector('.profile-page:not(.player-profile-page) .profile-edit-button');
@@ -908,18 +922,23 @@ if (chatRows.length && conversationDialog) {
 					pendingDeleteIndex = index;
 					activeMessageBubble = bubble;
 					activeMessageRow = row;
-					const bounds = bubble.getBoundingClientRect();
+					const bounds = row.getBoundingClientRect();
 					bubble.style.visibility = 'hidden';
 					row.classList.add('is-action-target');
 					messageActionScrim.hidden = false;
 					messageActionMenu.hidden = false;
-					activeMessageClone = bubble.cloneNode(true);
-					activeMessageClone.classList.add('message-action-bubble');
+					activeMessageClone = row.cloneNode(true);
+					activeMessageClone.classList.remove('is-appearing', 'is-appearance-pending', 'is-action-target');
+					activeMessageClone.classList.add('message-action-copy');
 					activeMessageClone.setAttribute('aria-hidden', 'true');
 					activeMessageClone.style.left = `${bounds.left}px`;
 					activeMessageClone.style.top = `${bounds.top}px`;
 					activeMessageClone.style.width = `${bounds.width}px`;
 					activeMessageClone.style.height = `${bounds.height}px`;
+					const clonedBubble = activeMessageClone.querySelector('.conversation-bubble');
+					clonedBubble.style.removeProperty('visibility');
+					clonedBubble.style.removeProperty('--message-origin-x');
+					clonedBubble.style.removeProperty('--message-origin-y');
 					conversationScreen.append(activeMessageClone);
 					const menuBounds = messageActionMenu.getBoundingClientRect();
 					const horizontalPadding = 12;

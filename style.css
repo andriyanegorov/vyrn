@@ -1707,13 +1707,18 @@ body.chats-screen {
   z-index: 9;
 }
 
-.message-action-bubble {
+.conversation-screen > .message-action-copy {
   position: fixed;
   z-index: 9;
   box-sizing: border-box;
-  max-width: none;
   margin: 0;
   pointer-events: none;
+  opacity: 1;
+  transform: none;
+  animation: none;
+}
+
+.message-action-copy .conversation-bubble {
   opacity: 1;
   transform: none;
   animation: none;
