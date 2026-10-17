@@ -9,6 +9,22 @@
   height: 0;
 }
 
+:focus:not(:focus-visible) {
+  outline: none !important;
+  box-shadow: none !important;
+}
+
+html.has-pointer-focus :focus,
+html.has-pointer-focus :focus-visible,
+html.has-pointer-focus :focus-within {
+  outline: none !important;
+}
+
+html.has-pointer-focus :focus,
+html.has-pointer-focus :focus-visible {
+  box-shadow: none !important;
+}
+
 body {
   margin: 0;
   min-height: 100vh;
@@ -409,16 +425,6 @@ display: flex;
   height: 184px;
   object-fit: contain;
   opacity: 0.5;
-}
-
-.daily-quests-gems {
-  position: absolute;
-  z-index: 1;
-  top: 6px;
-  right: 10px;
-  width: 190px;
-  height: 190px;
-  object-fit: contain;
 }
 
 .daily-clipboard {
@@ -888,13 +894,6 @@ display: flex;
     width: 48%;
   }
 
-  .daily-quests-gems {
-    top: 20px;
-    right: -12px;
-    width: 140px;
-    height: 140px;
-  }
-
   .daily-quests-gem-effect {
     top: -4px;
     right: -4px;
@@ -1180,7 +1179,7 @@ body.chats-screen {
 
 .chats-screen .site-header {
   background: #fff;
-  box-shadow: 0 1px 0 #f1f2f4;
+  box-shadow: none;
 }
 
 .chats-page {
@@ -1189,9 +1188,39 @@ body.chats-screen {
   box-sizing: border-box;
 }
 
+.chats-search-panel {
+  width: min(100%, 720px);
+  max-height: 0;
+  box-sizing: border-box;
+  margin: 0 auto;
+  padding: 0 10px;
+  overflow: hidden;
+  opacity: 0;
+  transform: translateY(-18px);
+  transition: max-height 360ms cubic-bezier(0.2, 0.8, 0.2, 1), padding 360ms cubic-bezier(0.2, 0.8, 0.2, 1), opacity 220ms ease, transform 360ms cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+.chats-page.is-search-open .chats-search-panel {
+  max-height: 66px;
+  padding-top: 10px;
+  padding-bottom: 10px;
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.chats-search {
+  width: 100%;
+}
+
 .chat-list {
   width: min(100%, 720px);
   margin: 0 auto;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .chats-search-panel {
+    transition: max-height 180ms ease, padding 180ms ease, opacity 120ms ease, transform 180ms ease;
+  }
 }
 
 .chat-row {
@@ -1250,6 +1279,8 @@ body.chats-screen {
 .avatar-14 { background: linear-gradient(145deg, #7bc6d6, #33739e); }
 .avatar-15 { background: linear-gradient(145deg, #be8e65, #67432e); }
 .avatar-portal { background: linear-gradient(145deg, #39b66d, #17663e); font-size: 29px; }
+.avatar-favorites { background: linear-gradient(90deg, #67a3ff, #418cff); }
+.avatar-favorites svg { width: 34px; height: 30px; fill: #fff; }
 
 .chat-copy {
   display: flex;
@@ -1425,11 +1456,7 @@ body.chats-screen {
 
 .conversation-screen {
   isolation: isolate;
-  background-color: #dce8ad;
-  background-image:
-    linear-gradient(135deg, rgba(246, 235, 145, 0.42), rgba(104, 181, 146, 0.42)),
-    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='180' viewBox='0 0 180 180'%3E%3Cg fill='none' stroke='%235d7956' stroke-opacity='.2' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M28 18v25m-8-8h16m-13-13 10 17m0-17L23 35M120 22c-8-9-21 2 0 17 21-15 8-26 0-17ZM33 105c12-14 29 0 0 20-29-20-12-34 0-20Zm83 34 6-15 6 15 15 6-15 6-6 15-6-15-15-6 15-6ZM153 64c10-8 18 2 9 9l-10 10-10-10c-9-7-1-17 9-9ZM45 58a10 10 0 1 0 20 0 10 10 0 0 0-20 0Zm79 1h24m-12-12v24m-76 72c10-8 18 2 9 9l-10 10-10-10c-9-7-1-17 9-9Z'/%3E%3C/g%3E%3C/svg%3E");
-  background-size: cover, 180px 180px;
+  background: url("chat_bg.png") center / cover no-repeat;
 }
 
 .conversation-screen[hidden],
@@ -1738,6 +1765,10 @@ body.chats-screen {
   background: rgba(255, 255, 255, 0.82);
   color: #68736e;
   font-size: 14px;
+}
+
+.conversation-readonly-notice[hidden] {
+  display: none;
 }
 
 .conversation-readonly-notice svg {

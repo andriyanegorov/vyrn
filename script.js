@@ -1,4 +1,14 @@
 const navItems = [...document.querySelectorAll('.nav-button')];
+const keyboardFocusKeys = new Set(['Tab', 'ArrowDown', 'ArrowUp', 'ArrowLeft', 'ArrowRight', 'Home', 'End', 'PageUp', 'PageDown', 'Enter', ' ']);
+document.addEventListener('pointerdown', () => {
+	document.documentElement.classList.add('has-pointer-focus');
+}, true);
+document.addEventListener('keydown', (event) => {
+	if (keyboardFocusKeys.has(event.key)) {
+		document.documentElement.classList.remove('has-pointer-focus');
+	}
+}, true);
+
 const navButtons = navItems.filter((item) => item.tagName === 'BUTTON');
 const bottomNav = document.querySelector('.bottom-nav');
 const navIndicator = document.querySelector('.nav-indicator');
@@ -63,8 +73,8 @@ if (profileEditButton && profileEditorDialog && profileEditorForm && profileAvat
 	}
 	if (telegramUser) {
 		const hasCustomName = storedProfile?.nameIsCustom ?? (
-			profileData.firstName !== storedName[0]
-			|| profileData.lastName !== storedName.slice(1).join(' ')
+			profileData.firstName !== defaultProfile.firstName
+			|| profileData.lastName !== defaultProfile.lastName
 		);
 		if (!hasCustomName) {
 			profileData.firstName = defaultProfile.firstName;
@@ -80,10 +90,15 @@ if (profileEditButton && profileEditorDialog && profileEditorForm && profileAvat
 
 	const setAvatarImage = (image, fallback, source) => {
 		if (source) {
+			image.onerror = () => {
+				image.hidden = true;
+				fallback.hidden = false;
+			};
 			image.src = source;
 			image.hidden = false;
 			fallback.hidden = true;
 		} else {
+			image.onerror = null;
 			image.removeAttribute('src');
 			image.hidden = true;
 			fallback.hidden = false;
@@ -663,6 +678,59 @@ navItems.filter((item) => item.tagName === 'A').forEach((link) => {
 
 const chatRows = [...document.querySelectorAll('.chat-row')];
 const conversationDialog = document.querySelector('.conversation-dialog');
+const chatsPage = document.querySelector('.chats-page');
+const chatsSearchInput = chatsPage?.querySelector('.chats-search-input');
+
+if (chatsPage && chatsSearchInput) {
+	let pullStart = null;
+	const filterChats = () => {
+		const query = chatsSearchInput.value.trim().toLocaleLowerCase('ru-RU');
+		chatRows.forEach((row) => {
+			const searchableText = `${row.querySelector('.chat-name').textContent} ${row.querySelector('.chat-message').textContent}`;
+			row.hidden = !searchableText.toLocaleLowerCase('ru-RU').includes(query);
+		});
+	};
+
+	chatsSearchInput.addEventListener('input', filterChats);
+	chatsSearchInput.addEventListener('keydown', (event) => {
+		if (event.key === 'Escape') {
+			chatsSearchInput.value = '';
+			filterChats();
+			chatsPage.classList.remove('is-search-open');
+		}
+	});
+
+	chatsPage.addEventListener('touchstart', (event) => {
+		if (event.touches.length !== 1 || event.target.closest('.chats-search')) {
+			pullStart = null;
+			return;
+		}
+
+		const touch = event.touches[0];
+		pullStart = { x: touch.clientX, y: touch.clientY, atTop: window.scrollY <= 0 };
+	}, { passive: true });
+
+	chatsPage.addEventListener('touchmove', (event) => {
+		if (!pullStart || !pullStart.atTop || window.scrollY > 0 || event.touches.length !== 1) {
+			return;
+		}
+
+		const touch = event.touches[0];
+		const deltaY = touch.clientY - pullStart.y;
+		const deltaX = touch.clientX - pullStart.x;
+		if (deltaY > 10 && deltaY > Math.abs(deltaX)) {
+			event.preventDefault();
+		}
+		if (deltaY >= 58 && deltaY > Math.abs(deltaX)) {
+			chatsPage.classList.add('is-search-open');
+			pullStart = null;
+		}
+	}, { passive: false });
+
+	chatsPage.addEventListener('touchend', () => { pullStart = null; }, { passive: true });
+	chatsPage.addEventListener('touchcancel', () => { pullStart = null; }, { passive: true });
+}
+
 if (chatRows.length && conversationDialog) {
 	const conversationScreen = conversationDialog.querySelector('.conversation-screen');
 	const conversationProfile = conversationDialog.querySelector('.conversation-profile');
@@ -670,19 +738,44 @@ if (chatRows.length && conversationDialog) {
 	const conversationMessageList = conversationDialog.querySelector('.conversation-message-list');
 	const conversationPeerName = conversationDialog.querySelector('.conversation-peer-name');
 	const conversationAvatarSlot = conversationDialog.querySelector('.conversation-avatar-slot');
+	const conversationComposer = conversationDialog.querySelector('.conversation-composer');
+	const conversationReadonlyNotice = conversationDialog.querySelector('.conversation-readonly-notice');
+	const conversationAttach = conversationDialog.querySelector('.conversation-attach');
+	const conversationInputShell = conversationDialog.querySelector('.conversation-input-shell');
+	const conversationInput = conversationDialog.querySelector('.conversation-input');
+	const conversationSend = conversationDialog.querySelector('.conversation-send');
+	const favoritesChatIndex = chatRows.findIndex((row) => row.dataset.chatType === 'favorites');
+	const favoritesStorageKey = 'vyrn.favorites.messages.v1';
 	const playerProfileName = conversationProfile.querySelector('.profile-name');
 	const playerProfileStatus = conversationProfile.querySelector('.profile-status');
 	const playerProfileUsername = conversationProfile.querySelector('.player-profile-username');
 	const playerProfileBio = conversationProfile.querySelector('.player-profile-bio');
 	const playerProfiles = [
-		{ username: 'Канал', status: 'официальный канал', bio: 'Новости и обновления проекта VYRN' }
+		{ username: 'Канал', status: 'официальный канал', bio: 'Новости и обновления проекта VYRN', notice: 'Канал доступен только для чтения' },
+		{ username: 'Личное', status: 'только вы', bio: 'Личное пространство для избранных сообщений.', notice: '', canSend: true }
 	];
+	let favoriteMessages = [];
+	try {
+		const savedMessages = JSON.parse(localStorage.getItem(favoritesStorageKey));
+		if (Array.isArray(savedMessages)) {
+			favoriteMessages = savedMessages
+				.filter((message) => message && typeof message.text === 'string' && typeof message.time === 'string')
+				.map((message) => ({ text: message.text.slice(0, 4096), time: message.time, outgoing: true }));
+		}
+	} catch {
+		favoriteMessages = [];
+	}
 	const conversationThreads = [
 		[
 			{ text: 'Добро пожаловать в VYRN — Портал. Здесь будут публиковаться новости и обновления проекта.', time: '12:00' }
-		]
+		],
+		favoriteMessages
 	];
 	let activeChatIndex = -1;
+	const favoritesPreview = chatRows[favoritesChatIndex]?.querySelector('.chat-message');
+	if (favoritesPreview && favoriteMessages.length) {
+		favoritesPreview.textContent = favoriteMessages.at(-1).text;
+	}
 
 	const renderConversationMessages = () => {
 		conversationMessageList.replaceChildren();
@@ -743,15 +836,54 @@ if (chatRows.length && conversationDialog) {
 				conversationPeerName.append(channelBadge.cloneNode(true));
 			}
 			playerProfileName.textContent = name;
-			playerProfileStatus.textContent = playerProfiles[index].status;
-			playerProfileUsername.textContent = playerProfiles[index].username;
-			playerProfileBio.textContent = playerProfiles[index].bio;
+			const profile = playerProfiles[index];
+			playerProfileStatus.textContent = profile.status;
+			playerProfileUsername.textContent = profile.username;
+			playerProfileBio.textContent = profile.bio;
+			conversationReadonlyNotice.querySelector('span').textContent = profile.notice;
+			conversationReadonlyNotice.hidden = Boolean(profile.canSend);
+			conversationComposer.classList.toggle('conversation-readonly', !profile.canSend);
+			conversationAttach.hidden = !profile.canSend;
+			conversationAttach.disabled = !profile.canSend;
+			conversationInputShell.hidden = !profile.canSend;
+			conversationInput.disabled = !profile.canSend;
+			conversationSend.hidden = !profile.canSend;
+			conversationSend.disabled = !profile.canSend;
 			conversationDialog.setAttribute('aria-label', `Переписка: ${name}`);
 			showConversationProfile(false);
 			renderConversationMessages();
 			conversationDialog.showModal();
-			conversationDialog.querySelector('.conversation-back').focus();
+			(profile.canSend ? conversationInput : conversationDialog.querySelector('.conversation-back')).focus();
 		});
+	});
+
+	const sendFavoriteMessage = () => {
+		const text = conversationInput.value.trim();
+		if (!text || activeChatIndex !== favoritesChatIndex) {
+			return;
+		}
+
+		const time = new Intl.DateTimeFormat('ru-RU', { hour: '2-digit', minute: '2-digit' }).format(new Date());
+		const message = { text, time, outgoing: true };
+		conversationThreads[favoritesChatIndex].push(message);
+		try {
+			localStorage.setItem(favoritesStorageKey, JSON.stringify(conversationThreads[favoritesChatIndex]));
+		} catch {
+		}
+		conversationInput.value = '';
+		if (favoritesPreview) {
+			favoritesPreview.textContent = text;
+		}
+		renderConversationMessages();
+		conversationInput.focus();
+	};
+
+	conversationSend.addEventListener('click', sendFavoriteMessage);
+	conversationInput.addEventListener('keydown', (event) => {
+		if (event.key === 'Enter') {
+			event.preventDefault();
+			sendFavoriteMessage();
+		}
 	});
 
 	conversationDialog.querySelector('.conversation-back').addEventListener('click', () => conversationDialog.close());
