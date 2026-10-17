@@ -1679,12 +1679,13 @@ body.chats-screen {
   flex: 1;
   flex-direction: column;
   gap: 10px;
-  padding: 12px 14px calc(96px + env(safe-area-inset-bottom, 0px));
+  margin-top: calc(-92px - env(safe-area-inset-top, 0px));
+  padding: calc(104px + env(safe-area-inset-top, 0px)) 14px calc(96px + env(safe-area-inset-bottom, 0px));
   overflow-x: hidden;
   overflow-y: auto;
   scrollbar-width: none;
-  -webkit-mask-image: linear-gradient(to bottom, #000 0%, #000 calc(100% - 144px), rgba(0, 0, 0, 0.86) calc(100% - 104px), rgba(0, 0, 0, 0.48) calc(100% - 52px), transparent 100%);
-  mask-image: linear-gradient(to bottom, #000 0%, #000 calc(100% - 144px), rgba(0, 0, 0, 0.86) calc(100% - 104px), rgba(0, 0, 0, 0.48) calc(100% - 52px), transparent 100%);
+  -webkit-mask-image: linear-gradient(to bottom, transparent 0, rgba(0, 0, 0, 0.48) 52px, rgba(0, 0, 0, 0.86) 104px, #000 144px, #000 calc(100% - 144px), rgba(0, 0, 0, 0.86) calc(100% - 104px), rgba(0, 0, 0, 0.48) calc(100% - 52px), transparent 100%);
+  mask-image: linear-gradient(to bottom, transparent 0, rgba(0, 0, 0, 0.48) 52px, rgba(0, 0, 0, 0.86) 104px, #000 144px, #000 calc(100% - 144px), rgba(0, 0, 0, 0.86) calc(100% - 104px), rgba(0, 0, 0, 0.48) calc(100% - 52px), transparent 100%);
 }
 
 .conversation-messages::-webkit-scrollbar {
@@ -2437,12 +2438,10 @@ body.chats-screen {
 @keyframes profile-editor-enter {
   from {
     opacity: 0.65;
-    transform: translateY(14px);
   }
 
   to {
     opacity: 1;
-    transform: translateY(0);
   }
 }
 
@@ -2473,7 +2472,7 @@ body.chats-screen {
 }
 
 .profile-editor-header {
-  position: absolute;
+  position: fixed;
   z-index: 3;
   inset: 0 0 auto;
   display: flex;
@@ -2508,11 +2507,11 @@ body.chats-screen {
 .profile-editor-avatar {
   position: absolute;
   z-index: 2;
-  top: max(38px, calc(env(safe-area-inset-top, 0px) + 16px));
+  top: 56px;
   left: 50%;
   display: grid;
-  width: 136px;
-  height: 136px;
+  width: 112px;
+  height: 112px;
   padding: 0;
   place-items: center;
   overflow: hidden;
@@ -2541,6 +2540,7 @@ body.chats-screen {
 }
 
 .profile-editor-scroll {
+  position: relative;
   width: 100%;
   height: 100%;
   box-sizing: border-box;
