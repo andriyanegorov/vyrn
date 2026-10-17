@@ -1707,6 +1707,18 @@ body.chats-screen {
   z-index: 9;
 }
 
+.message-action-bubble {
+  position: fixed;
+  z-index: 9;
+  box-sizing: border-box;
+  max-width: none;
+  margin: 0;
+  pointer-events: none;
+  opacity: 1;
+  transform: none;
+  animation: none;
+}
+
 .conversation-bubble {
   display: flex;
   max-width: min(82%, 520px);

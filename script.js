@@ -14,6 +14,18 @@ const bottomNav = document.querySelector('.bottom-nav');
 const navIndicator = document.querySelector('.nav-indicator');
 let activeItem = document.querySelector('.nav-button.is-active');
 const telegramWebApp = window.Telegram?.WebApp;
+const getTelegramUser = () => {
+	if (telegramWebApp?.initDataUnsafe?.user) {
+		return telegramWebApp.initDataUnsafe.user;
+	}
+
+	try {
+		const userData = new URLSearchParams(telegramWebApp?.initData || '').get('user');
+		return userData ? JSON.parse(userData) : null;
+	} catch {
+		return null;
+	}
+};
 telegramWebApp?.ready();
 
 const collectionCarousel = document.querySelector('.collection-carousel');
@@ -37,19 +49,22 @@ if (collectionCarousel) {
 	});
 }
 
-requestAnimationFrame(() => {
+{
 	const profileEditButton = document.querySelector('.profile-page:not(.player-profile-page) .profile-edit-button');
+const profileContentElement = document.querySelector('.profile-page:not(.player-profile-page) .profile-content');
+const profileAvatarElement = document.querySelector('.profile-page:not(.player-profile-page) .profile-avatar');
+const profileNameElement = document.querySelector('.profile-page:not(.player-profile-page) .profile-name');
 const profileEditorDialog = document.querySelector('.profile-editor-dialog');
 const profileEditorForm = profileEditorDialog?.querySelector('.profile-editor-form');
 const profileEditorPhotoImage = profileEditorForm?.querySelector('.profile-editor-avatar-image');
 const profileEditorError = profileEditorForm?.querySelector('.profile-editor-error');
 const profileEditorBirthdayValue = profileEditorForm?.querySelector('.profile-editor-birthday-value');
-const profileAvatarImage = profileAvatar?.querySelector('.profile-avatar-image');
-const profileDetailValues = profileContent ? [...profileContent.querySelectorAll('.profile-detail-value')] : [];
+const profileAvatarImage = profileAvatarElement?.querySelector('.profile-avatar-image');
+const profileDetailValues = profileContentElement ? [...profileContentElement.querySelectorAll('.profile-detail-value')] : [];
 
-if (profileEditButton && profileEditorDialog && profileEditorForm && profileAvatar && profileName && profileDetailValues.length >= 2) {
-	const telegramUser = telegramWebApp?.initDataUnsafe?.user;
-	const storedName = profileName.textContent.trim().split(/\s+/);
+if (profileEditButton && profileEditorDialog && profileEditorForm && profileAvatarElement && profileNameElement && profileDetailValues.length >= 2) {
+	const telegramUser = getTelegramUser();
+	const storedName = profileNameElement.textContent.trim().split(/\s+/);
 	const defaultProfile = {
 		firstName: telegramUser?.first_name || storedName[0] || '',
 		lastName: telegramUser ? telegramUser.last_name || '' : storedName.slice(1).join(' '),
@@ -127,7 +142,7 @@ if (profileEditButton && profileEditorDialog && profileEditorForm && profileAvat
 	};
 
 	const renderProfile = () => {
-		profileName.textContent = [profileData.firstName, profileData.lastName].filter(Boolean).join(' ');
+		profileNameElement.textContent = [profileData.firstName, profileData.lastName].filter(Boolean).join(' ');
 		profileDetailValues[0].textContent = profileData.username || '';
 		profileDetailValues[1].textContent = profileData.about || '';
 		setAvatarImage(profileAvatarImage, profileData.avatar);
@@ -192,7 +207,7 @@ if (profileEditButton && profileEditorDialog && profileEditorForm && profileAvat
 		profileEditorDialog.close();
 	});
 }
-});
+}
 
 const nftCollection = [
 	{ slug: 'algorithmcup', id: 64, name: 'Algorithm Cups', lastSaleTon: 5000 },
@@ -791,6 +806,7 @@ if (chatRows.length && conversationDialog) {
 	let pendingDeleteIndex = -1;
 	let activeMessageBubble;
 	let activeMessageRow;
+	let activeMessageClone;
 	const favoritesPreview = chatRows[favoritesChatIndex]?.querySelector('.chat-message');
 	if (favoritesPreview && favoriteMessages.length) {
 		favoritesPreview.textContent = favoriteMessages.at(-1).text;
@@ -830,10 +846,19 @@ if (chatRows.length && conversationDialog) {
 					pendingDeleteIndex = index;
 					activeMessageBubble = bubble;
 					activeMessageRow = row;
+					const bounds = bubble.getBoundingClientRect();
+					bubble.style.visibility = 'hidden';
 					row.classList.add('is-action-target');
 					messageActionScrim.hidden = false;
 					messageActionMenu.hidden = false;
-					const bounds = bubble.getBoundingClientRect();
+					activeMessageClone = bubble.cloneNode(true);
+					activeMessageClone.classList.add('message-action-bubble');
+					activeMessageClone.setAttribute('aria-hidden', 'true');
+					activeMessageClone.style.left = `${bounds.left}px`;
+					activeMessageClone.style.top = `${bounds.top}px`;
+					activeMessageClone.style.width = `${bounds.width}px`;
+					activeMessageClone.style.height = `${bounds.height}px`;
+					conversationScreen.append(activeMessageClone);
 					const menuBounds = messageActionMenu.getBoundingClientRect();
 					const horizontalPadding = 12;
 					const centeredLeft = bounds.left + (bounds.width - menuBounds.width) / 2;
@@ -1001,11 +1026,14 @@ if (chatRows.length && conversationDialog) {
 		messageActionScrim.hidden = true;
 		messageActionMenu.hidden = true;
 		activeMessageRow?.classList.remove('is-action-target');
+		activeMessageBubble?.style.removeProperty('visibility');
+		activeMessageClone?.remove();
 		if (restoreFocus) {
 			activeMessageRow?.focus();
 		}
 		activeMessageBubble = undefined;
 		activeMessageRow = undefined;
+		activeMessageClone = undefined;
 		pendingDeleteIndex = -1;
 	};
 	messageActionScrim.addEventListener('click', () => closeMessageActionMenu(true));
