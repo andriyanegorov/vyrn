@@ -42,11 +42,9 @@ requestAnimationFrame(() => {
 const profileEditorDialog = document.querySelector('.profile-editor-dialog');
 const profileEditorForm = profileEditorDialog?.querySelector('.profile-editor-form');
 const profileEditorPhotoImage = profileEditorForm?.querySelector('.profile-editor-avatar-image');
-	const profileEditorPhotoFallback = profileEditorForm?.querySelector('.profile-editor-avatar span');
 const profileEditorError = profileEditorForm?.querySelector('.profile-editor-error');
 const profileEditorBirthdayValue = profileEditorForm?.querySelector('.profile-editor-birthday-value');
 const profileAvatarImage = profileAvatar?.querySelector('.profile-avatar-image');
-const profileAvatarFallback = profileAvatar?.querySelector('span');
 const profileDetailValues = profileContent ? [...profileContent.querySelectorAll('.profile-detail-value')] : [];
 
 if (profileEditButton && profileEditorDialog && profileEditorForm && profileAvatar && profileName && profileDetailValues.length >= 2) {
@@ -71,10 +69,26 @@ if (profileEditButton && profileEditorDialog && profileEditorForm && profileAvat
 	} catch {
 		profileData = defaultProfile;
 	}
+	const isLegacyPlaceholder = storedProfile?.nameIsCustom === true
+		&& profileData.firstName.trim().toLocaleLowerCase('ru-RU') === 'vyrn'
+		&& !profileData.lastName.trim();
+	if (isLegacyPlaceholder) {
+		profileData.firstName = defaultProfile.firstName;
+		profileData.lastName = defaultProfile.lastName;
+		profileData.avatar = defaultProfile.avatar;
+		storedProfile = {
+			...storedProfile,
+			firstName: profileData.firstName,
+			lastName: profileData.lastName,
+			nameIsCustom: false,
+			avatar: profileData.avatar
+		};
+		try {
+			localStorage.setItem('vyrn.profile.editor.v1', JSON.stringify(storedProfile));
+		} catch {
+		}
+	}
 	if (telegramUser) {
-		const isLegacyPlaceholder = storedProfile?.nameIsCustom === true
-			&& profileData.firstName.trim().toLocaleLowerCase('ru-RU') === 'vyrn'
-			&& !profileData.lastName.trim();
 		const hasCustomName = !isLegacyPlaceholder && (storedProfile?.nameIsCustom ?? (
 			profileData.firstName !== defaultProfile.firstName
 			|| profileData.lastName !== defaultProfile.lastName
@@ -83,38 +97,23 @@ if (profileEditButton && profileEditorDialog && profileEditorForm && profileAvat
 			profileData.firstName = defaultProfile.firstName;
 			profileData.lastName = defaultProfile.lastName;
 		}
-		if (isLegacyPlaceholder) {
-			storedProfile = {
-				...storedProfile,
-				firstName: defaultProfile.firstName,
-				lastName: defaultProfile.lastName,
-				nameIsCustom: false
-			};
-			try {
-				localStorage.setItem('vyrn.profile.editor.v1', JSON.stringify(storedProfile));
-			} catch {
-			}
-		}
 		if (!profileData.username || profileData.username === profileDetailValues[0].textContent.trim()) {
 			profileData.username = defaultProfile.username;
 		}
 		profileData.avatar = telegramUser.photo_url || '';
 	}
 
-	const setAvatarImage = (image, fallback, source) => {
+	const setAvatarImage = (image, source) => {
 		if (source) {
 			image.onerror = () => {
 				image.hidden = true;
-				fallback.hidden = false;
 			};
 			image.src = source;
 			image.hidden = false;
-			fallback.hidden = true;
 		} else {
 			image.onerror = null;
 			image.removeAttribute('src');
 			image.hidden = true;
-			fallback.hidden = false;
 		}
 	};
 	const formatBirthday = (value) => {
@@ -128,10 +127,10 @@ if (profileEditButton && profileEditorDialog && profileEditorForm && profileAvat
 	};
 
 	const renderProfile = () => {
-		profileName.textContent = [profileData.firstName, profileData.lastName].filter(Boolean).join(' ') || 'vyrn';
+		profileName.textContent = [profileData.firstName, profileData.lastName].filter(Boolean).join(' ');
 		profileDetailValues[0].textContent = profileData.username || '';
 		profileDetailValues[1].textContent = profileData.about || '';
-		setAvatarImage(profileAvatarImage, profileAvatarFallback, profileData.avatar);
+		setAvatarImage(profileAvatarImage, profileData.avatar);
 	};
 
 	const loadProfileEditor = () => {
@@ -146,7 +145,7 @@ if (profileEditButton && profileEditorDialog && profileEditorForm && profileAvat
 		}
 		profileEditorBirthdayValue.textContent = formatBirthday(profileData.birthday);
 		profileEditorError.hidden = true;
-		setAvatarImage(profileEditorPhotoImage, profileEditorPhotoFallback, profileData.avatar);
+		setAvatarImage(profileEditorPhotoImage, profileData.avatar);
 	};
 
 	renderProfile();
