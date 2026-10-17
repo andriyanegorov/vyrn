@@ -72,20 +72,33 @@ if (profileEditButton && profileEditorDialog && profileEditorForm && profileAvat
 		profileData = defaultProfile;
 	}
 	if (telegramUser) {
-		const hasCustomName = storedProfile?.nameIsCustom ?? (
+		const isLegacyPlaceholder = storedProfile?.nameIsCustom === true
+			&& profileData.firstName.trim().toLocaleLowerCase('ru-RU') === 'vyrn'
+			&& !profileData.lastName.trim();
+		const hasCustomName = !isLegacyPlaceholder && (storedProfile?.nameIsCustom ?? (
 			profileData.firstName !== defaultProfile.firstName
 			|| profileData.lastName !== defaultProfile.lastName
-		);
+		));
 		if (!hasCustomName) {
 			profileData.firstName = defaultProfile.firstName;
 			profileData.lastName = defaultProfile.lastName;
 		}
+		if (isLegacyPlaceholder) {
+			storedProfile = {
+				...storedProfile,
+				firstName: defaultProfile.firstName,
+				lastName: defaultProfile.lastName,
+				nameIsCustom: false
+			};
+			try {
+				localStorage.setItem('vyrn.profile.editor.v1', JSON.stringify(storedProfile));
+			} catch {
+			}
+		}
 		if (!profileData.username || profileData.username === profileDetailValues[0].textContent.trim()) {
 			profileData.username = defaultProfile.username;
 		}
-		if (telegramUser.photo_url) {
-			profileData.avatar = defaultProfile.avatar;
-		}
+		profileData.avatar = telegramUser.photo_url || '';
 	}
 
 	const setAvatarImage = (image, fallback, source) => {
@@ -737,6 +750,7 @@ if (chatRows.length && conversationDialog) {
 	const conversationMessages = conversationDialog.querySelector('.conversation-messages');
 	const conversationMessageList = conversationDialog.querySelector('.conversation-message-list');
 	const conversationPeerName = conversationDialog.querySelector('.conversation-peer-name');
+	const conversationPeerStatus = conversationDialog.querySelector('.conversation-peer-status');
 	const conversationAvatarSlot = conversationDialog.querySelector('.conversation-avatar-slot');
 	const conversationComposer = conversationDialog.querySelector('.conversation-composer');
 	const conversationReadonlyNotice = conversationDialog.querySelector('.conversation-readonly-notice');
@@ -744,6 +758,9 @@ if (chatRows.length && conversationDialog) {
 	const conversationInputShell = conversationDialog.querySelector('.conversation-input-shell');
 	const conversationInput = conversationDialog.querySelector('.conversation-input');
 	const conversationSend = conversationDialog.querySelector('.conversation-send');
+	const messageActionScrim = conversationDialog.querySelector('.message-action-scrim');
+	const messageActionMenu = conversationDialog.querySelector('.message-action-menu');
+	const messageDeleteAction = conversationDialog.querySelector('.message-delete-action');
 	const favoritesChatIndex = chatRows.findIndex((row) => row.dataset.chatType === 'favorites');
 	const favoritesStorageKey = 'vyrn.favorites.messages.v1';
 	const playerProfileName = conversationProfile.querySelector('.profile-name');
@@ -751,8 +768,8 @@ if (chatRows.length && conversationDialog) {
 	const playerProfileUsername = conversationProfile.querySelector('.player-profile-username');
 	const playerProfileBio = conversationProfile.querySelector('.player-profile-bio');
 	const playerProfiles = [
-		{ username: 'Канал', status: 'официальный канал', bio: 'Новости и обновления проекта VYRN', notice: 'Канал доступен только для чтения' },
-		{ username: 'Личное', status: 'только вы', bio: 'Личное пространство для избранных сообщений.', notice: '', canSend: true }
+		{ username: 'Канал', status: 'официальный канал', headerStatus: 'официальный канал', bio: 'Новости и обновления проекта VYRN', notice: 'Канал доступен только для чтения' },
+		{ username: 'Личное', status: 'только вы', headerStatus: 'Сохранённые сообщения', bio: 'Личное пространство для избранных сообщений.', notice: '', canSend: true }
 	];
 	let favoriteMessages = [];
 	try {
@@ -772,19 +789,102 @@ if (chatRows.length && conversationDialog) {
 		favoriteMessages
 	];
 	let activeChatIndex = -1;
+	let pendingDeleteIndex = -1;
+	let activeMessageBubble;
+	let activeMessageRow;
 	const favoritesPreview = chatRows[favoritesChatIndex]?.querySelector('.chat-message');
 	if (favoritesPreview && favoriteMessages.length) {
 		favoritesPreview.textContent = favoriteMessages.at(-1).text;
 	}
 
-	const renderConversationMessages = () => {
+	const renderConversationMessages = (animateLatest = false) => {
 		conversationMessageList.replaceChildren();
-		conversationThreads[activeChatIndex].forEach((message) => {
+		const messages = conversationThreads[activeChatIndex];
+		let latestMessageRow;
+		messages.forEach((message, index) => {
 			const row = document.createElement('article');
-			row.className = `conversation-message${message.outgoing ? ' is-outgoing' : ' is-incoming'}`;
+			const isAnimatedMessage = animateLatest && index === messages.length - 1;
+			row.className = `conversation-message${message.outgoing ? ' is-outgoing' : ' is-incoming'}${isAnimatedMessage ? ' is-appearance-pending' : ''}`;
+			row.tabIndex = message.outgoing ? 0 : -1;
+			if (message.outgoing) {
+				row.setAttribute('aria-label', `Сообщение: ${message.text}`);
+				row.setAttribute('aria-haspopup', 'menu');
+			}
+			if (isAnimatedMessage) {
+				latestMessageRow = row;
+			}
 
 			const bubble = document.createElement('div');
 			bubble.className = 'conversation-bubble';
+			if (message.outgoing) {
+				let holdTimer;
+				let startPoint;
+				let longPressTriggered = false;
+				const cancelHold = () => {
+					clearTimeout(holdTimer);
+					holdTimer = undefined;
+				};
+				const requestDelete = () => {
+					if (activeChatIndex !== favoritesChatIndex || !messageActionMenu.hidden) {
+						return;
+					}
+					pendingDeleteIndex = index;
+					activeMessageBubble = bubble;
+					activeMessageRow = row;
+					row.classList.add('is-action-target');
+					messageActionScrim.hidden = false;
+					messageActionMenu.hidden = false;
+					const bounds = bubble.getBoundingClientRect();
+					const menuBounds = messageActionMenu.getBoundingClientRect();
+					const horizontalPadding = 12;
+					const centeredLeft = bounds.left + (bounds.width - menuBounds.width) / 2;
+					const left = Math.min(Math.max(horizontalPadding, centeredLeft), window.innerWidth - menuBounds.width - horizontalPadding);
+					const belowTop = bounds.bottom + 8;
+					const top = belowTop + menuBounds.height <= window.innerHeight - horizontalPadding
+						? belowTop
+						: Math.max(horizontalPadding, bounds.top - menuBounds.height - 8);
+					messageActionMenu.style.left = `${left}px`;
+					messageActionMenu.style.top = `${top}px`;
+					messageDeleteAction.focus();
+				};
+				bubble.addEventListener('pointerdown', (event) => {
+					if (activeChatIndex !== favoritesChatIndex || event.button !== 0) {
+						return;
+					}
+					startPoint = { x: event.clientX, y: event.clientY };
+					longPressTriggered = false;
+					holdTimer = setTimeout(() => {
+						longPressTriggered = true;
+						requestDelete();
+					}, 500);
+				});
+				bubble.addEventListener('pointermove', (event) => {
+					if (startPoint && (Math.abs(event.clientX - startPoint.x) > 12 || Math.abs(event.clientY - startPoint.y) > 12)) {
+						cancelHold();
+					}
+				});
+				bubble.addEventListener('pointerup', cancelHold);
+				bubble.addEventListener('pointercancel', cancelHold);
+				bubble.addEventListener('pointerleave', cancelHold);
+				bubble.addEventListener('contextmenu', (event) => {
+					event.preventDefault();
+					longPressTriggered = true;
+					requestDelete();
+				});
+				row.addEventListener('click', (event) => {
+					if (longPressTriggered) {
+						event.preventDefault();
+						event.stopPropagation();
+						longPressTriggered = false;
+					}
+				});
+				row.addEventListener('keydown', (event) => {
+					if ((event.shiftKey && event.key === 'F10') || event.key === 'ContextMenu') {
+						event.preventDefault();
+						requestDelete();
+					}
+				});
+			}
 			const text = document.createElement('span');
 			text.className = 'conversation-message-text';
 			text.textContent = message.text;
@@ -806,7 +906,22 @@ if (chatRows.length && conversationDialog) {
 			row.append(bubble);
 			conversationMessageList.append(row);
 		});
-		conversationMessages.scrollTop = conversationMessages.scrollHeight;
+		if (animateLatest) {
+			conversationMessages.scrollTop = conversationMessages.scrollHeight;
+			const bubble = latestMessageRow.querySelector('.conversation-bubble');
+			const inputBounds = conversationInputShell.getBoundingClientRect();
+			const bubbleBounds = bubble.getBoundingClientRect();
+			const originX = inputBounds.left + inputBounds.width / 2 - (bubbleBounds.left + bubbleBounds.width / 2);
+			const originY = inputBounds.top + inputBounds.height / 2 - (bubbleBounds.top + bubbleBounds.height / 2);
+			bubble.style.setProperty('--message-origin-x', `${originX}px`);
+			bubble.style.setProperty('--message-origin-y', `${originY}px`);
+			requestAnimationFrame(() => {
+				latestMessageRow.classList.remove('is-appearance-pending');
+				latestMessageRow.classList.add('is-appearing');
+			});
+		} else {
+			conversationMessages.scrollTop = conversationMessages.scrollHeight;
+		}
 	};
 
 	const showConversationProfile = (showProfile) => {
@@ -835,8 +950,9 @@ if (chatRows.length && conversationDialog) {
 			if (channelBadge) {
 				conversationPeerName.append(channelBadge.cloneNode(true));
 			}
-			playerProfileName.textContent = name;
 			const profile = playerProfiles[index];
+			conversationPeerStatus.textContent = profile.headerStatus;
+			playerProfileName.textContent = name;
 			playerProfileStatus.textContent = profile.status;
 			playerProfileUsername.textContent = profile.username;
 			playerProfileBio.textContent = profile.bio;
@@ -853,6 +969,9 @@ if (chatRows.length && conversationDialog) {
 			showConversationProfile(false);
 			renderConversationMessages();
 			conversationDialog.showModal();
+			requestAnimationFrame(() => {
+				conversationMessages.scrollTop = conversationMessages.scrollHeight;
+			});
 			(profile.canSend ? conversationInput : conversationDialog.querySelector('.conversation-back')).focus();
 		});
 	});
@@ -874,11 +993,47 @@ if (chatRows.length && conversationDialog) {
 		if (favoritesPreview) {
 			favoritesPreview.textContent = text;
 		}
-		renderConversationMessages();
+		renderConversationMessages(true);
 		conversationInput.focus();
 	};
 
 	conversationSend.addEventListener('click', sendFavoriteMessage);
+	const closeMessageActionMenu = (restoreFocus = false) => {
+		messageActionScrim.hidden = true;
+		messageActionMenu.hidden = true;
+		activeMessageRow?.classList.remove('is-action-target');
+		if (restoreFocus) {
+			activeMessageRow?.focus();
+		}
+		activeMessageBubble = undefined;
+		activeMessageRow = undefined;
+		pendingDeleteIndex = -1;
+	};
+	messageActionScrim.addEventListener('click', () => closeMessageActionMenu(true));
+	messageDeleteAction.addEventListener('click', () => {
+		if (pendingDeleteIndex < 0 || activeChatIndex !== favoritesChatIndex) {
+			closeMessageActionMenu();
+			return;
+		}
+
+		conversationThreads[favoritesChatIndex].splice(pendingDeleteIndex, 1);
+		try {
+			localStorage.setItem(favoritesStorageKey, JSON.stringify(conversationThreads[favoritesChatIndex]));
+		} catch {
+		}
+		if (favoritesPreview) {
+			favoritesPreview.textContent = conversationThreads[favoritesChatIndex].at(-1)?.text || 'Ваши сохранённые сообщения';
+		}
+		closeMessageActionMenu();
+		renderConversationMessages();
+		conversationInput.focus();
+	});
+	messageActionMenu.addEventListener('keydown', (event) => {
+		if (event.key === 'Escape') {
+			event.preventDefault();
+			closeMessageActionMenu(true);
+		}
+	});
 	conversationInput.addEventListener('keydown', (event) => {
 		if (event.key === 'Enter') {
 			event.preventDefault();

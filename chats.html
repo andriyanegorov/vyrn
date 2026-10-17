@@ -4,9 +4,9 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Чаты | VYRN</title>
-  <link rel="stylesheet" href="style.css?v=focus-rings-20261017">
+  <link rel="stylesheet" href="style.css?v=chat-scroll-fade-overlay-20261017">
   <script src="https://cdnjs.cloudflare.com/ajax/libs/lottie-web/5.12.2/lottie.min.js" defer></script>
-  <script src="script.js?v=focus-rings-20261017" defer></script>
+  <script src="script.js?v=chat-scroll-latest-20261017" defer></script>
 </head>
 <body class="chats-screen">
   <header class="site-header">
@@ -25,7 +25,7 @@
     </div>
     <section class="chat-list" aria-label="Список чатов">
       <button class="chat-row" type="button" data-chat-type="channel">
-        <span class="chat-avatar avatar-portal" aria-hidden="true">🥇</span>
+        <span class="chat-avatar" aria-hidden="true"><img class="chat-avatar-image" src="vyrn_chat.jpg" alt=""></span>
         <span class="chat-copy">
           <span class="chat-heading"><span class="chat-name">VYRN — Портал<svg class="channel-verified" viewBox="50 850 1050 1400" aria-hidden="true"><path fill="#2A77F2" d="M1060.572,1539.875c0,40.272-50.427,72.083-62.225,108.422c-12.229,37.663,9.445,92.957-13.37,124.306c-23.043,31.662-82.482,28.024-114.145,51.067c-31.349,22.815-46.129,80.595-83.791,92.824c-36.339,11.799-82.094-25.874-122.366-25.874c-40.272,0-86.027,37.673-122.366,25.874c-37.663-12.229-52.443-70.009-83.792-92.824c-31.662-23.043-91.102-19.404-114.145-51.066c-22.815-31.349-1.141-86.643-13.369-124.306c-11.799-36.339-62.226-68.15-62.226-108.422c0-40.272,50.427-72.083,62.226-108.422c12.229-37.663-9.445-92.957,13.37-124.306c23.043-31.662,82.482-28.024,114.145-51.066c31.349-22.815,46.129-80.595,83.791-92.824c36.339-11.799,82.094,25.874,122.366,25.874c40.272,0,86.027-37.673,122.366-25.874c37.663,12.229,52.443,70.009,83.792,92.824c31.662,23.043,91.102,19.404,114.145,51.067c22.815,31.349,1.141,86.643,13.369,124.306C1010.146,1467.792,1060.572,1499.603,1060.572,1539.875z"/><path d="m414 1538 137 137 286-320" fill="none" stroke="#fff" stroke-linecap="round" stroke-linejoin="round" stroke-width="110"/></svg></span><span class="chat-time">Канал</span></span>
           <span class="chat-preview"><span class="chat-message">Официальный канал проекта</span></span>
@@ -81,6 +81,13 @@
         </div>
         <button class="conversation-send" type="submit" aria-label="Отправить сообщение" hidden disabled>
           <svg viewBox="0 0 100 100" aria-hidden="true"><path fill="currentColor" d="M88.723 12.142C76.419 17.238 23.661 39.091 9.084 45.047c-9.776 3.815-4.053 7.392-4.053 7.392s8.345 2.861 15.499 5.007c7.153 2.146 10.968-.238 10.968-.238l33.62-22.652c11.922-8.107 9.061-1.431 6.199 1.431-6.199 6.2-16.452 15.975-25.036 23.844-3.815 3.338-1.908 6.199-.238 7.63 6.199 5.246 23.129 15.976 24.082 16.691 5.037 3.566 14.945 8.699 16.452-2.146 0 0 5.961-37.435 5.961-37.435 1.908-12.637 3.815-24.321 4.053-27.659.715-10.491-7.869-7.153-7.869-7.153Z"/></svg>
+        </button>
+      </div>
+      <button class="message-action-scrim" type="button" aria-label="Отменить действие с сообщением" hidden></button>
+      <div class="message-action-menu" role="menu" aria-label="Действия с сообщением" hidden>
+        <button class="message-delete-action" type="button" role="menuitem">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 6h18M8 6V4h8v2m3 0-1 14H6L5 6m4 4v6m6-6v6"/></svg>
+          <span>Удалить</span>
         </button>
       </div>
     </section>
