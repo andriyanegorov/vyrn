@@ -245,54 +245,20 @@ const createNftPreviewImage = (source, title, className) => {
 	return image;
 };
 
-const collectionCarousel = document.querySelector('.collection-carousel');
-if (collectionCarousel) {
-	const collectionPanel = collectionCarousel.closest('.collection-panel');
-	const collectionSlides = collectionCarousel.querySelector('.collection-slides');
-	const collectionPagination = collectionPanel.querySelector('.collection-pagination');
-	const collectionCount = collectionPanel.querySelector('.collection-count');
-	const collectionCountValue = collectionPanel.querySelector('.collection-count-copy strong');
-	const giftsPerPage = 3;
-	const pageCount = Math.ceil(nftCollection.length / giftsPerPage);
-
-	collectionCountValue.textContent = nftCollection.length.toLocaleString('ru-RU');
-	collectionCount.setAttribute('aria-label', `${nftCollection.length} NFT`);
-	collectionSlides.replaceChildren();
-	collectionPagination.replaceChildren();
-
-	for (let pageIndex = 0; pageIndex < pageCount; pageIndex++) {
-		const slide = document.createElement('div');
-		slide.className = 'collection-slide';
-		slide.hidden = pageIndex !== 0;
-		const pageGifts = nftCollection.slice(pageIndex * giftsPerPage, (pageIndex + 1) * giftsPerPage);
-		pageGifts.forEach((gift) => {
-			const title = `${gift.name} #${gift.id}`;
-			const image = createNftPreviewImage(getNftPreviewUrl(gift.slug, gift.id), title, 'collection-preview-image');
-			image.loading = 'lazy';
-			image.addEventListener('error', () => {
-				image.src = './placeholder.png';
-			}, { once: true });
-			slide.append(image);
-		});
-		collectionSlides.append(slide);
-
-		const dot = document.createElement('button');
-		dot.className = `collection-dot${pageIndex === 0 ? ' is-active' : ''}`;
-		dot.type = 'button';
-		dot.setAttribute('aria-label', `Страница ${pageIndex + 1}`);
-		dot.setAttribute('aria-pressed', String(pageIndex === 0));
-		dot.addEventListener('click', () => {
-			[...collectionSlides.children].forEach((item, index) => {
-				item.hidden = index !== pageIndex;
-			});
-			[...collectionPagination.children].forEach((item, index) => {
-				const isActive = index === pageIndex;
-				item.classList.toggle('is-active', isActive);
-				item.setAttribute('aria-pressed', String(isActive));
-			});
-		});
-		collectionPagination.append(dot);
-	}
+const collectionPreviewGrid = document.querySelector('.collection-preview-grid');
+if (collectionPreviewGrid) {
+	const collectionTotal = collectionPreviewGrid.closest('.collection-panel').querySelector('.collection-total');
+	collectionTotal.textContent = `${nftCollection.length.toLocaleString('ru-RU')} NFT`;
+	collectionPreviewGrid.replaceChildren();
+	nftCollection.slice(0, 3).forEach((gift) => {
+		const title = `${gift.name} #${gift.id}`;
+		const image = createNftPreviewImage(getNftPreviewUrl(gift.slug, gift.id), title, 'collection-preview-image');
+		image.loading = 'lazy';
+		image.addEventListener('error', () => {
+			image.src = './placeholder.png';
+		}, { once: true });
+		collectionPreviewGrid.append(image);
+	});
 }
 
 const marketGrid = document.querySelector('.market-grid');
@@ -922,7 +888,7 @@ if (chatRows.length && conversationDialog) {
 					pendingDeleteIndex = index;
 					activeMessageBubble = bubble;
 					activeMessageRow = row;
-					const bounds = row.getBoundingClientRect();
+					const bounds = bubble.getBoundingClientRect();
 					bubble.style.visibility = 'hidden';
 					row.classList.add('is-action-target');
 					messageActionScrim.hidden = false;
@@ -942,8 +908,8 @@ if (chatRows.length && conversationDialog) {
 					conversationScreen.append(activeMessageClone);
 					const menuBounds = messageActionMenu.getBoundingClientRect();
 					const horizontalPadding = 12;
-					const centeredLeft = bounds.left + (bounds.width - menuBounds.width) / 2;
-					const left = Math.min(Math.max(horizontalPadding, centeredLeft), window.innerWidth - menuBounds.width - horizontalPadding);
+					const alignedLeft = bounds.right - menuBounds.width;
+					const left = Math.min(Math.max(horizontalPadding, alignedLeft), window.innerWidth - menuBounds.width - horizontalPadding);
 					const belowTop = bounds.bottom + 8;
 					const top = belowTop + menuBounds.height <= window.innerHeight - horizontalPadding
 						? belowTop
