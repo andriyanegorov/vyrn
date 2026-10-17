@@ -2165,7 +2165,6 @@ body.chats-screen {
   display: grid;
   grid-template-columns: minmax(180px, 1fr) minmax(170px, 0.58fr) minmax(190px, 0.68fr);
   gap: 10px;
-  margin-top: 20px;
 }
 
 .market-search,
@@ -2310,20 +2309,43 @@ body.chats-screen {
 }
 
 .market-trade-nav {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 8px;
+  position: relative;
+  display: flex;
+  gap: 0;
   margin: 12px 0 16px;
+  padding: 4px;
+  border: 1px solid rgba(255, 255, 255, 0.82);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.58);
+  box-shadow: 0 10px 32px rgba(25, 35, 45, 0.1), inset 0 1px 0 rgba(255, 255, 255, 0.9);
+  -webkit-backdrop-filter: blur(24px) saturate(180%);
+  backdrop-filter: blur(24px) saturate(180%);
+}
+
+.market-trade-indicator {
+  position: absolute;
+  z-index: 0;
+  top: 4px;
+  bottom: 4px;
+  left: 4px;
+  width: var(--market-indicator-width, calc(100% / 3));
+  border-radius: 99px;
+  background: rgba(215, 215, 215, 0.72);
+  pointer-events: none;
+  transition: left 650ms cubic-bezier(0.2, 0.8, 0.2, 1), width 650ms cubic-bezier(0.2, 0.8, 0.2, 1);
 }
 
 .market-trade-button {
+  position: relative;
+  z-index: 1;
   display: block;
+  flex: 1;
   min-width: 0;
-  height: 46px;
+  min-height: 42px;
   padding: 0 12px;
-  border: 1px solid #e4e5e9;
+  border: 0;
   border-radius: 999px;
-  background: #fff;
+  background: transparent;
   color: #626671;
   font: inherit;
   font-size: 14px;
@@ -2332,10 +2354,14 @@ body.chats-screen {
 }
 
 .market-trade-button.is-active {
-  border-color: #c5def2;
-  background: #eaf4fc;
   color: #2481cc;
   font-weight: 600;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .market-trade-indicator {
+    transition-duration: 180ms;
+  }
 }
 
 .market-trade-button:focus-visible {
@@ -2718,17 +2744,59 @@ body.chats-screen {
   clip-path: inset(50%);
 }
 
-.profile-nft-button {
-  display: block;
+.profile-nft-tabs {
+  position: relative;
+  display: flex;
+  width: min(100%, 340px);
+  box-sizing: border-box;
+  padding: 4px;
+  border: 1px solid rgba(255, 255, 255, 0.82);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.58);
+  box-shadow: 0 10px 32px rgba(25, 35, 45, 0.1), inset 0 1px 0 rgba(255, 255, 255, 0.9);
+  -webkit-backdrop-filter: blur(24px) saturate(180%);
+  backdrop-filter: blur(24px) saturate(180%);
   margin: 12px auto 0;
-  padding: 8px 54px;
-  border: 1px solid #fff;
+}
+
+.profile-nft-indicator {
+  position: absolute;
+  z-index: 0;
+  top: 4px;
+  bottom: 4px;
+  left: 4px;
+  width: var(--profile-nft-indicator-width, calc(50% - 4px));
   border-radius: 99px;
-  background: #dddddd;
+  background: rgba(215, 215, 215, 0.72);
+  pointer-events: none;
+  transition: left 650ms cubic-bezier(0.2, 0.8, 0.2, 1), width 650ms cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+.profile-nft-button {
+  position: relative;
+  z-index: 1;
+  flex: 1;
+  min-width: 0;
+  min-height: 38px;
+  padding: 8px 14px;
+  border: 0;
+  border-radius: 99px;
+  background: transparent;
   color: #48494b;
   font: inherit;
   font-size: 13px;
   cursor: pointer;
+}
+
+.profile-nft-button.is-active {
+  color: #2481cc;
+  font-weight: 600;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .profile-nft-indicator {
+    transition-duration: 180ms;
+  }
 }
 
 .profile-nft-grid {

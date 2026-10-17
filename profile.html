@@ -4,10 +4,10 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Профиль | VYRN</title>
-  <link rel="stylesheet" href="style.css?v=profile-placeholders-20261017">
+  <link rel="stylesheet" href="style.css?v=profile-nft-slide-20261017">
   <script src="https://telegram.org/js/telegram-web-app.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/lottie-web/5.12.2/lottie.min.js" defer></script>
-  <script src="script.js?v=profile-initdata-immediate-20261017" defer></script>
+  <script src="script.js?v=profile-nft-slide-20261017" defer></script>
 </head>
 <body>
   <main class="profile-page">
@@ -30,7 +30,11 @@
           <p class="profile-detail-value">example description</p>
         </div>
       </section>
-      <button class="profile-nft-button" type="button">NFT</button>
+      <div class="profile-nft-tabs" role="group" aria-label="Разделы коллекции">
+        <span class="profile-nft-indicator" aria-hidden="true"></span>
+        <button class="profile-nft-button is-active" type="button" data-profile-view="nft" aria-pressed="true">NFT</button>
+        <button class="profile-nft-button" type="button" data-profile-view="sales" aria-pressed="false">В продаже</button>
+      </div>
       <section class="profile-nft-grid" aria-label="Коллекция NFT">
       </section>
     </div>

@@ -28,27 +28,6 @@ const getTelegramUser = () => {
 };
 telegramWebApp?.ready();
 
-const collectionCarousel = document.querySelector('.collection-carousel');
-if (collectionCarousel) {
-	const collectionSlides = [...collectionCarousel.querySelectorAll('.collection-slide')];
-	const collectionPanel = collectionCarousel.closest('.collection-panel');
-	const collectionDots = [...collectionPanel.querySelectorAll('.collection-dot')];
-
-	collectionDots.forEach((dot, activeIndex) => {
-		dot.addEventListener('click', () => {
-			collectionSlides.forEach((slide, index) => {
-				slide.hidden = index !== activeIndex;
-			});
-
-			collectionDots.forEach((item, index) => {
-				const isActive = index === activeIndex;
-				item.classList.toggle('is-active', isActive);
-				item.setAttribute('aria-pressed', String(isActive));
-			});
-		});
-	});
-}
-
 {
 	const profileEditButton = document.querySelector('.profile-page:not(.player-profile-page) .profile-edit-button');
 const profileContentElement = document.querySelector('.profile-page:not(.player-profile-page) .profile-content');
@@ -252,6 +231,56 @@ const createNftPreviewImage = (source, title, className) => {
 	return image;
 };
 
+const collectionCarousel = document.querySelector('.collection-carousel');
+if (collectionCarousel) {
+	const collectionPanel = collectionCarousel.closest('.collection-panel');
+	const collectionSlides = collectionCarousel.querySelector('.collection-slides');
+	const collectionPagination = collectionPanel.querySelector('.collection-pagination');
+	const collectionCount = collectionPanel.querySelector('.collection-count');
+	const collectionCountValue = collectionPanel.querySelector('.collection-count-copy strong');
+	const giftsPerPage = 3;
+	const pageCount = Math.ceil(nftCollection.length / giftsPerPage);
+
+	collectionCountValue.textContent = nftCollection.length.toLocaleString('ru-RU');
+	collectionCount.setAttribute('aria-label', `${nftCollection.length} NFT`);
+	collectionSlides.replaceChildren();
+	collectionPagination.replaceChildren();
+
+	for (let pageIndex = 0; pageIndex < pageCount; pageIndex++) {
+		const slide = document.createElement('div');
+		slide.className = 'collection-slide';
+		slide.hidden = pageIndex !== 0;
+		const pageGifts = nftCollection.slice(pageIndex * giftsPerPage, (pageIndex + 1) * giftsPerPage);
+		pageGifts.forEach((gift) => {
+			const title = `${gift.name} #${gift.id}`;
+			const image = createNftPreviewImage(getNftPreviewUrl(gift.slug, gift.id), title, 'collection-preview-image');
+			image.loading = 'lazy';
+			image.addEventListener('error', () => {
+				image.src = './placeholder.png';
+			}, { once: true });
+			slide.append(image);
+		});
+		collectionSlides.append(slide);
+
+		const dot = document.createElement('button');
+		dot.className = `collection-dot${pageIndex === 0 ? ' is-active' : ''}`;
+		dot.type = 'button';
+		dot.setAttribute('aria-label', `Страница ${pageIndex + 1}`);
+		dot.setAttribute('aria-pressed', String(pageIndex === 0));
+		dot.addEventListener('click', () => {
+			[...collectionSlides.children].forEach((item, index) => {
+				item.hidden = index !== pageIndex;
+			});
+			[...collectionPagination.children].forEach((item, index) => {
+				const isActive = index === pageIndex;
+				item.classList.toggle('is-active', isActive);
+				item.setAttribute('aria-pressed', String(isActive));
+			});
+		});
+		collectionPagination.append(dot);
+	}
+}
+
 const marketGrid = document.querySelector('.market-grid');
 if (marketGrid) {
 	const marketSearch = document.querySelector('.market-search-input');
@@ -259,8 +288,18 @@ if (marketGrid) {
 	const marketSort = document.querySelector('.market-sort');
 	const marketEmpty = document.querySelector('.market-empty');
 	const marketTradeButtons = [...document.querySelectorAll('.market-trade-button')];
+	const marketTradeNav = document.querySelector('.market-trade-nav');
+	const marketTradeIndicator = marketTradeNav.querySelector('.market-trade-indicator');
 	const marketCards = [];
 	let marketMode = 'all';
+	const moveMarketIndicator = (button) => {
+		const buttonBounds = button.getBoundingClientRect();
+		const navBounds = marketTradeNav.getBoundingClientRect();
+		marketTradeIndicator.style.left = `${buttonBounds.left - navBounds.left - marketTradeNav.clientLeft}px`;
+		marketTradeIndicator.style.setProperty('--market-indicator-width', `${buttonBounds.width}px`);
+	};
+	moveMarketIndicator(marketTradeButtons.find((button) => button.classList.contains('is-active')));
+	window.addEventListener('resize', () => moveMarketIndicator(marketTradeButtons.find((button) => button.classList.contains('is-active'))));
 
 	nftCollection.forEach((gift) => {
 		const title = `${gift.name} #${gift.id}`;
@@ -344,6 +383,7 @@ if (marketGrid) {
 				item.classList.toggle('is-active', active);
 				item.setAttribute('aria-pressed', String(active));
 			});
+			moveMarketIndicator(button);
 			renderMarketList();
 		});
 	});
@@ -441,6 +481,28 @@ if (nftGrid) {
 	window.addEventListener('scroll', updateVisibleNftCards, { passive: true });
 	window.addEventListener('resize', updateVisibleNftCards);
 	updateVisibleNftCards();
+}
+
+const profileNftTabs = document.querySelector('.profile-nft-tabs');
+if (profileNftTabs) {
+	const profileNftButtons = [...profileNftTabs.querySelectorAll('.profile-nft-button')];
+	const profileNftIndicator = profileNftTabs.querySelector('.profile-nft-indicator');
+	const moveProfileNftIndicator = (button) => {
+		profileNftIndicator.style.left = `${button.offsetLeft}px`;
+		profileNftIndicator.style.setProperty('--profile-nft-indicator-width', `${button.offsetWidth}px`);
+	};
+	moveProfileNftIndicator(profileNftButtons.find((button) => button.classList.contains('is-active')));
+	profileNftButtons.forEach((button) => {
+		button.addEventListener('click', () => {
+			const wasActive = button.classList.contains('is-active');
+			profileNftButtons.forEach((tab) => {
+				const isActive = tab === button;
+				tab.classList.toggle('is-active', isActive);
+				tab.setAttribute('aria-pressed', String(isActive));
+			});
+			moveProfileNftIndicator(button);
+		});
+	});
 }
 
 const nftGrids = [...document.querySelectorAll('.profile-nft-grid')];

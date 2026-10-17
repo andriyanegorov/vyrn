@@ -4,8 +4,8 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Рынок | VYRN</title>
-  <link rel="stylesheet" href="style.css?v=profile-background-20261017">
-  <script src="script.js?v=focus-rings-20261017" defer></script>
+  <link rel="stylesheet" href="style.css?v=market-search-spacing-20261017">
+  <script src="script.js?v=market-tab-indicator-20261017" defer></script>
 </head>
 <body class="market-screen">
   <header class="site-header">
@@ -16,8 +16,6 @@
     </div>
   </header>
   <main class="market-page">
-    <header class="market-heading">
-    </header>
     <section class="market-tools" aria-label="Поиск и фильтры рынка">
       <label class="market-search">
         <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="10.8" cy="10.8" r="6.8"/><path d="m16 16 5 5"/></svg>
@@ -39,6 +37,7 @@
       </label>
     </section>
     <nav class="market-trade-nav" aria-label="Разделы рынка">
+      <span class="market-trade-indicator" aria-hidden="true"></span>
       <button class="market-trade-button is-active" type="button" data-market-mode="all" aria-pressed="true">Все</button>
       <button class="market-trade-button" type="button" data-market-mode="sales" aria-pressed="false">Продажи</button>
       <button class="market-trade-button" type="button" data-market-mode="purchases" aria-pressed="false">Покупки</button>
