@@ -1222,6 +1222,12 @@ body.chats-screen {
   background: #fff;
 }
 
+.chats-profile-error {
+  margin: 8px 0 0;
+  color: #a42c2c;
+  font-size: 13px;
+}
+
 .chats-page.is-searching .chat-list {
   display: none;
 }
@@ -1665,7 +1671,7 @@ body.chats-screen {
   display: grid;
   min-height: 76px;
   flex: 0 0 auto;
-  grid-template-columns: 60px minmax(0, 1fr);
+  grid-template-columns: 60px minmax(0, 1fr) 60px;
   align-items: center;
   gap: 8px;
   padding: calc(8px + env(safe-area-inset-top, 0px)) 12px 8px;
@@ -1774,7 +1780,7 @@ body.chats-screen {
   display: flex;
   height: 60px;
   align-items: center;
-  justify-content: space-evenly;
+  justify-content: center;
   border-radius: 32px;
 }
 
@@ -1800,8 +1806,378 @@ body.chats-screen {
 }
 
 .conversation-actions button {
-  width: 40px;
+  width: 60px;
   height: 60px;
+  border-radius: 50%;
+}
+
+.conversation-gift-open img {
+  width: 20px;
+  height: 32px;
+}
+
+.gift-picker-dialog {
+  width: min(420px, calc(100vw - 32px));
+  max-height: min(680px, calc(100dvh - 48px));
+  box-sizing: border-box;
+  padding: 0;
+  overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, 0.8);
+  border-radius: 20px;
+  background: #f7f9fc;
+  color: #202a35;
+  box-shadow: 0 24px 80px rgba(20, 32, 48, 0.25);
+}
+
+.gift-picker-dialog::backdrop {
+  background: rgba(15, 24, 35, 0.4);
+  backdrop-filter: blur(3px);
+}
+
+.gift-picker-dialog[open] {
+  animation: nft-modal-enter 160ms ease-out both;
+}
+
+.gift-picker-form {
+  display: grid;
+  max-height: inherit;
+  gap: 14px;
+  padding: 20px;
+  overflow-y: auto;
+}
+
+.gift-picker-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.gift-picker-header h2 {
+  margin: 0;
+  font-size: 20px;
+}
+
+.gift-picker-close {
+  display: grid;
+  width: 34px;
+  height: 34px;
+  place-items: center;
+  border: 0;
+  border-radius: 50%;
+  background: #e9eef4;
+  color: #293746;
+  font-size: 26px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.gift-picker-recipient {
+  margin: 0;
+  color: #697785;
+  font-size: 14px;
+}
+
+.gift-picker-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+  max-height: min(42vh, 320px);
+  overflow-y: auto;
+}
+
+.gift-picker-item {
+  position: relative;
+  display: grid;
+  min-width: 0;
+  aspect-ratio: 1;
+  padding: 0;
+  overflow: hidden;
+  border: 2px solid transparent;
+  border-radius: 12px;
+  background: #e8edf3;
+  cursor: pointer;
+}
+
+.gift-picker-item.is-selected {
+  border-color: #2878c8;
+}
+
+.gift-picker-item img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.gift-picker-item span {
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  padding: 5px 4px;
+  overflow: hidden;
+  background: rgba(20, 29, 38, 0.72);
+  color: white;
+  font-size: 11px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.gift-picker-item:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
+.gift-picker-empty,
+.gift-picker-error {
+  margin: 0;
+  color: #697785;
+  font-size: 14px;
+}
+
+.gift-picker-error {
+  color: #b42318;
+}
+
+.gift-picker-controls {
+  display: grid;
+  gap: 8px;
+}
+
+.gift-picker-controls[hidden] {
+  display: none;
+}
+
+.gift-picker-controls label {
+  font-size: 13px;
+  font-weight: 650;
+}
+
+.gift-picker-price-field {
+  display: flex;
+  height: 44px;
+  align-items: center;
+  gap: 8px;
+  padding: 0 10px;
+  border: 1px solid #d9e0e8;
+  border-radius: 10px;
+  background: white;
+}
+
+.gift-picker-price-field input {
+  width: 100%;
+  min-width: 0;
+  border: 0;
+  outline: 0;
+  font: inherit;
+}
+
+.gift-picker-price-field img {
+  width: 22px;
+  height: 22px;
+}
+
+.gift-picker-send,
+.gift-offer-actions button {
+  min-height: 42px;
+  padding: 0 14px;
+  border: 0;
+  border-radius: 10px;
+  background: #2776c5;
+  color: white;
+  font: inherit;
+  font-weight: 650;
+  cursor: pointer;
+}
+
+.gift-picker-send:disabled,
+.gift-offer-actions button:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
+.gift-offer-card {
+  display: grid;
+  grid-template-columns: 64px minmax(0, 1fr);
+  gap: 10px;
+  align-items: center;
+  min-width: 180px;
+}
+
+.gift-offer-card > img {
+  width: 64px;
+  height: 64px;
+  border-radius: 10px;
+  object-fit: cover;
+}
+
+.gift-offer-copy {
+  display: grid;
+  gap: 4px;
+}
+
+.gift-offer-copy strong {
+  font-size: 14px;
+}
+
+.gift-offer-copy span {
+  color: #647382;
+  font-size: 13px;
+}
+
+.gift-offer-actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.gift-offer-actions .gift-offer-decline {
+  background: #e8edf3;
+  color: #283746;
+}
+
+.conversation-message.is-gift-message {
+  justify-content: center;
+}
+
+.gift-telegram-card {
+  display: grid;
+  gap: 8px;
+  width: min(100%, 300px);
+  min-width: 0;
+  margin: 0 auto;
+}
+
+.gift-telegram-notification {
+  justify-self: center;
+  max-width: 100%;
+  margin: 0;
+  padding: 5px 12px;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 999px;
+  background: rgb(0 0 0 / 25%);
+  color: #fff;
+  font-size: 12px;
+  line-height: 1.3;
+  text-align: center;
+  text-wrap: pretty;
+}
+
+.gift-telegram-scene {
+  position: relative;
+  display: flex;
+  width: 230px;
+  box-sizing: border-box;
+  justify-self: center;
+  min-height: 274px;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 6px;
+  padding: 18px 16px 12px;
+  overflow: hidden;
+  border-radius: 20px;
+  background: rgb(0 0 0 / 25%) center / cover;
+  color: #fff;
+  text-align: center;
+}
+
+.gift-telegram-art {
+  position: relative;
+  z-index: 1;
+  border-radius: 20px;
+  display: block;
+  width: min(62%, 164px);
+  height: 146px;
+  margin: auto 0 14px;
+  object-fit: contain;
+}
+
+.gift-telegram-title,
+.gift-telegram-subtitle,
+.gift-telegram-view {
+  position: relative;
+  z-index: 1;
+}
+
+.gift-telegram-title {
+  display: flex;
+  max-width: 100%;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  margin: 0;
+  font-size: 16px;
+  font-weight: 400;
+  line-height: 1.25;
+  overflow-wrap: anywhere;
+}
+
+.gift-telegram-sender-avatar {
+  display: inline-grid;
+  width: 22px;
+  height: 22px;
+  flex: 0 0 22px;
+  place-items: center;
+  border-radius: 50%;
+  object-fit: cover;
+}
+
+.gift-telegram-sender-avatar.is-fallback {
+  background: rgba(255, 255, 255, 0.28);
+  color: #fff;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.gift-telegram-subtitle {
+  max-width: 100%;
+  margin: 0 0 2px;
+  color: rgba(255, 255, 255, 0.88);
+  font-size: 13px;
+  line-height: 1.25;
+  overflow-wrap: anywhere;
+}
+
+.gift-telegram-view {
+  min-width: 104px;
+  min-height: 36px;
+  padding: 0 18px;
+  border: 1px solid rgba(50, 119, 42, 0.26);
+  border-radius: 999px;
+  background: rgba(50, 119, 42, 0.25);
+  color: #fff;
+  font: inherit;
+  font-size: 14px;
+  cursor: pointer;
+}
+
+.gift-telegram-view:hover {
+  background: rgba(40, 101, 36, 0.9);
+}
+
+.gift-telegram-scene .gift-offer-actions {
+  position: relative;
+  z-index: 1;
+  width: 100%;
+  justify-content: center;
+  margin-top: 2px;
+}
+
+.gift-telegram-scene .gift-offer-actions button {
+  min-width: 0;
+  min-height: 36px;
+  padding: 0 12px;
+  border: 1px solid rgba(255, 255, 255, 0.24);
+  border-radius: 999px;
+  background: rgba(47, 111, 39, 0.82);
+  color: #fff;
+  font-size: 13px;
+}
+
+.gift-telegram-scene .gift-offer-actions .gift-offer-decline {
+  background: rgba(255, 255, 255, 0.2);
+  color: #fff;
 }
 
 .conversation-actions svg {
@@ -2255,7 +2631,7 @@ body.chats-screen {
 
 @media (max-width: 420px) {
   .conversation-header {
-    grid-template-columns: 60px minmax(0, 1fr);
+    grid-template-columns: 60px minmax(0, 1fr) 60px;
     gap: 6px;
     padding-right: 8px;
     padding-left: 8px;
@@ -2280,8 +2656,22 @@ body.chats-screen {
   }
 
   .conversation-actions button {
-    width: 34px;
+    width: 52px;
     height: 60px;
+  }
+
+  .conversation-actions {
+    height: 52px;
+  }
+
+  .gift-telegram-scene {
+    min-height: 260px;
+    padding-right: 14px;
+    padding-left: 14px;
+  }
+
+  .gift-telegram-art {
+    height: 136px;
   }
 
   .conversation-messages {
@@ -2421,10 +2811,31 @@ body.chats-screen {
 }
 
 .market-card-image-frame {
+  position: relative;
   display: block;
   aspect-ratio: 1;
   overflow: hidden;
   background: #eceef3;
+  cursor: pointer;
+}
+
+.market-card-animation,
+.market-card-animation svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+.market-card-animation {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 140ms ease-out;
+}
+
+.market-card-animation.is-ready {
+  opacity: 1;
 }
 
 .market-card-image {
@@ -2432,7 +2843,11 @@ body.chats-screen {
   width: 100%;
   height: 100%;
   object-fit: cover;
-  transition: transform 180ms ease;
+  transition: opacity 140ms ease-out, transform 180ms ease;
+}
+
+.market-card-image.is-covered {
+  opacity: 0;
 }
 
 .market-card-image-frame:hover .market-card-image {

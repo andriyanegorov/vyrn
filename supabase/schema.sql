@@ -179,6 +179,23 @@ create table if not exists public.messages (
 );
 create index if not exists messages_chat_created_idx on public.messages(chat_id, created_at desc);
 
+create table if not exists public.nft_gift_offers (
+  id uuid primary key default gen_random_uuid(),
+  chat_id uuid not null references public.chats(id) on delete cascade,
+  nft_item_id uuid not null references public.nft_items(id),
+  sender_profile_id uuid not null references public.profiles(id),
+  recipient_profile_id uuid not null references public.profiles(id),
+  price_stars bigint not null check (price_stars >= 0),
+  status text not null default 'pending' check (status in ('pending', 'completed', 'declined')),
+  created_at timestamptz not null default now(),
+  completed_at timestamptz,
+  check (sender_profile_id <> recipient_profile_id)
+);
+create index if not exists nft_gift_offers_chat_created_idx on public.nft_gift_offers(chat_id, created_at desc);
+create unique index if not exists nft_gift_one_pending_offer_per_item
+  on public.nft_gift_offers(nft_item_id) where status = 'pending';
+alter table public.messages add column if not exists gift_offer_id uuid references public.nft_gift_offers(id);
+
 create table if not exists public.saved_messages (
   profile_id uuid not null references public.profiles(id) on delete cascade,
   message_id uuid not null references public.messages(id) on delete cascade,
@@ -319,8 +336,147 @@ begin
 end;
 $$;
 
+create or replace function public.send_chat_nft_gift(
+  p_chat_id uuid,
+  p_nft_item_id uuid,
+  p_sender_profile_id uuid,
+  p_price_stars bigint
+)
+returns uuid language plpgsql security definer set search_path = '' as $$
+declare
+  recipient_profile_id uuid;
+  item_owner_id uuid;
+  gift_id uuid;
+  message_id uuid;
+begin
+  if p_price_stars < 0 then raise exception 'Gift price cannot be negative'; end if;
+
+  if not exists (
+    select 1 from public.chats c
+    where c.id = p_chat_id and c.chat_type = 'direct'
+      and exists (select 1 from public.chat_members m where m.chat_id = c.id and m.profile_id = p_sender_profile_id)
+  ) then raise exception 'Direct chat not found'; end if;
+
+  select m.profile_id into recipient_profile_id
+  from public.chat_members m
+  where m.chat_id = p_chat_id and m.profile_id <> p_sender_profile_id;
+  if recipient_profile_id is null then raise exception 'Chat recipient not found'; end if;
+
+  select owner_profile_id into item_owner_id
+  from public.nft_items where id = p_nft_item_id for update;
+  if not found or item_owner_id <> p_sender_profile_id then raise exception 'You no longer own this NFT'; end if;
+  if exists (select 1 from public.market_listings where nft_item_id = p_nft_item_id and status = 'active') then
+    raise exception 'Cancel the active market listing before gifting this NFT';
+  end if;
+
+  insert into public.nft_gift_offers (chat_id, nft_item_id, sender_profile_id, recipient_profile_id, price_stars, status, completed_at)
+  values (p_chat_id, p_nft_item_id, p_sender_profile_id, recipient_profile_id, p_price_stars,
+    case when p_price_stars = 0 then 'completed' else 'pending' end,
+    case when p_price_stars = 0 then now() else null end)
+  returning id into gift_id;
+
+  if p_price_stars = 0 then
+    update public.nft_items set owner_profile_id = recipient_profile_id where id = p_nft_item_id;
+    insert into public.nft_transfers (nft_item_id, from_profile_id, to_profile_id, transfer_type)
+    values (p_nft_item_id, p_sender_profile_id, recipient_profile_id, 'gift');
+  end if;
+
+  insert into public.messages (chat_id, sender_profile_id, body, kind, gift_offer_id)
+  values (p_chat_id, p_sender_profile_id, 'NFT-подарок', 'system', gift_id)
+  returning id into message_id;
+  return message_id;
+end;
+$$;
+
+create or replace function public.accept_chat_nft_gift(p_gift_id uuid, p_recipient_profile_id uuid)
+returns uuid language plpgsql security definer set search_path = '' as $$
+declare
+  gift public.nft_gift_offers%rowtype;
+  buyer_wallet_id uuid;
+  seller_wallet_id uuid;
+begin
+  select * into gift from public.nft_gift_offers where id = p_gift_id for update;
+  if not found or gift.recipient_profile_id <> p_recipient_profile_id then raise exception 'Gift offer not found'; end if;
+  if gift.status <> 'pending' or gift.price_stars <= 0 then raise exception 'Gift offer is no longer available'; end if;
+  if not exists (select 1 from public.chat_members where chat_id = gift.chat_id and profile_id = p_recipient_profile_id) then
+    raise exception 'Chat membership required';
+  end if;
+
+  perform 1 from public.nft_items where id = gift.nft_item_id and owner_profile_id = gift.sender_profile_id for update;
+  if not found then raise exception 'Sender no longer owns this NFT'; end if;
+  if exists (select 1 from public.market_listings where nft_item_id = gift.nft_item_id and status = 'active') then
+    raise exception 'NFT is listed on the market';
+  end if;
+
+  select id into buyer_wallet_id from public.wallets
+  where profile_id = p_recipient_profile_id and currency = 'stars' for update;
+  if not found then raise exception 'Buyer wallet not found'; end if;
+  select id into seller_wallet_id from public.wallets
+  where profile_id = gift.sender_profile_id and currency = 'stars' for update;
+  if not found then raise exception 'Sender wallet not found'; end if;
+
+  update public.wallets set balance = balance - gift.price_stars
+  where id = buyer_wallet_id and balance >= gift.price_stars;
+  if not found then raise exception 'Insufficient Stars balance'; end if;
+  update public.wallets set balance = balance + gift.price_stars where id = seller_wallet_id;
+  update public.nft_items set owner_profile_id = p_recipient_profile_id where id = gift.nft_item_id;
+  update public.nft_gift_offers set status = 'completed', completed_at = now() where id = gift.id;
+
+  insert into public.wallet_transactions (wallet_id, amount, reason, reference_id)
+  values (buyer_wallet_id, -gift.price_stars, 'chat_gift_purchase', gift.id),
+    (seller_wallet_id, gift.price_stars, 'chat_gift_sale', gift.id);
+  insert into public.nft_transfers (nft_item_id, from_profile_id, to_profile_id, transfer_type)
+  values (gift.nft_item_id, gift.sender_profile_id, p_recipient_profile_id, 'gift');
+  return gift.id;
+end;
+$$;
+
+create or replace function public.decline_chat_nft_gift(p_gift_id uuid, p_recipient_profile_id uuid)
+returns boolean language plpgsql security definer set search_path = '' as $$
+begin
+  update public.nft_gift_offers set status = 'declined'
+  where id = p_gift_id and recipient_profile_id = p_recipient_profile_id and status = 'pending';
+  return found;
+end;
+$$;
+
+create or replace function public.create_market_listing(
+  p_nft_item_id uuid,
+  p_seller_profile_id uuid,
+  p_price bigint,
+  p_currency text
+)
+returns uuid language plpgsql security definer set search_path = '' as $$
+declare
+  current_owner_id uuid;
+  listing_id uuid;
+begin
+  if p_price <= 0 or p_currency not in ('stars', 'ton') then
+    raise exception 'Invalid listing price or currency';
+  end if;
+  select owner_profile_id into current_owner_id from public.nft_items where id = p_nft_item_id for update;
+  if not found or current_owner_id <> p_seller_profile_id then raise exception 'Seller no longer owns this NFT'; end if;
+  if exists (select 1 from public.nft_gift_offers where nft_item_id = p_nft_item_id and status = 'pending') then
+    raise exception 'Resolve the pending gift offer before listing this NFT';
+  end if;
+  if exists (select 1 from public.market_listings where nft_item_id = p_nft_item_id and status = 'active') then
+    raise exception 'NFT already has an active listing';
+  end if;
+  insert into public.market_listings (nft_item_id, seller_profile_id, price, currency)
+  values (p_nft_item_id, p_seller_profile_id, p_price, p_currency)
+  returning id into listing_id;
+  return listing_id;
+end;
+$$;
+
 revoke all on function public.purchase_market_listing(uuid, uuid) from public, anon, authenticated;
 grant execute on function public.purchase_market_listing(uuid, uuid) to service_role;
+revoke all on function public.send_chat_nft_gift(uuid, uuid, uuid, bigint) from public, anon, authenticated;
+grant execute on function public.send_chat_nft_gift(uuid, uuid, uuid, bigint) to service_role;
+revoke all on function public.accept_chat_nft_gift(uuid, uuid) from public, anon, authenticated;
+grant execute on function public.accept_chat_nft_gift(uuid, uuid) to service_role;
+revoke all on function public.decline_chat_nft_gift(uuid, uuid) from public, anon, authenticated;
+grant execute on function public.decline_chat_nft_gift(uuid, uuid) to service_role;
 revoke all on function public.create_market_listing(uuid, uuid, bigint, text) from public, anon, authenticated;
 grant execute on function public.create_market_listing(uuid, uuid, bigint, text) to service_role;
 revoke all on function public.ensure_saved_chat(uuid) from public, anon, authenticated;
@@ -334,7 +490,7 @@ declare
 begin
   foreach table_name in array array[
     'profiles', 'wallets', 'wallet_transactions', 'nft_collections', 'nft_models',
-    'nft_items', 'nft_transfers', 'market_listings', 'market_transactions',
+    'nft_items', 'nft_transfers', 'market_listings', 'market_transactions', 'nft_gift_offers',
     'chats', 'chat_members', 'messages', 'saved_messages'
   ] loop
     execute format('alter table public.%I enable row level security', table_name);

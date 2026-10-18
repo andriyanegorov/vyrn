@@ -20,6 +20,9 @@
     });
     const result = await response.json().catch(() => ({}));
     if (!response.ok) {
+      if (response.status === 404 && !result.error && !result.message) {
+        throw new Error('Функция telegram-api не найдена в Supabase. Проверьте URL проекта и разверните функцию telegram-api.');
+      }
       const reason = result.reason ? ` [${result.reason}]` : ` [HTTP ${response.status}]`;
       throw new Error(`${result.error || result.message || `Ошибка сервера (${response.status}).`}${reason}`);
     }
@@ -41,6 +44,9 @@
     chats: () => request('chats'),
     messages: (chatId) => request('messages', { chat_id: chatId }),
     sendMessage: (chatId, body) => request('send_message', { chat_id: chatId, body }),
+    sendNftGift: (chatId, nftItemId, priceStars) => request('send_nft_gift', { chat_id: chatId, nft_item_id: nftItemId, price_stars: priceStars }),
+    acceptNftGift: (giftId) => request('accept_nft_gift', { gift_id: giftId }),
+    declineNftGift: (giftId) => request('decline_nft_gift', { gift_id: giftId }),
     deleteMessage: (messageId) => request('delete_message', { message_id: messageId })
   };
 })();

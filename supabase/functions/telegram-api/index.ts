@@ -307,9 +307,47 @@ Deno.serve(async (request) => {
     if (typeof input.chat_id !== 'string') return json({ error: 'Chat ID is required' }, 400);
     const membership = await supabase.from('chat_members').select('chat_id').eq('chat_id', input.chat_id).eq('profile_id', profile.id).maybeSingle();
     if (!membership.data) return json({ error: 'Chat not found' }, 404);
-    const result = await supabase.from('messages').select('id,sender_profile_id,body,kind,created_at,profiles!messages_sender_profile_id_fkey(nickname,username,first_name,last_name,avatar_url)')
+    const result = await supabase.from('messages').select('id,sender_profile_id,body,kind,created_at,gift_offer_id,profiles!messages_sender_profile_id_fkey(nickname,username,first_name,last_name,avatar_url),gift_offer:nft_gift_offers!messages_gift_offer_id_fkey(id,nft_item_id,sender_profile_id,recipient_profile_id,price_stars,status,nft_items(external_id,nft_models(name,slug,preview_url,animation_url,nft_collections(name,slug))))')
       .eq('chat_id', input.chat_id).is('deleted_at', null).order('created_at', { ascending: true }).limit(200);
     return result.error ? json({ error: result.error.message }, 500) : json({ messages: result.data });
+  }
+
+  if (action === 'send_nft_gift') {
+    const chatId = typeof input.chat_id === 'string' ? input.chat_id : '';
+    const nftItemId = typeof input.nft_item_id === 'string' ? input.nft_item_id : '';
+    const priceStars = Number(input.price_stars);
+    if (!chatId || !nftItemId || !Number.isSafeInteger(priceStars) || priceStars < 0) return json({ error: 'Invalid gift details' }, 400);
+    const created = await supabase.rpc('send_chat_nft_gift', {
+      p_chat_id: chatId,
+      p_nft_item_id: nftItemId,
+      p_sender_profile_id: profile.id,
+      p_price_stars: priceStars,
+    });
+    if (created.error) return json({ error: created.error.message }, 400);
+    const message = await supabase.from('messages')
+      .select('id,sender_profile_id,body,kind,created_at,gift_offer_id,profiles!messages_sender_profile_id_fkey(nickname,username,first_name,last_name,avatar_url),gift_offer:nft_gift_offers!messages_gift_offer_id_fkey(id,nft_item_id,sender_profile_id,recipient_profile_id,price_stars,status,nft_items(external_id,nft_models(name,slug,preview_url,animation_url,nft_collections(name,slug))))')
+      .eq('id', created.data).single();
+    return message.error ? json({ error: message.error.message }, 500) : json({ message: message.data });
+  }
+
+  if (action === 'accept_nft_gift') {
+    if (typeof input.gift_id !== 'string') return json({ error: 'Gift ID is required' }, 400);
+    const accepted = await supabase.rpc('accept_chat_nft_gift', {
+      p_gift_id: input.gift_id,
+      p_recipient_profile_id: profile.id,
+    });
+    return accepted.error ? json({ error: accepted.error.message }, 400) : json({ gift_id: accepted.data });
+  }
+
+  if (action === 'decline_nft_gift') {
+    if (typeof input.gift_id !== 'string') return json({ error: 'Gift ID is required' }, 400);
+    const declined = await supabase.rpc('decline_chat_nft_gift', {
+      p_gift_id: input.gift_id,
+      p_recipient_profile_id: profile.id,
+    });
+    return declined.error ? json({ error: declined.error.message }, 500) : declined.data
+      ? json({ gift_id: input.gift_id, status: 'declined' })
+      : json({ error: 'Gift offer is no longer available' }, 409);
   }
 
   if (action === 'send_message') {

@@ -30,6 +30,7 @@
         <p class="chats-results-heading">Результаты общего поиска</p>
         <div class="chats-profile-result-list"></div>
       </div>
+      <p class="chats-profile-error" role="alert" hidden></p>
     </div>
     <section class="chat-list" aria-label="Список чатов">
       <button class="chat-row" type="button" data-chat-type="channel">
@@ -75,11 +76,8 @@
           </span>
         </button>
         <div class="conversation-actions" hidden>
-          <button type="button" aria-label="Подарить NFT">
-            <span class="tgico btn-menu-item-icon" aria-hidden="true"><svg xmlns="http://www.w3.org/2000/svg" width="28" height="27" viewBox="0 0 28 27" fill="none"><g stroke="#242424" stroke-width="1.45" stroke-linecap="round" stroke-linejoin="round"><path d="M5.5 12.7V20.2C5.5 21.45 6.45 22.4 7.7 22.4H20.3C21.55 22.4 22.5 21.45 22.5 20.2V12.7"/><path d="M4.5 9.1C4.5 8.55 4.95 8.1 5.5 8.1H22.5C23.05 8.1 23.5 8.55 23.5 9.1V11.2C23.5 11.75 23.05 12.2 22.5 12.2H5.5C4.95 12.2 4.5 11.75 4.5 11.2V9.1Z"/><path d="M14 8.1V22.3"/><path d="M13.9 8C12.7 5.55 10.75 3.25 8.75 3.25C7.15 3.25 6.35 4.45 6.8 5.8C7.35 7.35 10.35 8.05 13.9 8Z"/><path d="M14.1 8C15.3 5.55 17.25 3.25 19.25 3.25C20.85 3.25 21.65 4.45 21.2 5.8C20.65 7.35 17.65 8.05 14.1 8Z"/></g></svg></span>
-          </button>
-          <button type="button" aria-label="Ещё">
-            <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="5" r="1.5"/><circle cx="12" cy="12" r="1.5"/><circle cx="12" cy="19" r="1.5"/></svg>
+          <button class="conversation-gift-open" type="button" aria-label="Подарить NFT" title="Подарить NFT">
+            <img src="gift.svg" alt="" aria-hidden="true">
           </button>
         </div>
       </header>
@@ -157,6 +155,26 @@
         </div>
       </section>
     </dialog>
+  </dialog>
+  <dialog class="gift-picker-dialog" aria-labelledby="gift-picker-title">
+    <form class="gift-picker-form">
+      <header class="gift-picker-header">
+        <h2 id="gift-picker-title">Подарить NFT</h2>
+        <button class="gift-picker-close" type="button" aria-label="Закрыть">×</button>
+      </header>
+      <p class="gift-picker-recipient"></p>
+      <div class="gift-picker-grid" aria-label="Ваши NFT"></div>
+      <p class="gift-picker-empty" hidden>В коллекции пока нет доступных NFT.</p>
+      <div class="gift-picker-controls" hidden>
+        <label for="gift-picker-price">Цена в звёздах</label>
+        <div class="gift-picker-price-field">
+          <input id="gift-picker-price" type="number" min="0" step="1" value="0" inputmode="numeric">
+          <img src="stars.png" alt="" aria-hidden="true">
+        </div>
+        <button class="gift-picker-send" type="submit" disabled>Отправить бесплатно</button>
+      </div>
+      <p class="gift-picker-error" role="alert" hidden></p>
+    </form>
   </dialog>
   <nav class="bottom-nav" aria-label="Основная навигация">
     <span class="nav-indicator" aria-hidden="true"></span>
