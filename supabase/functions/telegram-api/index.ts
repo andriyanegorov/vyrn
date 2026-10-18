@@ -1,5 +1,3 @@
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
-
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
@@ -19,39 +17,53 @@ const hmac = async (keyBytes: Uint8Array, message: string) => {
   return new Uint8Array(await crypto.subtle.sign('HMAC', key, new TextEncoder().encode(message)));
 };
 
-const verifyTelegramInitData = async (initData: string, botToken: string) => {
-  if (initData.length > 8192) return null;
-  const params = new URLSearchParams(initData);
-  const receivedHash = params.get('hash');
-  const authDate = Number(params.get('auth_date'));
-  const userValue = params.get('user');
-  if (!receivedHash || !userValue || !Number.isInteger(authDate)) return null;
-  if (Math.abs(Date.now() / 1000 - authDate) > 86400) return null;
-
-  params.delete('hash');
-  params.delete('signature');
-  const checkString = [...params.entries()]
+const matchesTelegramHash = async (params: URLSearchParams, botToken: string, receivedHash: string) => {
+  const buildCheckString = (includeSignature: boolean) => [...params.entries()]
+    .filter(([key]) => includeSignature || key !== 'signature')
     .sort(([first], [second]) => first < second ? -1 : first > second ? 1 : 0)
     .map(([key, value]) => `${key}=${value}`)
     .join('\n');
   const secretKey = await hmac(new TextEncoder().encode(botToken), 'WebAppData');
-  const expectedHash = hex(await crypto.subtle.sign(
-    'HMAC',
-    await crypto.subtle.importKey('raw', secretKey, { name: 'HMAC', hash: 'SHA-256' }, false, ['sign']),
-    new TextEncoder().encode(checkString),
-  ));
-  if (expectedHash.length !== receivedHash.length) return null;
-  let difference = 0;
-  for (let index = 0; index < expectedHash.length; index++) {
-    difference |= expectedHash.charCodeAt(index) ^ receivedHash.charCodeAt(index);
+  const signingKey = await crypto.subtle.importKey('raw', secretKey, { name: 'HMAC', hash: 'SHA-256' }, false, ['sign']);
+  for (const includeSignature of [true, false]) {
+    const expectedHash = hex(await crypto.subtle.sign(
+      'HMAC',
+      signingKey,
+      new TextEncoder().encode(buildCheckString(includeSignature)),
+    ));
+    if (expectedHash.length === receivedHash.length) {
+      let difference = 0;
+      for (let index = 0; index < expectedHash.length; index++) {
+        difference |= expectedHash.charCodeAt(index) ^ receivedHash.charCodeAt(index);
+      }
+      if (difference === 0) return true;
+    }
   }
-  if (difference !== 0) return null;
+  return false;
+};
+
+const verifyTelegramInitData = async (initData: string, botToken: string) => {
+  if (initData.length > 8192) return { user: null, reason: 'initData-too-long' };
+  botToken = botToken.trim();
+  const params = new URLSearchParams(initData);
+  const receivedHash = params.get('hash')?.toLowerCase();
+  const authDate = Number(params.get('auth_date'));
+  const userValue = params.get('user');
+  if (!receivedHash) return { user: null, reason: 'hash-missing' };
+  if (!userValue) return { user: null, reason: 'user-missing' };
+  if (!Number.isInteger(authDate)) return { user: null, reason: 'auth-date-invalid' };
+  if (Math.abs(Date.now() / 1000 - authDate) > 86400) return { user: null, reason: 'auth-date-expired' };
+
+  params.delete('hash');
+  if (!await matchesTelegramHash(params, botToken, receivedHash)) return { user: null, reason: 'hash-mismatch' };
 
   try {
     const user = JSON.parse(userValue);
-    return Number.isSafeInteger(user.id) && user.id > 0 ? user : null;
+    return Number.isSafeInteger(user.id) && user.id > 0
+      ? { user, reason: null }
+      : { user: null, reason: 'telegram-user-invalid' };
   } catch {
-    return null;
+    return { user: null, reason: 'user-json-invalid' };
   }
 };
 
@@ -61,10 +73,16 @@ Deno.serve(async (request) => {
   if (request.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders });
   if (request.method !== 'POST') return json({ error: 'Method not allowed' }, 405);
 
-  const botToken = Deno.env.get('TELEGRAM_BOT_TOKEN');
+  const botToken = Deno.env.get('TELEGRAM_BOT_TOKEN')?.trim();
   const supabaseUrl = Deno.env.get('SUPABASE_URL');
   const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || Deno.env.get('VYRN_SUPABASE_SERVICE_ROLE_KEY');
   if (!supabaseUrl || !serviceRoleKey) return json({ error: 'Server is not configured' }, 500);
+  let createClient: any;
+  try {
+    ({ createClient } = await import('https://esm.sh/@supabase/supabase-js@2'));
+  } catch {
+    return json({ error: 'Supabase SDK could not be loaded' }, 500);
+  }
 
   let input: Record<string, unknown>;
   try {
@@ -79,9 +97,12 @@ Deno.serve(async (request) => {
   const isBrowserDemo = browserDemoRequested;
   let telegramUser: Record<string, unknown> | null = null;
   if (!isBrowserDemo) {
-    if (!botToken || typeof input.initData !== 'string') return json({ error: 'Telegram initData is required' }, 401);
-    telegramUser = await verifyTelegramInitData(input.initData, botToken);
-    if (!telegramUser) return json({ error: 'Telegram authorization is invalid or expired' }, 401);
+    if (!botToken || typeof input.initData !== 'string') return json({ error: 'Telegram bot token or initData is missing' }, 401);
+    const verification = await verifyTelegramInitData(input.initData, botToken);
+    if (!verification.user) {
+      return json({ error: 'Telegram authorization is invalid or expired', reason: verification.reason }, 401);
+    }
+    telegramUser = verification.user;
   }
 
   const supabase = createClient(supabaseUrl, serviceRoleKey, {
@@ -191,7 +212,7 @@ Deno.serve(async (request) => {
     return result.error ? json({ error: result.error.message }, 500) : json({ chat_id: result.data, peer: target.data });
   }
 
-  if (action === 'market') {
+  if (action === 'market') {  
     let query = supabase.from('market_listings')
       .select('id,nft_item_id,seller_profile_id,price,currency,created_at,seller:profiles!market_listings_seller_profile_id_fkey(nickname,username,avatar_url),nft_items(id,external_id,attributes,nft_models(slug,name,preview_url,animation_url,nft_collections(name,slug)))')
       .eq('status', 'active').order('created_at', { ascending: false });

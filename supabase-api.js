@@ -80,7 +80,10 @@
       body: JSON.stringify({ ...payload, action, ...(initData ? { initData } : { browserDemo: true }) })
     });
     const result = await response.json().catch(() => ({}));
-    if (!response.ok) throw new Error(result.error || result.message || `Ошибка сервера (${response.status}).`);
+    if (!response.ok) {
+      const reason = result.reason ? ` [${result.reason}]` : ` [HTTP ${response.status}]`;
+      throw new Error(`${result.error || result.message || `Ошибка сервера (${response.status}).`}${reason}`);
+    }
     return result;
   };
 
