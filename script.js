@@ -670,7 +670,7 @@ if (nftGrid) {
 			));
 		}
 	};
-	let cards = (canLoadPlayerData() ? [] : nftCollection).map(renderNftCard);
+	let cards = [];
 	filterProfileNftCards = () => {
 		cards.forEach((card) => {
 			card.hidden = profileNftView === 'sales' && card.dataset.nftListed !== 'true';

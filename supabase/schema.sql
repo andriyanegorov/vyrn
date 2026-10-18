@@ -1,9 +1,22 @@
 create extension if not exists pgcrypto;
 
-create type public.listing_status as enum ('active', 'sold', 'cancelled');
-create type public.message_kind as enum ('text', 'system');
+do $$
+begin
+  create type public.listing_status as enum ('active', 'sold', 'cancelled');
+exception
+  when duplicate_object then null;
+end;
+$$;
 
-create table public.profiles (
+do $$
+begin
+  create type public.message_kind as enum ('text', 'system');
+exception
+  when duplicate_object then null;
+end;
+$$;
+
+create table if not exists public.profiles (
   id uuid primary key default gen_random_uuid(),
   telegram_id bigint not null unique,
   nickname text not null unique,
@@ -20,9 +33,9 @@ create table public.profiles (
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );
-create unique index profiles_telegram_username_unique on public.profiles(telegram_username) where telegram_username is not null;
+create unique index if not exists profiles_telegram_username_unique on public.profiles(telegram_username) where telegram_username is not null;
 
-create table public.wallets (
+create table if not exists public.wallets (
   id uuid primary key default gen_random_uuid(),
   profile_id uuid not null references public.profiles(id) on delete cascade,
   currency text not null check (currency in ('stars', 'ton')),
@@ -31,7 +44,7 @@ create table public.wallets (
   unique (profile_id, currency)
 );
 
-create table public.wallet_transactions (
+create table if not exists public.wallet_transactions (
   id uuid primary key default gen_random_uuid(),
   wallet_id uuid not null references public.wallets(id),
   amount bigint not null check (amount <> 0),
@@ -40,14 +53,14 @@ create table public.wallet_transactions (
   created_at timestamptz not null default now()
 );
 
-create table public.nft_collections (
+create table if not exists public.nft_collections (
   id uuid primary key default gen_random_uuid(),
   slug text not null unique,
   name text not null,
   created_at timestamptz not null default now()
 );
 
-create table public.nft_models (
+create table if not exists public.nft_models (
   id uuid primary key default gen_random_uuid(),
   collection_id uuid not null references public.nft_collections(id),
   slug text not null,
@@ -57,7 +70,7 @@ create table public.nft_models (
   unique (collection_id, slug)
 );
 
-create table public.nft_items (
+create table if not exists public.nft_items (
   id uuid primary key default gen_random_uuid(),
   model_id uuid not null references public.nft_models(id),
   external_id text,
@@ -67,7 +80,7 @@ create table public.nft_items (
   unique (model_id, external_id)
 );
 
-create table public.nft_transfers (
+create table if not exists public.nft_transfers (
   id uuid primary key default gen_random_uuid(),
   nft_item_id uuid not null references public.nft_items(id),
   from_profile_id uuid references public.profiles(id),
@@ -76,7 +89,7 @@ create table public.nft_transfers (
   created_at timestamptz not null default now()
 );
 
-create table public.market_listings (
+create table if not exists public.market_listings (
   id uuid primary key default gen_random_uuid(),
   nft_item_id uuid not null references public.nft_items(id),
   seller_profile_id uuid not null references public.profiles(id),
@@ -87,11 +100,11 @@ create table public.market_listings (
   closed_at timestamptz
 );
 
-create unique index market_one_active_listing_per_nft
+create unique index if not exists market_one_active_listing_per_nft
   on public.market_listings(nft_item_id) where status = 'active';
-create index market_active_created_idx on public.market_listings(created_at desc) where status = 'active';
+create index if not exists market_active_created_idx on public.market_listings(created_at desc) where status = 'active';
 
-create table public.market_transactions (
+create table if not exists public.market_transactions (
   id uuid primary key default gen_random_uuid(),
   listing_id uuid not null unique references public.market_listings(id),
   nft_item_id uuid not null references public.nft_items(id),
@@ -103,7 +116,7 @@ create table public.market_transactions (
   check (buyer_profile_id <> seller_profile_id)
 );
 
-create function public.create_market_listing(
+create or replace function public.create_market_listing(
   p_nft_item_id uuid,
   p_seller_profile_id uuid,
   p_price bigint,
@@ -139,23 +152,23 @@ begin
 end;
 $$;
 
-create table public.chats (
+create table if not exists public.chats (
   id uuid primary key default gen_random_uuid(),
   chat_type text not null default 'direct' check (chat_type in ('direct', 'group', 'channel', 'saved')),
   title text,
   created_at timestamptz not null default now()
 );
 
-create table public.chat_members (
+create table if not exists public.chat_members (
   chat_id uuid not null references public.chats(id) on delete cascade,
   profile_id uuid not null references public.profiles(id) on delete cascade,
   joined_at timestamptz not null default now(),
   last_read_at timestamptz,
   primary key (chat_id, profile_id)
 );
-create index chat_members_profile_joined_idx on public.chat_members(profile_id, joined_at desc);
+create index if not exists chat_members_profile_joined_idx on public.chat_members(profile_id, joined_at desc);
 
-create table public.messages (
+create table if not exists public.messages (
   id uuid primary key default gen_random_uuid(),
   chat_id uuid not null references public.chats(id) on delete cascade,
   sender_profile_id uuid not null references public.profiles(id),
@@ -164,16 +177,16 @@ create table public.messages (
   created_at timestamptz not null default now(),
   deleted_at timestamptz
 );
-create index messages_chat_created_idx on public.messages(chat_id, created_at desc);
+create index if not exists messages_chat_created_idx on public.messages(chat_id, created_at desc);
 
-create table public.saved_messages (
+create table if not exists public.saved_messages (
   profile_id uuid not null references public.profiles(id) on delete cascade,
   message_id uuid not null references public.messages(id) on delete cascade,
   saved_at timestamptz not null default now(),
   primary key (profile_id, message_id)
 );
 
-create function public.ensure_saved_chat(p_profile_id uuid)
+create or replace function public.ensure_saved_chat(p_profile_id uuid)
 returns uuid language plpgsql security definer set search_path = '' as $$
 declare
   saved_chat_id uuid;
@@ -193,7 +206,7 @@ begin
 end;
 $$;
 
-create function public.get_or_create_direct_chat(p_first_profile_id uuid, p_second_profile_id uuid)
+create or replace function public.get_or_create_direct_chat(p_first_profile_id uuid, p_second_profile_id uuid)
 returns uuid language plpgsql security definer set search_path = '' as $$
 declare
   direct_chat_id uuid;
@@ -222,7 +235,7 @@ begin
 end;
 $$;
 
-create function public.set_updated_at()
+create or replace function public.set_updated_at()
 returns trigger language plpgsql as $$
 begin
   new.updated_at = now();
@@ -230,12 +243,14 @@ begin
 end;
 $$;
 
+drop trigger if exists profiles_set_updated_at on public.profiles;
 create trigger profiles_set_updated_at before update on public.profiles
 for each row execute function public.set_updated_at();
+drop trigger if exists wallets_set_updated_at on public.wallets;
 create trigger wallets_set_updated_at before update on public.wallets
 for each row execute function public.set_updated_at();
 
-create function public.purchase_market_listing(p_listing_id uuid, p_buyer_profile_id uuid)
+create or replace function public.purchase_market_listing(p_listing_id uuid, p_buyer_profile_id uuid)
 returns uuid language plpgsql security definer set search_path = '' as $$
 declare
   listing public.market_listings%rowtype;

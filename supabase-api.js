@@ -74,6 +74,7 @@
       method: 'POST',
       headers: {
         apikey: config.anonKey,
+        Authorization: `Bearer ${config.anonKey}`,
         'Content-Type': 'application/json'
       },
       body: JSON.stringify({ ...payload, action, ...(initData ? { initData } : { browserDemo: true }) })
