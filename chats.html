@@ -7,14 +7,16 @@
   <link rel="stylesheet" href="style.css?v=message-unblur-telegram-user-20261017">
   <script src="https://telegram.org/js/telegram-web-app.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/lottie-web/5.12.2/lottie.min.js" defer></script>
-  <script src="script.js?v=telegram-message-clone-visible-20261017" defer></script>
+  <script src="supabase-client-config.js?v=wallet-balance-read-20261018" defer></script>
+  <script src="supabase-api.js?v=owned-nft-view-20261018" defer></script>
+  <script src="script.js?v=owned-nft-only-20261018" defer></script>
 </head>
 <body class="chats-screen">
   <header class="site-header">
     <a class="brand" href="index.html#home" aria-label="Чаты VYRN">ЧАТЫ</a>
-    <div class="star-balance" aria-label="Баланс: 12 450 звёзд">
+    <div class="star-balance" aria-label="Баланс: 0 звёзд">
       <img src="stars.png" alt="" aria-hidden="true">
-      <span>12 450</span>
+      <span>0</span>
     </div>
   </header>
   <main class="chats-page">
@@ -24,6 +26,7 @@
         <input class="chats-search-input" type="search" placeholder="Поиск по чатам" aria-label="Поиск по чатам">
       </label>
     </div>
+    <button class="chats-new-button" type="button">Новый чат</button>
     <section class="chat-list" aria-label="Список чатов">
       <button class="chat-row" type="button" data-chat-type="channel">
         <span class="chat-avatar" aria-hidden="true"><img class="chat-avatar-image" src="vyrn_chat.jpg" alt=""></span>
@@ -43,6 +46,17 @@
       </button>
     </section>
   </main>
+  <dialog class="new-chat-dialog" aria-labelledby="new-chat-title">
+    <form class="new-chat-form">
+      <h2 id="new-chat-title">Новый чат</h2>
+      <label>Ник игрока<input name="nickname" autocomplete="off" maxlength="32" placeholder="Например, player123456" required></label>
+      <p class="new-chat-error" role="alert" hidden></p>
+      <div class="new-chat-actions">
+        <button class="new-chat-cancel" type="button">Отмена</button>
+        <button class="new-chat-submit" type="submit">Открыть чат</button>
+      </div>
+    </form>
+  </dialog>
   <dialog class="conversation-dialog" aria-label="Переписка">
     <section class="conversation-screen">
       <header class="conversation-header">

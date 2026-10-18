@@ -41,6 +41,33 @@ const getTelegramUser = () => {
 };
 telegramWebApp?.ready();
 getTelegramUser();
+const canUseSupabaseAccount = () => window.VyrnApi?.isConfigured
+	&& Boolean(getTelegramUser());
+const canLoadPlayerData = () => canUseSupabaseAccount()
+	|| (window.VyrnApi?.isConfigured && window.VyrnApi.browserDemo);
+
+const renderWalletBalance = (wallets = []) => {
+	const stars = wallets.find((wallet) => wallet.currency === 'stars');
+	if (!stars) return;
+	document.querySelectorAll('.star-balance').forEach((balanceElement) => {
+		const balanceLabel = balanceElement.querySelector('span');
+		if (!balanceLabel) return;
+		balanceLabel.textContent = Number(stars.balance).toLocaleString('ru-RU');
+		balanceElement.setAttribute('aria-label', `Баланс: ${balanceLabel.textContent} звёзд`);
+	});
+};
+
+window.refreshVyrnAccount = async () => {
+	const result = await window.VyrnApi.me();
+	renderWalletBalance(result.wallets);
+	return result;
+};
+if (canUseSupabaseAccount() || (window.VyrnApi?.isConfigured && window.VyrnApi.browserDemo)) {
+	window.VyrnAccountPromise = window.refreshVyrnAccount().catch((error) => {
+		console.error('Не удалось загрузить аккаунт VYRN:', error);
+		return null;
+	});
+}
 
 {
 	const profileEditButton = document.querySelector('.profile-page:not(.player-profile-page) .profile-edit-button');
@@ -57,6 +84,10 @@ const profileDetailValues = profileContentElement ? [...profileContentElement.qu
 
 if (profileEditButton && profileEditorDialog && profileEditorForm && profileAvatarElement && profileNameElement && profileDetailValues.length >= 2) {
 	const telegramUser = getTelegramUser();
+	if (!telegramUser && window.VyrnApi?.browserDemo) {
+		profileEditButton.disabled = true;
+		profileEditButton.title = 'Браузерный демо-профиль доступен только для просмотра.';
+	}
 	const storedName = profileNameElement.textContent.trim().split(/\s+/);
 	const defaultProfile = {
 		firstName: telegramUser?.first_name || storedName[0] || '',
@@ -136,9 +167,31 @@ if (profileEditButton && profileEditorDialog && profileEditorForm && profileAvat
 
 	const renderProfile = () => {
 		profileNameElement.textContent = [profileData.firstName, profileData.lastName].filter(Boolean).join(' ');
-		profileDetailValues[0].textContent = profileData.username || '';
+		profileDetailValues[0].textContent = profileData.username || (profileData.nickname ? `@${profileData.nickname}` : '');
 		profileDetailValues[1].textContent = profileData.about || '';
 		setAvatarImage(profileAvatarImage, profileData.avatar);
+	};
+	const syncProfileFromServer = async () => {
+		if (!window.VyrnApi || (!telegramUser && !window.VyrnApi.browserDemo)) return;
+		try {
+			const result = await (window.VyrnAccountPromise || window.refreshVyrnAccount());
+			if (!result) throw new Error('Не удалось загрузить профиль с сервера.');
+			const profile = result.profile;
+			profileData = {
+				...profileData,
+				firstName: profile.first_name || profile.nickname || '',
+				lastName: profile.last_name || '',
+				username: profile.username ? `@${profile.username}` : '',
+				nickname: profile.nickname,
+				about: profile.bio || '',
+				birthday: profile.birthday || '',
+				phone: profile.phone || '',
+				avatar: profile.avatar_url || ''
+			};
+			renderProfile();
+		} catch (error) {
+			profileEditorError.textContent = error.message;
+		}
 	};
 
 	const loadProfileEditor = () => {
@@ -157,6 +210,7 @@ if (profileEditButton && profileEditorDialog && profileEditorForm && profileAvat
 	};
 
 	renderProfile();
+	syncProfileFromServer();
 	profileEditButton.addEventListener('click', () => {
 		loadProfileEditor();
 		profileEditorDialog.showModal();
@@ -166,7 +220,7 @@ if (profileEditButton && profileEditorDialog && profileEditorForm && profileAvat
 	profileEditorForm.elements.namedItem('birthday').addEventListener('input', (event) => {
 		profileEditorBirthdayValue.textContent = formatBirthday(event.target.value);
 	});
-	profileEditorForm.addEventListener('submit', (event) => {
+	profileEditorForm.addEventListener('submit', async (event) => {
 		event.preventDefault();
 		if (!profileEditorForm.reportValidity()) {
 			return;
@@ -187,10 +241,23 @@ if (profileEditButton && profileEditorDialog && profileEditorForm && profileAvat
 			phone: profileEditorForm.elements.namedItem('phone').value.trim(),
 			avatar: profileData.avatar
 		};
+		if (!window.VyrnApi) {
+			profileEditorError.textContent = 'Supabase API не подключён.';
+			profileEditorError.hidden = false;
+			return;
+		}
 		try {
-			localStorage.setItem('vyrn.profile.editor.v1', JSON.stringify(nextProfile));
-		} catch {
-			profileEditorError.textContent = 'Не удалось сохранить изменения.';
+			const result = await window.VyrnApi.updateProfile({
+				first_name: nextProfile.firstName,
+				last_name: nextProfile.lastName,
+				bio: nextProfile.about,
+				username: username || null,
+				birthday: nextProfile.birthday || null,
+				phone: nextProfile.phone || null
+			});
+			nextProfile.nickname = result.profile.nickname;
+		} catch (error) {
+			profileEditorError.textContent = error.message;
 			profileEditorError.hidden = false;
 			return;
 		}
@@ -237,6 +304,32 @@ const nftCollection = [
 
 const getNftPreviewUrl = (slug, id) => `https://nft.fragment.com/gift/${slug}-${id}.webp?fresh=${Date.now()}`;
 const getNftAnimationUrl = (fileName) => `https://nft.fragment.com/gift/${fileName}`;
+const formatMarketPrice = (amount, currency) => {
+	const value = Number(amount);
+	return currency === 'ton'
+		? (value / 1_000_000_000).toLocaleString('ru-RU', { maximumFractionDigits: 9 })
+		: value.toLocaleString('ru-RU');
+};
+const mapOwnedNft = (item) => {
+	const model = item.nft_models || {};
+	const collection = model.nft_collections || {};
+	const externalId = item.external_id || item.id.slice(0, 8);
+	const collectionSlug = collection.slug || model.slug || '';
+	return {
+		itemId: item.id,
+		slug: collectionSlug,
+		id: externalId,
+		name: model.name || collection.name || 'NFT',
+		previewUrl: collectionSlug && item.external_id
+			? getNftPreviewUrl(collectionSlug, externalId)
+			: model.preview_url || '',
+		animationUrl: collectionSlug && item.external_id
+			? getNftAnimationUrl(`${collectionSlug}-${externalId}.tgs`)
+			: model.animation_url || '',
+		listingId: (item.market_listings || []).find((listing) => listing.status === 'active')?.id || '',
+		isListed: (item.market_listings || []).some((listing) => listing.status === 'active')
+	};
+};
 const createNftPreviewImage = (source, title, className) => {
 	const image = document.createElement('img');
 	image.className = className;
@@ -248,17 +341,27 @@ const createNftPreviewImage = (source, title, className) => {
 const collectionPreviewGrid = document.querySelector('.collection-preview-grid');
 if (collectionPreviewGrid) {
 	const collectionTotal = collectionPreviewGrid.closest('.collection-panel').querySelector('.collection-total');
-	collectionTotal.textContent = `${nftCollection.length.toLocaleString('ru-RU')} NFT`;
-	collectionPreviewGrid.replaceChildren();
-	nftCollection.slice(0, 3).forEach((gift) => {
-		const title = `${gift.name} #${gift.id}`;
-		const image = createNftPreviewImage(getNftPreviewUrl(gift.slug, gift.id), title, 'collection-preview-image');
+	const renderCollectionPreview = (items) => {
+		collectionTotal.textContent = `${items.length.toLocaleString('ru-RU')} NFT`;
+		collectionPreviewGrid.replaceChildren();
+		items.slice(0, 3).forEach((gift) => {
+			const title = `${gift.name} #${gift.id}`;
+			const imageSource = gift.previewUrl || getNftPreviewUrl(gift.slug, gift.id);
+			const image = createNftPreviewImage(imageSource, title, 'collection-preview-image');
 		image.loading = 'lazy';
 		image.addEventListener('error', () => {
 			image.src = './placeholder.png';
 		}, { once: true });
 		collectionPreviewGrid.append(image);
-	});
+		});
+	};
+	if (canLoadPlayerData()) {
+		window.VyrnApi.myNfts()
+			.then(({ items }) => renderCollectionPreview(items.map(mapOwnedNft)))
+			.catch(() => renderCollectionPreview([]));
+	} else {
+		renderCollectionPreview(nftCollection);
+	}
 }
 
 const marketGrid = document.querySelector('.market-grid');
@@ -282,6 +385,7 @@ if (marketGrid) {
 	window.addEventListener('resize', () => moveMarketIndicator(marketTradeButtons.find((button) => button.classList.contains('is-active'))));
 
 	nftCollection.forEach((gift) => {
+		if (window.VyrnApi?.browserDemo && !getTelegramUser()) return;
 		const title = `${gift.name} #${gift.id}`;
 		const card = document.createElement('article');
 		card.className = 'market-card';
@@ -324,7 +428,124 @@ if (marketGrid) {
 		marketCollectionFilter.add(new Option(gift.name, gift.name));
 	});
 
-	const renderMarketList = () => {
+	let marketRequestId = 0;
+	const renderMarketList = async () => {
+		if (window.VyrnApi?.browserDemo && !getTelegramUser()) {
+			marketGrid.replaceChildren();
+			marketEmpty.textContent = 'В браузерном демо реальные объявления пока не подключены';
+			marketEmpty.hidden = false;
+			return;
+		}
+		if (canUseSupabaseAccount()) {
+			const requestId = ++marketRequestId;
+			try {
+				const result = await window.VyrnApi.market(marketMode);
+				if (requestId !== marketRequestId) return;
+				const remoteCards = result.items.map((entry) => {
+					const nft = entry.nft_items || {};
+					const model = nft.nft_models || {};
+					const collectionInfo = model.nft_collections || {};
+					const itemId = nft.external_id || nft.id || entry.nft_item_id;
+					const title = `${model.name || 'NFT'} #${itemId}`;
+					const imageSource = collectionInfo.slug && nft.external_id
+						? getNftPreviewUrl(collectionInfo.slug, nft.external_id)
+						: model.preview_url || (model.slug && itemId ? getNftPreviewUrl(model.slug, itemId) : './placeholder.png');
+					const card = document.createElement('article');
+					card.className = 'market-card';
+					card.dataset.marketName = title.toLocaleLowerCase('ru-RU');
+					card.dataset.marketCollection = model.name || collectionInfo.name || '';
+					card.dataset.marketPrice = String(entry.price || 0);
+
+					const imageFrame = document.createElement('div');
+					imageFrame.className = 'market-card-image-frame';
+					const image = createNftPreviewImage(imageSource, title, 'market-card-image');
+					image.loading = 'lazy';
+					image.addEventListener('error', () => { image.src = './placeholder.png'; }, { once: true });
+					imageFrame.append(image);
+
+					const content = document.createElement('div');
+					content.className = 'market-card-content';
+					const heading = document.createElement('div');
+					heading.className = 'market-card-heading';
+					const name = document.createElement('h2');
+					name.className = 'market-card-name';
+					name.textContent = title;
+					heading.append(name);
+					const price = document.createElement('div');
+					price.className = 'market-card-price';
+					const label = document.createElement('span');
+					label.className = 'market-card-price-label';
+					label.textContent = marketMode === 'purchases' ? 'Куплено' : 'Цена';
+					const value = document.createElement('span');
+					value.className = 'market-card-price-value';
+					value.textContent = formatMarketPrice(entry.price || 0, entry.currency);
+					const currency = document.createElement('span');
+					currency.className = 'market-card-currency';
+					currency.textContent = entry.currency === 'ton' ? 'TON' : '★';
+					price.append(label, value, currency);
+					content.append(heading, price);
+					const seller = entry.seller;
+					if (seller) {
+						const sellerLabel = document.createElement('p');
+						sellerLabel.className = 'market-card-seller';
+						sellerLabel.textContent = `Продавец: ${seller.username ? `@${seller.username}` : seller.nickname}`;
+						content.append(sellerLabel);
+					}
+
+					if (marketMode !== 'purchases') {
+						const action = document.createElement('button');
+						action.className = 'market-listing-action';
+						action.type = 'button';
+						const ownListing = marketMode === 'sales' || entry.seller_profile_id === result.current_profile_id;
+						action.textContent = ownListing ? 'Снять с продажи' : 'Купить';
+						action.addEventListener('click', async () => {
+							action.disabled = true;
+							try {
+								if (ownListing) {
+									await window.VyrnApi.cancelListing(entry.id);
+								} else {
+									if (!window.confirm(`Купить ${title} за ${value.textContent} ${currency.textContent}?`)) return;
+									await window.VyrnApi.buyListing(entry.id);
+									await window.refreshVyrnAccount();
+								}
+								await renderMarketList();
+							} catch (error) {
+								window.alert(error.message);
+							} finally {
+								action.disabled = false;
+							}
+						});
+						content.append(action);
+					}
+					card.append(imageFrame, content);
+					return card;
+				});
+				const query = marketSearch.value.trim().toLocaleLowerCase('ru-RU');
+				const collection = marketCollectionFilter.value;
+				const visibleCards = remoteCards.filter((card) => {
+					return (!query || card.dataset.marketName.includes(query))
+						&& (!collection || card.dataset.marketCollection === collection);
+				});
+				if (marketSort.value === 'price-asc' || marketSort.value === 'price-desc') {
+					const direction = marketSort.value === 'price-asc' ? 1 : -1;
+					visibleCards.sort((first, second) => (Number(first.dataset.marketPrice) - Number(second.dataset.marketPrice)) * direction);
+				} else {
+					visibleCards.sort((first, second) => first.dataset.marketName.localeCompare(second.dataset.marketName, 'ru'));
+				}
+				marketGrid.replaceChildren(...visibleCards);
+				marketEmpty.textContent = marketMode === 'sales'
+					? 'У вас пока нет объявлений о продаже'
+					: marketMode === 'purchases' ? 'Покупок пока нет' : 'Ничего не найдено';
+				marketEmpty.hidden = visibleCards.length > 0;
+				return;
+			} catch (error) {
+				if (requestId !== marketRequestId) return;
+				marketGrid.replaceChildren();
+				marketEmpty.textContent = error.message;
+				marketEmpty.hidden = false;
+				return;
+			}
+		}
 		const query = marketSearch.value.trim().toLocaleLowerCase('ru-RU');
 		const collection = marketCollectionFilter.value;
 		const visibleCards = marketMode === 'all' ? marketCards.filter((card) => {
@@ -404,18 +625,23 @@ const createTgsPreview = async (container, source) => {
 };
 
 const nftGrid = document.querySelector('.profile-page:not(.player-profile-page) .profile-nft-grid');
+let profileNftView = 'nft';
+let filterProfileNftCards = () => {};
 if (nftGrid) {
 	const startedNftCards = new WeakSet();
 	const renderNftCard = (gift) => {
 		const title = `${gift.name} #${gift.id}`;
-		const file = `${gift.slug}-${gift.id}.tgs`;
-		const source = getNftAnimationUrl(file);
+		const file = gift.slug ? `${gift.slug}-${gift.id}.tgs` : '';
+		const source = gift.animationUrl || (file ? getNftAnimationUrl(file) : '');
 		const card = document.createElement('button');
 		card.className = 'profile-nft-cell';
 		card.type = 'button';
+		card.dataset.nftItemId = gift.itemId || '';
+		card.dataset.nftListed = String(Boolean(gift.isListed));
+		card.dataset.nftListingId = gift.listingId || '';
 		card.dataset.nftSrc = source;
-		card.dataset.nftLink = `https://nft.fragment.com/gift/${file}`;
-		card.dataset.nftPreview = getNftPreviewUrl(gift.slug, gift.id);
+		card.dataset.nftLink = file ? `https://nft.fragment.com/gift/${file}` : '';
+		card.dataset.nftPreview = gift.previewUrl || (gift.slug ? getNftPreviewUrl(gift.slug, gift.id) : './placeholder.png');
 		card.dataset.nftTitle = title;
 		card.dataset.nftModel = gift.name;
 		card.dataset.nftFile = file;
@@ -444,8 +670,12 @@ if (nftGrid) {
 			));
 		}
 	};
-
-	const cards = nftCollection.map(renderNftCard);
+	let cards = (canLoadPlayerData() ? [] : nftCollection).map(renderNftCard);
+	filterProfileNftCards = () => {
+		cards.forEach((card) => {
+			card.hidden = profileNftView === 'sales' && card.dataset.nftListed !== 'true';
+		});
+	};
 	const updateVisibleNftCards = () => {
 		const viewportHeight = window.innerHeight;
 		cards.forEach((card) => {
@@ -460,6 +690,17 @@ if (nftGrid) {
 
 	window.addEventListener('scroll', updateVisibleNftCards, { passive: true });
 	window.addEventListener('resize', updateVisibleNftCards);
+	if (canLoadPlayerData()) {
+		window.VyrnApi.myNfts().then(({ items }) => {
+			nftGrid.replaceChildren();
+			cards = items.map((item) => renderNftCard(mapOwnedNft(item)));
+			filterProfileNftCards();
+			updateVisibleNftCards();
+		}).catch(() => {
+			nftGrid.replaceChildren();
+			cards = [];
+		});
+	}
 	updateVisibleNftCards();
 }
 
@@ -474,13 +715,16 @@ if (profileNftTabs) {
 	moveProfileNftIndicator(profileNftButtons.find((button) => button.classList.contains('is-active')));
 	profileNftButtons.forEach((button) => {
 		button.addEventListener('click', () => {
-			const wasActive = button.classList.contains('is-active');
 			profileNftButtons.forEach((tab) => {
 				const isActive = tab === button;
 				tab.classList.toggle('is-active', isActive);
 				tab.setAttribute('aria-pressed', String(isActive));
 			});
 			moveProfileNftIndicator(button);
+			if (typeof filterProfileNftCards === 'function') {
+				profileNftView = button.dataset.profileView;
+				filterProfileNftCards();
+			}
 		});
 	});
 }
@@ -495,6 +739,12 @@ if (nftGrids.length && nftModal && nftModalAnimation && nftModalBackdrop) {
 	const nftModalOwner = nftModal.querySelector('.nft-modal-owner');
 	const nftModalModel = nftModal.querySelector('.nft-modal-model');
 	const nftModalPrice = nftModal.querySelector('.nft-modal-price');
+	const nftMarketControls = nftModal.querySelector('.nft-modal-market-controls');
+	const nftListingPrice = nftModal.querySelector('.nft-modal-listing-price');
+	const nftListingCurrency = nftModal.querySelector('.nft-modal-listing-currency');
+	const nftListButton = nftModal.querySelector('.nft-modal-list-button');
+	const nftUnlistButton = nftModal.querySelector('.nft-modal-unlist-button');
+	let activeNftCard;
 	let activeNftAnimation;
 	let activeNftBackdrop;
 	let animationRequestId = 0;
@@ -652,8 +902,16 @@ if (nftGrids.length && nftModal && nftModalAnimation && nftModalBackdrop) {
 			}
 
 			nftModalTitle.textContent = nftCard.dataset.nftTitle;
+			activeNftCard = nftCard;
 			nftModalOwner.textContent = nftCard.closest('.profile-page')?.querySelector('.profile-name')?.textContent.trim() || '';
 			nftModalModel.textContent = nftCard.dataset.nftModel;
+			if (nftMarketControls) {
+				const hasOwnedItem = Boolean(nftCard.dataset.nftItemId);
+				const isListed = nftCard.dataset.nftListed === 'true';
+				nftMarketControls.hidden = !hasOwnedItem;
+				nftListButton.hidden = isListed;
+				nftUnlistButton.hidden = !isListed;
+			}
 			clearNftAnimation();
 			nftModal.showModal();
 			nftModal.querySelector('.nft-modal-close').focus();
@@ -661,6 +919,46 @@ if (nftGrids.length && nftModal && nftModalAnimation && nftModalBackdrop) {
 			loadNftPrice(nftCard.dataset.nftFile);
 		});
 	});
+
+	if (nftMarketControls && nftListButton && nftUnlistButton) {
+		nftListButton.addEventListener('click', async () => {
+			const enteredPrice = Number(nftListingPrice.value);
+			const price = nftListingCurrency.value === 'ton' ? Math.round(enteredPrice * 1_000_000_000) : enteredPrice;
+			if (!activeNftCard?.dataset.nftItemId || !Number.isSafeInteger(price) || price <= 0) {
+				nftListingPrice.focus();
+				return;
+			}
+			nftListButton.disabled = true;
+			try {
+				const result = await window.VyrnApi.createListing(activeNftCard.dataset.nftItemId, price, nftListingCurrency.value);
+				activeNftCard.dataset.nftListed = 'true';
+				activeNftCard.dataset.nftListingId = result.listing.id;
+				nftListButton.hidden = true;
+				nftUnlistButton.hidden = false;
+				filterProfileNftCards();
+			} catch (error) {
+				window.alert(error.message);
+			} finally {
+				nftListButton.disabled = false;
+			}
+		});
+		nftUnlistButton.addEventListener('click', async () => {
+			if (!activeNftCard?.dataset.nftListingId) return;
+			nftUnlistButton.disabled = true;
+			try {
+				await window.VyrnApi.cancelListing(activeNftCard.dataset.nftListingId);
+				activeNftCard.dataset.nftListed = 'false';
+				activeNftCard.dataset.nftListingId = '';
+				nftListButton.hidden = false;
+				nftUnlistButton.hidden = true;
+				filterProfileNftCards();
+			} catch (error) {
+				window.alert(error.message);
+			} finally {
+				nftUnlistButton.disabled = false;
+			}
+		});
+	}
 
 	const closeNftModal = () => nftModal.close();
 	nftModal.querySelector('.nft-modal-close').addEventListener('click', closeNftModal);
@@ -676,7 +974,10 @@ if (nftGrids.length && nftModal && nftModalAnimation && nftModalBackdrop) {
 			closeNftModal();
 		}
 	});
-	nftModal.addEventListener('close', clearNftAnimation);
+	nftModal.addEventListener('close', () => {
+		clearNftAnimation();
+		activeNftCard = undefined;
+	});
 }
 
 const moveIndicator = (button, animate) => {
@@ -745,7 +1046,7 @@ navItems.filter((item) => item.tagName === 'A').forEach((link) => {
 	});
 });
 
-const chatRows = [...document.querySelectorAll('.chat-row')];
+let chatRows = [...document.querySelectorAll('.chat-row')];
 const conversationDialog = document.querySelector('.conversation-dialog');
 const chatsPage = document.querySelector('.chats-page');
 const chatsSearchInput = chatsPage?.querySelector('.chats-search-input');
@@ -838,6 +1139,9 @@ if (chatRows.length && conversationDialog) {
 	} catch {
 		favoriteMessages = [];
 	}
+	let remoteSavedChatId;
+	let remoteProfileId;
+	let activeServerChatId;
 	const conversationThreads = [
 		[
 			{ text: 'Добро пожаловать в VYRN — Портал. Здесь будут публиковаться новости и обновления проекта.', time: '12:00' }
@@ -852,6 +1156,32 @@ if (chatRows.length && conversationDialog) {
 	const favoritesPreview = chatRows[favoritesChatIndex]?.querySelector('.chat-message');
 	if (favoritesPreview && favoriteMessages.length) {
 		favoritesPreview.textContent = favoriteMessages.at(-1).text;
+	}
+	if (canUseSupabaseAccount()) {
+		window.VyrnApi.chats().then(async (result) => {
+			remoteProfileId = result.current_profile_id;
+			const savedChat = result.chats.find((member) => member.chats?.chat_type === 'saved');
+			if (savedChat) {
+				remoteSavedChatId = savedChat.chat_id;
+				if (activeChatIndex === favoritesChatIndex) activeServerChatId = remoteSavedChatId;
+				const messages = await window.VyrnApi.messages(remoteSavedChatId);
+				conversationThreads[favoritesChatIndex] = messages.messages.map((message) => ({
+					id: message.id,
+					text: message.body,
+					time: new Intl.DateTimeFormat('ru-RU', { hour: '2-digit', minute: '2-digit' }).format(new Date(message.created_at)),
+					outgoing: message.sender_profile_id === remoteProfileId
+				}));
+				if (favoritesPreview) {
+					favoritesPreview.textContent = conversationThreads[favoritesChatIndex].at(-1)?.text || 'Ваши сохранённые сообщения';
+				}
+				if (activeChatIndex === favoritesChatIndex) renderConversationMessages();
+			}
+			result.chats.filter((member) => member.chats?.chat_type === 'direct').forEach((member) => {
+				if (member.peer) addRemoteChatRow(member.chat_id, member.peer);
+			});
+		}).catch((error) => {
+			console.error('Не удалось загрузить избранные сообщения:', error);
+		});
 	}
 
 	const renderConversationMessages = (animateLatest = false) => {
@@ -1000,9 +1330,10 @@ if (chatRows.length && conversationDialog) {
 		conversationProfile.hidden = !showProfile;
 	};
 
-	chatRows.forEach((chatRow, index) => {
+	const bindChatRow = (chatRow, index) => {
 		chatRow.addEventListener('click', () => {
 			activeChatIndex = index;
+			activeServerChatId = chatRow.dataset.chatId || (index === favoritesChatIndex ? remoteSavedChatId : undefined);
 			const name = chatRow.querySelector('.chat-name').textContent.replace(/\s+/g, ' ').trim();
 			const channelBadge = chatRow.querySelector('.channel-verified');
 			const avatar = chatRow.querySelector('.chat-avatar').cloneNode(true);
@@ -1040,28 +1371,140 @@ if (chatRows.length && conversationDialog) {
 			showConversationProfile(false);
 			renderConversationMessages();
 			conversationDialog.showModal();
+			if (activeServerChatId && window.VyrnApi) {
+				window.VyrnApi.messages(activeServerChatId).then((result) => {
+					conversationThreads[index] = result.messages.map((message) => ({
+						id: message.id,
+						text: message.body,
+						time: new Intl.DateTimeFormat('ru-RU', { hour: '2-digit', minute: '2-digit' }).format(new Date(message.created_at)),
+						outgoing: message.sender_profile_id === remoteProfileId
+					}));
+					if (activeChatIndex === index) renderConversationMessages();
+					const preview = chatRow.querySelector('.chat-message');
+					if (preview) preview.textContent = result.messages.at(-1)?.body || 'Нет сообщений';
+				}).catch((error) => window.alert(error.message));
+			}
 			requestAnimationFrame(() => {
 				conversationMessages.scrollTop = conversationMessages.scrollHeight;
 			});
 			(profile.canSend ? conversationInput : conversationDialog.querySelector('.conversation-back')).focus();
 		});
-	});
+	};
+	chatRows.forEach(bindChatRow);
 
-	const sendFavoriteMessage = () => {
+	const addRemoteChatRow = (chatId, peer) => {
+		const existing = chatRows.find((row) => row.dataset.chatId === chatId);
+		if (existing) return existing;
+		const index = chatRows.length;
+		const row = document.createElement('button');
+		row.className = 'chat-row';
+		row.type = 'button';
+		row.dataset.chatType = 'direct';
+		row.dataset.chatId = chatId;
+		const avatar = document.createElement('span');
+		avatar.className = 'chat-avatar';
+		avatar.setAttribute('aria-hidden', 'true');
+		if (peer.avatar_url) {
+			const image = document.createElement('img');
+			image.className = 'chat-avatar-image';
+			image.src = peer.avatar_url;
+			image.alt = '';
+			avatar.append(image);
+		} else {
+			avatar.textContent = (peer.nickname || '?').slice(0, 1).toUpperCase();
+		}
+		const copy = document.createElement('span');
+		copy.className = 'chat-copy';
+		const heading = document.createElement('span');
+		heading.className = 'chat-heading';
+		const name = document.createElement('span');
+		name.className = 'chat-name';
+		name.textContent = peer.nickname;
+		const type = document.createElement('span');
+		type.className = 'chat-time';
+		type.textContent = peer.username ? `@${peer.username}` : 'Игрок';
+		heading.append(name, type);
+		const preview = document.createElement('span');
+		preview.className = 'chat-preview';
+		const lastMessage = document.createElement('span');
+		lastMessage.className = 'chat-message';
+		lastMessage.textContent = 'Открыть переписку';
+		preview.append(lastMessage);
+		copy.append(heading, preview);
+		row.append(avatar, copy);
+		document.querySelector('.chat-list').append(row);
+		chatRows.push(row);
+		conversationThreads[index] = [];
+		playerProfiles[index] = {
+			username: peer.username ? `@${peer.username}` : `@${peer.nickname}`,
+			status: 'профиль игрока',
+			headerStatus: 'в VYRN',
+			bio: '',
+			notice: '',
+			canSend: true
+		};
+		bindChatRow(row, index);
+		return row;
+	};
+
+	const newChatDialog = document.querySelector('.new-chat-dialog');
+	const newChatButton = document.querySelector('.chats-new-button');
+	const newChatForm = newChatDialog?.querySelector('.new-chat-form');
+	if (newChatDialog && newChatButton && newChatForm) {
+		const newChatError = newChatForm.querySelector('.new-chat-error');
+		newChatButton.addEventListener('click', () => newChatDialog.showModal());
+		newChatForm.querySelector('.new-chat-cancel').addEventListener('click', () => newChatDialog.close());
+		newChatForm.addEventListener('submit', async (event) => {
+			event.preventDefault();
+			newChatError.hidden = true;
+			const submit = newChatForm.querySelector('.new-chat-submit');
+			submit.disabled = true;
+			try {
+				const nickname = newChatForm.elements.namedItem('nickname').value.trim();
+				const result = await window.VyrnApi.createChat(nickname);
+				const row = addRemoteChatRow(result.chat_id, result.peer);
+				newChatDialog.close();
+				newChatForm.reset();
+				row.click();
+			} catch (error) {
+				newChatError.textContent = error.message;
+				newChatError.hidden = false;
+			} finally {
+				submit.disabled = false;
+			}
+		});
+	}
+
+	const sendFavoriteMessage = async () => {
 		const text = conversationInput.value.trim();
-		if (!text || activeChatIndex !== favoritesChatIndex) {
+		const isSavedChat = activeChatIndex === favoritesChatIndex;
+		if (!text || (!isSavedChat && !activeServerChatId)) {
+			return;
+		}
+		if (canUseSupabaseAccount() && !activeServerChatId) {
+			window.alert('Подключение к чату ещё выполняется. Повторите отправку через секунду.');
 			return;
 		}
 
 		const time = new Intl.DateTimeFormat('ru-RU', { hour: '2-digit', minute: '2-digit' }).format(new Date());
-		const message = { text, time, outgoing: true };
-		conversationThreads[favoritesChatIndex].push(message);
-		try {
-			localStorage.setItem(favoritesStorageKey, JSON.stringify(conversationThreads[favoritesChatIndex]));
-		} catch {
+		let message = { text, time, outgoing: true };
+		if (activeServerChatId) {
+			try {
+				const result = await window.VyrnApi.sendMessage(activeServerChatId, text);
+				message = { id: result.message.id, text, time, outgoing: true };
+			} catch (error) {
+				window.alert(error.message);
+				return;
+			}
+		} else {
+			try {
+				localStorage.setItem(favoritesStorageKey, JSON.stringify([...conversationThreads[favoritesChatIndex], message]));
+			} catch {
+			}
 		}
+		conversationThreads[favoritesChatIndex].push(message);
 		conversationInput.value = '';
-		if (favoritesPreview) {
+		if (isSavedChat && favoritesPreview) {
 			favoritesPreview.textContent = text;
 		}
 		renderConversationMessages(true);
@@ -1084,17 +1527,28 @@ if (chatRows.length && conversationDialog) {
 		pendingDeleteIndex = -1;
 	};
 	messageActionScrim.addEventListener('click', () => closeMessageActionMenu(true));
-	messageDeleteAction.addEventListener('click', () => {
+	messageDeleteAction.addEventListener('click', async () => {
 		if (pendingDeleteIndex < 0 || activeChatIndex !== favoritesChatIndex) {
 			closeMessageActionMenu();
 			return;
 		}
 
-		conversationThreads[favoritesChatIndex].splice(pendingDeleteIndex, 1);
-		try {
-			localStorage.setItem(favoritesStorageKey, JSON.stringify(conversationThreads[favoritesChatIndex]));
-		} catch {
+		const message = conversationThreads[favoritesChatIndex][pendingDeleteIndex];
+		if (remoteSavedChatId && message.id) {
+			try {
+				await window.VyrnApi.deleteMessage(message.id);
+			} catch (error) {
+				closeMessageActionMenu();
+				window.alert(error.message);
+				return;
+			}
+		} else {
+			try {
+				localStorage.setItem(favoritesStorageKey, JSON.stringify(conversationThreads[favoritesChatIndex].filter((_, index) => index !== pendingDeleteIndex)));
+			} catch {
+			}
 		}
+		conversationThreads[favoritesChatIndex].splice(pendingDeleteIndex, 1);
 		if (favoritesPreview) {
 			favoritesPreview.textContent = conversationThreads[favoritesChatIndex].at(-1)?.text || 'Ваши сохранённые сообщения';
 		}
@@ -1121,6 +1575,7 @@ if (chatRows.length && conversationDialog) {
 	conversationDialog.addEventListener('close', () => {
 		showConversationProfile(false);
 		activeChatIndex = -1;
+		activeServerChatId = undefined;
 	});
 }
 

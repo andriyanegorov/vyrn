@@ -1,0 +1,120 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Администрирование | VYRN</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css?v=admin-panel-number-media-20261018">
+  <link rel="stylesheet" href="admin.css?v=admin-panel-number-media-20261018">
+  <script src="supabase-client-config.js?v=admin-panel-number-media-20261018" defer></script>
+  <script src="admin.js?v=admin-panel-number-media-20261018" defer></script>
+</head>
+<body class="admin-page">
+  <header class="admin-header">
+    <a class="admin-brand" href="index.html">VYRN <span>CONTROL</span></a>
+    <div class="admin-header-meta"><span class="admin-live-dot"></span> Администрирование</div>
+  </header>
+  <main class="admin-layout">
+    <section class="admin-title-row">
+      <div>
+        <p class="admin-kicker">INVENTORY / GRANT</p>
+        <h1>Выдача подарков</h1>
+        <p class="admin-subtitle">Найдите игрока, выберите коллекцию Fragment и номер подарка.</p>
+      </div>
+      <a class="admin-fragment-link" href="https://fragment.com/gifts" target="_blank" rel="noopener noreferrer">Открыть Fragment ↗</a>
+    </section>
+
+    <section class="admin-auth-strip" aria-label="Доступ администратора">
+      <label class="admin-field admin-password-field">
+        <span>Пароль администратора</span>
+        <input class="admin-password" type="password" autocomplete="current-password" placeholder="Вводится только на время сессии">
+      </label>
+      <p class="admin-auth-note">Пароль проверяется Supabase RPC и не сохраняется в браузере.</p>
+    </section>
+
+    <div class="admin-workspace">
+      <section class="admin-section admin-player-section" aria-labelledby="player-heading">
+        <div class="admin-section-heading">
+          <span class="admin-step">01</span>
+          <div><h2 id="player-heading">Игрок</h2><p>Поиск по нику, username или Telegram ID</p></div>
+        </div>
+        <form class="admin-player-search-form">
+          <label class="admin-field">
+            <span>Игрок</span>
+            <input class="admin-player-query" type="search" autocomplete="off" placeholder="например, player000123" minlength="2" required>
+          </label>
+          <button class="admin-button admin-search-button" type="submit">Найти</button>
+        </form>
+        <p class="admin-status admin-player-status" role="status" hidden></p>
+        <div class="admin-player-results" aria-live="polite"></div>
+        <div class="admin-selected-player" hidden></div>
+      </section>
+
+      <section class="admin-section admin-gift-section" aria-labelledby="gift-heading">
+        <div class="admin-section-heading">
+          <span class="admin-step">02</span>
+          <div><h2 id="gift-heading">Подарок Fragment</h2><p>Каталог коллекций и предпросмотр по номеру</p></div>
+        </div>
+        <div class="admin-gift-fields">
+          <label class="admin-field">
+            <span>Поиск коллекции</span>
+            <input class="admin-collection-query" type="search" autocomplete="off" placeholder="Название или slug">
+          </label>
+          <label class="admin-field">
+            <span>Коллекция</span>
+            <select class="admin-collection-select" aria-label="Коллекция Fragment"></select>
+          </label>
+          <label class="admin-field admin-number-field">
+            <span>Номер подарка</span>
+            <input class="admin-gift-number" type="number" min="1" step="1" inputmode="numeric" placeholder="Например, 64">
+          </label>
+          <label class="admin-field admin-price-field">
+            <span>Цена выдачи, Stars</span>
+            <input class="admin-gift-price" type="number" min="1" step="1" inputmode="numeric" placeholder="Загрузка цены Fragment…">
+          </label>
+        </div>
+        <details class="admin-custom-collection">
+          <summary>Указать другую коллекцию Fragment</summary>
+          <div class="admin-custom-fields">
+            <label class="admin-field"><span>Slug из URL коллекции</span><input class="admin-custom-slug" type="text" pattern="[a-zA-Z0-9]+" autocomplete="off" placeholder="например, plushpepe"></label>
+            <label class="admin-field"><span>Название</span><input class="admin-custom-name" type="text" maxlength="100" autocomplete="off" placeholder="например, Plush Pepe"></label>
+          </div>
+        </details>
+        <article class="admin-gift-preview" aria-live="polite">
+          <div class="admin-preview-art"><img class="admin-preview-image" alt="Предпросмотр NFT" hidden><span class="admin-preview-placeholder">Выберите коллекцию и введите номер</span></div>
+          <div class="admin-preview-copy">
+            <p class="admin-preview-kicker">FRAGMENT GIFT</p>
+            <h3 class="admin-preview-title">Подарок не выбран</h3>
+            <p class="admin-preview-description">Изображение загружается из публичного каталога Fragment.</p>
+            <a class="admin-preview-link" href="https://fragment.com/gifts" target="_blank" rel="noopener noreferrer" hidden>Проверить на Fragment ↗</a>
+          </div>
+        </article>
+        <p class="admin-price-note">Цена берётся с Fragment автоматически: GRAM / 10 × 80 Stars. При необходимости её можно изменить вручную.</p>
+        <p class="admin-fragment-note">Fragment не предоставляет здесь официальный поисковый API. Выдача создаёт тестовое владение в VYRN, а не переводит подарок в Telegram.</p>
+        <p class="admin-status admin-grant-status" role="status" hidden></p>
+        <div class="admin-gift-actions">
+          <button class="admin-button admin-grant-button" type="button" disabled>Выдать выбранному игроку</button>
+          <button class="admin-button admin-remove-button" type="button" disabled>Удалить с профиля</button>
+        </div>
+      </section>
+    </div>
+    <section class="admin-section admin-inventory-section" aria-labelledby="inventory-heading">
+      <div class="admin-section-heading">
+        <span class="admin-step">03</span>
+        <div><h2 id="inventory-heading">Все NFT игроков</h2><p>Полный список владений с физическим удалением из базы</p></div>
+      </div>
+      <div class="admin-inventory-toolbar">
+        <button class="admin-button admin-load-inventory-button" type="button">Загрузить список NFT</button>
+        <p class="admin-status admin-inventory-status" role="status" hidden></p>
+      </div>
+      <div class="admin-inventory-list" aria-live="polite">
+        <p class="admin-empty-result">Нажмите «Загрузить список NFT».</p>
+      </div>
+    </section>
+    <p class="admin-footnote">Выдачи записываются в историю NFT-передач. Сайт хранит только публичные метаданные подарка и номер экземпляра.</p>
+  </main>
+</body>
+</html>

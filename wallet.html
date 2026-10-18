@@ -1,0 +1,104 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#f0eff4">
+  <title>Деньги | VYRN</title>
+  <link rel="stylesheet" href="style.css?v=wallet-steady-glints-20261018">
+  <script src="https://telegram.org/js/telegram-web-app.js"></script>
+  <script src="script.js?v=wallet-motion-20261018" defer></script>
+</head>
+<body class="wallet-screen">
+  <header class="wallet-header">
+    <a class="wallet-back" href="index.html#home" aria-label="Назад">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m15 5-7 7 7 7" /></svg>
+    </a>
+    <h1>Кошелёк</h1>
+    <div class="wallet-header-actions">
+      <button class="wallet-header-button is-more" type="button" aria-label="Ещё" aria-expanded="false" aria-controls="wallet-more-menu">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="5" cy="12" r="1.8"/><circle cx="12" cy="12" r="1.8"/><circle cx="19" cy="12" r="1.8"/></svg>
+      </button>
+      <div class="wallet-more-menu" id="wallet-more-menu" hidden>
+        <button class="wallet-menu-item wallet-transfer-action" type="button">
+          <svg class="wallet-menu-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 8h17l-4-4m5 12H4l4 4"/></svg>
+          <span>Перевести</span>
+        </button>
+        <button class="wallet-menu-item wallet-currency-toggle" type="button" aria-expanded="false" aria-controls="wallet-currency-options">
+          <svg class="wallet-menu-icon" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3a15 15 0 0 1 0 18M12 3a15 15 0 0 0 0 18"/></svg>
+          <span class="wallet-menu-copy">
+            <span>Валюта</span>
+            <span class="wallet-menu-current">USD</span>
+          </span>
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6 9 6 6 6-6" /></svg>
+        </button>
+        <div class="wallet-currency-options" id="wallet-currency-options" hidden>
+          <button class="wallet-currency-option is-selected" type="button" data-wallet-currency="usd" aria-pressed="true">USD</button>
+          <button class="wallet-currency-option" type="button" data-wallet-currency="rub" aria-pressed="false">RUB</button>
+        </div>
+      </div>
+    </div>
+  </header>
+  <main class="wallet-page">
+    <section class="wallet-balance-card" aria-label="Баланс кошелька">
+      <span class="wallet-card-spark wallet-spark-one" aria-hidden="true">✦</span>
+      <span class="wallet-card-spark wallet-spark-two" aria-hidden="true">✦</span>
+      <span class="wallet-card-spark wallet-spark-three" aria-hidden="true">✦</span>
+      <span class="wallet-card-spark wallet-spark-four" aria-hidden="true">✦</span>
+      <span class="wallet-card-spark wallet-spark-five" aria-hidden="true">✦</span>
+      <div class="wallet-card-balance">
+        <img src="stars.png" alt="" aria-hidden="true">
+        <span class="wallet-balance-value" data-wallet-balance>12 450</span>
+        <span class="wallet-currency">STARS</span>
+      </div>
+      <p class="wallet-balance-usd">$249,00</p>
+      <span class="wallet-account-name"></span>
+      <button class="wallet-card-network" type="button" aria-label="Скопировать адрес кошелька"></button>
+    </section>
+    <div class="wallet-actions" aria-label="Операции с кошельком">
+      <button class="wallet-action" type="button">
+        <span>Пополнить</span>
+      </button>
+      <button class="wallet-action" type="button">
+        <span>Вывести</span>
+      </button>
+    </div>
+    <section class="wallet-transactions" aria-label="История операций">
+      <article class="wallet-transaction">
+        <span class="wallet-transaction-avatar is-person" aria-hidden="true" hidden>
+          <img class="wallet-transaction-avatar-image" alt="" hidden>
+        </span>
+        <div class="wallet-transaction-copy">
+          <strong>VYRN Market</strong>
+          <span>Продажа NFT</span>
+          <time datetime="2026-10-15T17:15">15 окт в 17:15</time>
+        </div>
+        <span class="wallet-transaction-amount is-positive">+150 <img src="stars.png" alt="Stars"></span>
+      </article>
+      <article class="wallet-transaction">
+        <span class="wallet-transaction-avatar is-person" aria-hidden="true" hidden>
+          <img class="wallet-transaction-avatar-image" alt="" hidden>
+        </span>
+        <div class="wallet-transaction-copy">
+          <strong>VYRN Market</strong>
+          <span>Покупка NFT</span>
+          <time datetime="2026-10-15T17:15">15 окт в 17:15</time>
+        </div>
+        <span class="wallet-transaction-amount">−50 <img src="stars.png" alt="Stars"></span>
+      </article>
+      <article class="wallet-transaction">
+        <span class="wallet-transaction-avatar is-deposit" aria-hidden="true" hidden>
+          <img class="wallet-transaction-avatar-image" alt="" hidden>
+        </span>
+        <div class="wallet-transaction-copy">
+          <strong>Пополнение</strong>
+          <span>Зачисление Stars</span>
+          <time datetime="2026-10-14T20:50">14 окт в 20:50</time>
+        </div>
+        <span class="wallet-transaction-amount is-positive">+500 <img src="stars.png" alt="Stars"></span>
+      </article>
+    </section>
+  </main>
+  <div class="wallet-toast" role="status" aria-live="polite" hidden></div>
+</body>
+</html>

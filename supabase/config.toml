@@ -1,0 +1,5 @@
+[functions.telegram-api]
+verify_jwt = false
+
+[functions.fragment-price]
+verify_jwt = false
