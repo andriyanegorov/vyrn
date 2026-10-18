@@ -42,7 +42,7 @@ const getTelegramUser = () => {
 telegramWebApp?.ready();
 getTelegramUser();
 const canUseSupabaseAccount = () => window.VyrnApi?.isConfigured
-	&& Boolean(getTelegramUser());
+	&& (Boolean(getTelegramUser()) || window.VyrnApi.browserDemo);
 const canLoadPlayerData = () => canUseSupabaseAccount()
 	|| (window.VyrnApi?.isConfigured && window.VyrnApi.browserDemo);
 
@@ -310,6 +310,7 @@ const formatMarketPrice = (amount, currency) => {
 		? (value / 1_000_000_000).toLocaleString('ru-RU', { maximumFractionDigits: 9 })
 		: value.toLocaleString('ru-RU');
 };
+const getProfileDisplayName = (profile) => [profile?.first_name, profile?.last_name].filter(Boolean).join(' ') || profile?.nickname || 'Игрок';
 const mapOwnedNft = (item) => {
 	const model = item.nft_models || {};
 	const collection = model.nft_collections || {};
@@ -385,7 +386,6 @@ if (marketGrid) {
 	window.addEventListener('resize', () => moveMarketIndicator(marketTradeButtons.find((button) => button.classList.contains('is-active'))));
 
 	nftCollection.forEach((gift) => {
-		if (window.VyrnApi?.browserDemo && !getTelegramUser()) return;
 		const title = `${gift.name} #${gift.id}`;
 		const card = document.createElement('article');
 		card.className = 'market-card';
@@ -430,12 +430,6 @@ if (marketGrid) {
 
 	let marketRequestId = 0;
 	const renderMarketList = async () => {
-		if (window.VyrnApi?.browserDemo && !getTelegramUser()) {
-			marketGrid.replaceChildren();
-			marketEmpty.textContent = 'В браузерном демо реальные объявления пока не подключены';
-			marketEmpty.hidden = false;
-			return;
-		}
 		if (canUseSupabaseAccount()) {
 			const requestId = ++marketRequestId;
 			try {
@@ -488,7 +482,7 @@ if (marketGrid) {
 					if (seller) {
 						const sellerLabel = document.createElement('p');
 						sellerLabel.className = 'market-card-seller';
-						sellerLabel.textContent = `Продавец: ${seller.username ? `@${seller.username}` : seller.nickname}`;
+						sellerLabel.textContent = `Продавец: ${getProfileDisplayName(seller)}`;
 						content.append(sellerLabel);
 					}
 
@@ -1050,6 +1044,9 @@ let chatRows = [...document.querySelectorAll('.chat-row')];
 const conversationDialog = document.querySelector('.conversation-dialog');
 const chatsPage = document.querySelector('.chats-page');
 const chatsSearchInput = chatsPage?.querySelector('.chats-search-input');
+const chatsProfileResults = chatsPage?.querySelector('.chats-profile-results');
+const chatsSearchClear = chatsPage?.querySelector('.chats-search-clear');
+const chatsProfileResultList = chatsPage?.querySelector('.chats-profile-result-list');
 
 if (chatsPage && chatsSearchInput) {
 	let pullStart = null;
@@ -1057,14 +1054,76 @@ if (chatsPage && chatsSearchInput) {
 		const query = chatsSearchInput.value.trim().toLocaleLowerCase('ru-RU');
 		chatRows.forEach((row) => {
 			const searchableText = `${row.querySelector('.chat-name').textContent} ${row.querySelector('.chat-message').textContent}`;
-			row.hidden = !searchableText.toLocaleLowerCase('ru-RU').includes(query);
+			row.hidden = Boolean(query) || !searchableText.toLocaleLowerCase('ru-RU').includes(query);
 		});
 	};
+	const searchProfiles = async () => {
+		const query = chatsSearchInput.value.trim();
+		if (!chatsProfileResults || !chatsProfileResultList || !window.VyrnApi || query.length < 2) {
+			if (chatsProfileResults) chatsProfileResults.hidden = true;
+			return;
+		}
+		try {
+			const result = await window.VyrnApi.createChat(query);
+			chatsProfileResultList.replaceChildren();
+			const row = document.createElement('button');
+			row.type = 'button';
+			row.className = 'chat-profile-result';
+			const avatar = document.createElement('span');
+			avatar.className = 'chat-profile-result-avatar';
+			if (result.peer.avatar_url) {
+				const image = document.createElement('img');
+				image.src = result.peer.avatar_url;
+				image.alt = '';
+				avatar.append(image);
+			} else {
+				avatar.textContent = getProfileDisplayName(result.peer).slice(0, 1).toUpperCase();
+			}
+			const copy = document.createElement('span');
+			copy.className = 'chat-profile-result-copy';
+			const name = document.createElement('strong');
+			name.textContent = getProfileDisplayName(result.peer);
+			const username = document.createElement('span');
+			username.textContent = result.peer.username ? `@${result.peer.username}` : 'Профиль игрока';
+			copy.append(name, username);
+			row.append(avatar, copy);
+			row.addEventListener('click', () => {
+				const chatRow = [...document.querySelectorAll('.chat-row')].find((item) => item.dataset.chatId === result.chat_id) || addRemoteChatRow(result.chat_id, result.peer);
+				chatsProfileResults.hidden = true;
+				chatsSearchInput.value = '';
+				chatRows = [...document.querySelectorAll('.chat-row')];
+				chatRow.click();
+			});
+			chatsProfileResultList.append(row);
+			chatsProfileResults.hidden = false;
+		} catch {
+			chatsProfileResults.hidden = true;
+		}
+	};
 
-	chatsSearchInput.addEventListener('input', filterChats);
+	let profileSearchTimer;
+	chatsSearchInput.addEventListener('input', () => {
+		chatsPage.classList.toggle('is-searching', chatsSearchInput.value.trim().length > 0);
+		filterChats();
+		if (chatsSearchClear) chatsSearchClear.hidden = chatsSearchInput.value.length === 0;
+		clearTimeout(profileSearchTimer);
+		profileSearchTimer = setTimeout(searchProfiles, 300);
+	});
+	chatsSearchClear?.addEventListener('click', () => {
+		chatsSearchInput.value = '';
+		chatsSearchClear.hidden = true;
+		chatsPage.classList.remove('is-searching');
+		filterChats();
+		chatsProfileResults.hidden = true;
+		chatsSearchInput.focus();
+	});
+	chatsSearchInput.addEventListener('focus', () => {
+		chatsPage.classList.add('is-search-open', 'is-searching');
+	});
 	chatsSearchInput.addEventListener('keydown', (event) => {
 		if (event.key === 'Escape') {
 			chatsSearchInput.value = '';
+			chatsPage.classList.remove('is-searching', 'is-search-open');
 			filterChats();
 			chatsPage.classList.remove('is-search-open');
 		}
@@ -1124,6 +1183,7 @@ if (chatRows.length && conversationDialog) {
 	const playerProfileStatus = conversationProfile.querySelector('.profile-status');
 	const playerProfileUsername = conversationProfile.querySelector('.player-profile-username');
 	const playerProfileBio = conversationProfile.querySelector('.player-profile-bio');
+	const playerProfileNftGrid = conversationProfile.querySelector('.player-profile-nft-grid');
 	const playerProfiles = [
 		{ username: 'Канал', status: 'официальный канал', headerStatus: 'официальный канал', bio: 'Новости и обновления проекта VYRN', notice: 'Канал доступен только для чтения' },
 		{ username: 'Личное', status: 'только вы', headerStatus: 'Сохранённые сообщения', bio: 'Личное пространство для избранных сообщений.', notice: '', canSend: true }
@@ -1153,6 +1213,26 @@ if (chatRows.length && conversationDialog) {
 	let activeMessageBubble;
 	let activeMessageRow;
 	let activeMessageClone;
+	let messageRefreshTimer;
+	const formatRemoteMessages = (messages) => messages.map((message) => ({
+		id: message.id,
+		text: message.body,
+		time: new Intl.DateTimeFormat('ru-RU', { hour: '2-digit', minute: '2-digit' }).format(new Date(message.created_at)),
+		outgoing: message.sender_profile_id === remoteProfileId
+	}));
+	const refreshActiveMessages = async () => {
+		if (!activeServerChatId || activeChatIndex < 0 || !window.VyrnApi) return;
+		const result = await window.VyrnApi.messages(activeServerChatId);
+		conversationThreads[activeChatIndex] = formatRemoteMessages(result.messages);
+		if (activeChatIndex === favoritesChatIndex) {
+			favoritesPreview.textContent = result.messages.at(-1)?.body || 'Ваши сохранённые сообщения';
+		}
+		if (activeChatIndex >= 0) renderConversationMessages();
+	};
+	const startMessageRefresh = () => {
+		clearInterval(messageRefreshTimer);
+		messageRefreshTimer = setInterval(() => refreshActiveMessages().catch(() => {}), 2500);
+	};
 	const favoritesPreview = chatRows[favoritesChatIndex]?.querySelector('.chat-message');
 	if (favoritesPreview && favoriteMessages.length) {
 		favoritesPreview.textContent = favoriteMessages.at(-1).text;
@@ -1358,6 +1438,18 @@ if (chatRows.length && conversationDialog) {
 			playerProfileStatus.textContent = profile.status;
 			playerProfileUsername.textContent = profile.username;
 			playerProfileBio.textContent = profile.bio;
+			if (playerProfileNftGrid) playerProfileNftGrid.replaceChildren();
+			if (profile.profileId && window.VyrnApi) {
+				window.VyrnApi.profileNfts(profile.profileId).then(({ items }) => {
+					if (activeChatIndex !== index || !playerProfileNftGrid) return;
+					items.map(mapOwnedNft).forEach((gift) => {
+						const card = document.createElement('div');
+						card.className = 'profile-nft-cell';
+						card.append(createNftPreviewImage(gift.previewUrl || getNftPreviewUrl(gift.slug, gift.id), `${gift.name} #${gift.id}`, 'profile-nft-preview'));
+						playerProfileNftGrid.append(card);
+					});
+				}).catch(() => {});
+			}
 			conversationReadonlyNotice.querySelector('span').textContent = profile.notice;
 			conversationReadonlyNotice.hidden = Boolean(profile.canSend);
 			conversationComposer.classList.toggle('conversation-readonly', !profile.canSend);
@@ -1372,17 +1464,8 @@ if (chatRows.length && conversationDialog) {
 			renderConversationMessages();
 			conversationDialog.showModal();
 			if (activeServerChatId && window.VyrnApi) {
-				window.VyrnApi.messages(activeServerChatId).then((result) => {
-					conversationThreads[index] = result.messages.map((message) => ({
-						id: message.id,
-						text: message.body,
-						time: new Intl.DateTimeFormat('ru-RU', { hour: '2-digit', minute: '2-digit' }).format(new Date(message.created_at)),
-						outgoing: message.sender_profile_id === remoteProfileId
-					}));
-					if (activeChatIndex === index) renderConversationMessages();
-					const preview = chatRow.querySelector('.chat-message');
-					if (preview) preview.textContent = result.messages.at(-1)?.body || 'Нет сообщений';
-				}).catch((error) => window.alert(error.message));
+				refreshActiveMessages().catch(() => {});
+				startMessageRefresh();
 			}
 			requestAnimationFrame(() => {
 				conversationMessages.scrollTop = conversationMessages.scrollHeight;
@@ -1411,7 +1494,7 @@ if (chatRows.length && conversationDialog) {
 			image.alt = '';
 			avatar.append(image);
 		} else {
-			avatar.textContent = (peer.nickname || '?').slice(0, 1).toUpperCase();
+			avatar.textContent = getProfileDisplayName(peer).slice(0, 1).toUpperCase();
 		}
 		const copy = document.createElement('span');
 		copy.className = 'chat-copy';
@@ -1419,7 +1502,7 @@ if (chatRows.length && conversationDialog) {
 		heading.className = 'chat-heading';
 		const name = document.createElement('span');
 		name.className = 'chat-name';
-		name.textContent = peer.nickname;
+		name.textContent = getProfileDisplayName(peer);
 		const type = document.createElement('span');
 		type.className = 'chat-time';
 		type.textContent = peer.username ? `@${peer.username}` : 'Игрок';
@@ -1436,6 +1519,7 @@ if (chatRows.length && conversationDialog) {
 		chatRows.push(row);
 		conversationThreads[index] = [];
 		playerProfiles[index] = {
+			profileId: peer.id,
 			username: peer.username ? `@${peer.username}` : `@${peer.nickname}`,
 			status: 'профиль игрока',
 			headerStatus: 'в VYRN',
@@ -1492,6 +1576,7 @@ if (chatRows.length && conversationDialog) {
 			try {
 				const result = await window.VyrnApi.sendMessage(activeServerChatId, text);
 				message = { id: result.message.id, text, time, outgoing: true };
+				await refreshActiveMessages();
 			} catch (error) {
 				window.alert(error.message);
 				return;
@@ -1573,6 +1658,7 @@ if (chatRows.length && conversationDialog) {
 	conversationDialog.querySelector('.conversation-peer').addEventListener('click', () => showConversationProfile(true));
 	conversationDialog.querySelector('.player-profile-back').addEventListener('click', () => showConversationProfile(false));
 	conversationDialog.addEventListener('close', () => {
+		clearInterval(messageRefreshTimer);
 		showConversationProfile(false);
 		activeChatIndex = -1;
 		activeServerChatId = undefined;

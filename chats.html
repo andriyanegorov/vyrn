@@ -8,8 +8,8 @@
   <script src="https://telegram.org/js/telegram-web-app.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/lottie-web/5.12.2/lottie.min.js" defer></script>
   <script src="supabase-client-config.js?v=wallet-balance-read-20261018" defer></script>
-  <script src="supabase-api.js?v=telegram-cors-real-nfts-20261018" defer></script>
-  <script src="script.js?v=telegram-cors-real-nfts-20261018" defer></script>
+  <script src="supabase-api.js?v=browser-full-api-20261018" defer></script>
+  <script src="script.js?v=browser-full-api-20261018" defer></script>
 </head>
 <body class="chats-screen">
   <header class="site-header">
@@ -23,10 +23,14 @@
     <div class="chats-search-panel">
       <label class="market-search chats-search">
         <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="10.8" cy="10.8" r="6.8"/><path d="m16 16 5 5"/></svg>
-        <input class="chats-search-input" type="search" placeholder="Поиск по чатам" aria-label="Поиск по чатам">
+        <input class="chats-search-input" type="search" placeholder="Поиск" aria-label="Поиск профиля или чата">
+        <button class="chats-search-clear" type="button" aria-label="Очистить поиск" hidden>×</button>
       </label>
+      <div class="chats-profile-results" aria-live="polite" hidden>
+        <p class="chats-results-heading">Результаты общего поиска</p>
+        <div class="chats-profile-result-list"></div>
+      </div>
     </div>
-    <button class="chats-new-button" type="button">Новый чат</button>
     <section class="chat-list" aria-label="Список чатов">
       <button class="chat-row" type="button" data-chat-type="channel">
         <span class="chat-avatar" aria-hidden="true"><img class="chat-avatar-image" src="vyrn_chat.jpg" alt=""></span>
@@ -125,6 +129,7 @@
               <p class="profile-detail-value player-profile-bio"></p>
             </div>
           </section>
+          <section class="profile-nft-grid player-profile-nft-grid" aria-label="NFT игрока"></section>
         </div>
       </main>
     </section>
