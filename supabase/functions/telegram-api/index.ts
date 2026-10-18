@@ -34,7 +34,7 @@ const verifyTelegramInitData = async (initData: string, botToken: string) => {
     .sort(([first], [second]) => first < second ? -1 : first > second ? 1 : 0)
     .map(([key, value]) => `${key}=${value}`)
     .join('\n');
-  const secretKey = await hmac(new TextEncoder().encode('WebAppData'), botToken);
+  const secretKey = await hmac(new TextEncoder().encode(botToken), 'WebAppData');
   const expectedHash = hex(await crypto.subtle.sign(
     'HMAC',
     await crypto.subtle.importKey('raw', secretKey, { name: 'HMAC', hash: 'SHA-256' }, false, ['sign']),
