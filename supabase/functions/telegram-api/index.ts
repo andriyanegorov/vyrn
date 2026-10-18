@@ -191,6 +191,31 @@ Deno.serve(async (request) => {
   const savedChat = await supabase.rpc('ensure_saved_chat', { p_profile_id: profile.id });
   if (savedChat.error) return json({ error: savedChat.error.message }, 500);
 
+  const attachGiftResponses = async (messages: any[]) => {
+    const offerIds = messages.map((message) => message.gift_offer?.id).filter(Boolean);
+    if (!offerIds.length) return messages;
+    let responses;
+    try {
+      responses = await supabase.from('nft_gift_responses')
+        .select('original_offer_id,status').in('original_offer_id', offerIds);
+    } catch (error) {
+      console.warn('Gift response records are unavailable:', error);
+      return messages;
+    }
+    if (responses.error) {
+      console.warn('Gift response records are unavailable:', responses.error.message);
+      return messages;
+    }
+    const responseByOfferId = new Map<string, { original_offer_id: string; status: string }>();
+    responses.data.forEach((response: { original_offer_id: string; status: string }) => {
+      responseByOfferId.set(response.original_offer_id, response);
+    });
+    return messages.map((message) => {
+      const response = responseByOfferId.get(message.gift_offer?.id);
+      return response ? { ...message, gift_offer: { ...message.gift_offer, response } } : message;
+    });
+  };
+
   const action = input.action;
   if (action === 'me' || !action) {
     const { data: wallets, error: walletError } = await supabase.from('wallets').select('currency,balance').eq('profile_id', profile.id);
@@ -295,10 +320,25 @@ Deno.serve(async (request) => {
     if (result.error) return json({ error: result.error.message }, 500);
     const chats = await Promise.all(result.data.map(async (member) => {
       if (member.chats.chat_type !== 'direct') return member;
-      const peerResult = await supabase.from('chat_members')
-        .select('profiles!inner(id,nickname,username,first_name,last_name,avatar_url)')
-        .eq('chat_id', member.chat_id).neq('profile_id', profile.id).maybeSingle();
-      return { ...member, peer: peerResult.data?.profiles || null };
+      const [peerResult, latestMessage, unreadMessages] = await Promise.all([
+        supabase.from('chat_members')
+          .select('profiles!inner(id,nickname,username,first_name,last_name,avatar_url)')
+          .eq('chat_id', member.chat_id).neq('profile_id', profile.id).maybeSingle(),
+        supabase.from('messages').select('body,created_at,sender_profile_id')
+          .eq('chat_id', member.chat_id).is('deleted_at', null).order('created_at', { ascending: false }).limit(1).maybeSingle(),
+        (() => {
+          let query = supabase.from('messages').select('id', { count: 'exact', head: true })
+            .eq('chat_id', member.chat_id).neq('sender_profile_id', profile.id).is('deleted_at', null);
+          if (member.last_read_at) query = query.gt('created_at', member.last_read_at);
+          return query;
+        })(),
+      ]);
+      return {
+        ...member,
+        peer: peerResult.data?.profiles || null,
+        last_message: latestMessage.data || null,
+        unread_count: unreadMessages.count || 0,
+      };
     }));
     return json({ chats, current_profile_id: profile.id });
   }
@@ -307,9 +347,14 @@ Deno.serve(async (request) => {
     if (typeof input.chat_id !== 'string') return json({ error: 'Chat ID is required' }, 400);
     const membership = await supabase.from('chat_members').select('chat_id').eq('chat_id', input.chat_id).eq('profile_id', profile.id).maybeSingle();
     if (!membership.data) return json({ error: 'Chat not found' }, 404);
-    const result = await supabase.from('messages').select('id,sender_profile_id,body,kind,created_at,gift_offer_id,profiles!messages_sender_profile_id_fkey(nickname,username,first_name,last_name,avatar_url),gift_offer:nft_gift_offers!messages_gift_offer_id_fkey(id,nft_item_id,sender_profile_id,recipient_profile_id,price_stars,status,nft_items(external_id,nft_models(name,slug,preview_url,animation_url,nft_collections(name,slug))))')
+    const readAt = new Date().toISOString();
+    const markedRead = await supabase.from('chat_members').update({ last_read_at: readAt })
+      .eq('chat_id', input.chat_id).eq('profile_id', profile.id);
+    if (markedRead.error) return json({ error: markedRead.error.message }, 500);
+    const result = await supabase.from('messages').select('id,sender_profile_id,body,kind,created_at,gift_offer_id,profiles!messages_sender_profile_id_fkey(nickname,username,first_name,last_name,avatar_url),gift_offer:nft_gift_offers!messages_gift_offer_id_fkey(id,nft_item_id,sender_profile_id,recipient_profile_id,price_stars,status,nft_items(external_id,attributes,nft_models(name,slug,preview_url,animation_url,nft_collections(name,slug))))')
       .eq('chat_id', input.chat_id).is('deleted_at', null).order('created_at', { ascending: true }).limit(200);
-    return result.error ? json({ error: result.error.message }, 500) : json({ messages: result.data });
+    if (result.error) return json({ error: result.error.message }, 500);
+    return json({ messages: await attachGiftResponses(result.data) });
   }
 
   if (action === 'send_nft_gift') {
@@ -325,9 +370,11 @@ Deno.serve(async (request) => {
     });
     if (created.error) return json({ error: created.error.message }, 400);
     const message = await supabase.from('messages')
-      .select('id,sender_profile_id,body,kind,created_at,gift_offer_id,profiles!messages_sender_profile_id_fkey(nickname,username,first_name,last_name,avatar_url),gift_offer:nft_gift_offers!messages_gift_offer_id_fkey(id,nft_item_id,sender_profile_id,recipient_profile_id,price_stars,status,nft_items(external_id,nft_models(name,slug,preview_url,animation_url,nft_collections(name,slug))))')
+      .select('id,sender_profile_id,body,kind,created_at,gift_offer_id,profiles!messages_sender_profile_id_fkey(nickname,username,first_name,last_name,avatar_url),gift_offer:nft_gift_offers!messages_gift_offer_id_fkey(id,nft_item_id,sender_profile_id,recipient_profile_id,price_stars,status,nft_items(external_id,attributes,nft_models(name,slug,preview_url,animation_url,nft_collections(name,slug))))')
       .eq('id', created.data).single();
-    return message.error ? json({ error: message.error.message }, 500) : json({ message: message.data });
+    if (message.error) return json({ error: message.error.message }, 500);
+    const [enrichedMessage] = await attachGiftResponses([message.data]);
+    return json({ message: enrichedMessage });
   }
 
   if (action === 'accept_nft_gift') {

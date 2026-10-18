@@ -189,11 +189,24 @@ create table if not exists public.nft_gift_offers (
   status text not null default 'pending' check (status in ('pending', 'completed', 'declined')),
   created_at timestamptz not null default now(),
   completed_at timestamptz,
+  resolved_at timestamptz,
   check (sender_profile_id <> recipient_profile_id)
 );
+alter table public.nft_gift_offers add column if not exists resolved_at timestamptz;
 create index if not exists nft_gift_offers_chat_created_idx on public.nft_gift_offers(chat_id, created_at desc);
-create unique index if not exists nft_gift_one_pending_offer_per_item
-  on public.nft_gift_offers(nft_item_id) where status = 'pending';
+drop index if exists public.nft_gift_one_pending_offer_per_item;
+create unique index nft_gift_one_pending_offer_per_item
+  on public.nft_gift_offers(nft_item_id) where status = 'pending' and resolved_at is null;
+
+create table if not exists public.nft_gift_responses (
+  id uuid primary key default gen_random_uuid(),
+  original_offer_id uuid not null unique references public.nft_gift_offers(id) on delete cascade,
+  result_offer_id uuid not null unique references public.nft_gift_offers(id),
+  recipient_profile_id uuid not null references public.profiles(id),
+  status text not null check (status in ('completed', 'declined')),
+  created_at timestamptz not null default now()
+);
+
 alter table public.messages add column if not exists gift_offer_id uuid references public.nft_gift_offers(id);
 
 create table if not exists public.saved_messages (
@@ -394,10 +407,12 @@ declare
   gift public.nft_gift_offers%rowtype;
   buyer_wallet_id uuid;
   seller_wallet_id uuid;
+  result_offer_id uuid;
+  message_id uuid;
 begin
   select * into gift from public.nft_gift_offers where id = p_gift_id for update;
   if not found or gift.recipient_profile_id <> p_recipient_profile_id then raise exception 'Gift offer not found'; end if;
-  if gift.status <> 'pending' or gift.price_stars <= 0 then raise exception 'Gift offer is no longer available'; end if;
+  if gift.status <> 'pending' or gift.resolved_at is not null or gift.price_stars <= 0 then raise exception 'Gift offer is no longer available'; end if;
   if not exists (select 1 from public.chat_members where chat_id = gift.chat_id and profile_id = p_recipient_profile_id) then
     raise exception 'Chat membership required';
   end if;
@@ -420,23 +435,54 @@ begin
   if not found then raise exception 'Insufficient Stars balance'; end if;
   update public.wallets set balance = balance + gift.price_stars where id = seller_wallet_id;
   update public.nft_items set owner_profile_id = p_recipient_profile_id where id = gift.nft_item_id;
-  update public.nft_gift_offers set status = 'completed', completed_at = now() where id = gift.id;
+
+  insert into public.nft_gift_offers (chat_id, nft_item_id, sender_profile_id, recipient_profile_id, price_stars, status, completed_at)
+  values (gift.chat_id, gift.nft_item_id, gift.sender_profile_id, gift.recipient_profile_id, gift.price_stars, 'completed', now())
+  returning id into result_offer_id;
+
+  insert into public.nft_gift_responses (original_offer_id, result_offer_id, recipient_profile_id, status)
+  values (gift.id, result_offer_id, p_recipient_profile_id, 'completed');
+
+  update public.nft_gift_offers set resolved_at = now() where id = gift.id;
+
+  insert into public.messages (chat_id, sender_profile_id, body, kind, gift_offer_id)
+  values (gift.chat_id, gift.sender_profile_id, 'NFT-предложение принято', 'system', result_offer_id)
+  returning id into message_id;
 
   insert into public.wallet_transactions (wallet_id, amount, reason, reference_id)
   values (buyer_wallet_id, -gift.price_stars, 'chat_gift_purchase', gift.id),
     (seller_wallet_id, gift.price_stars, 'chat_gift_sale', gift.id);
   insert into public.nft_transfers (nft_item_id, from_profile_id, to_profile_id, transfer_type)
   values (gift.nft_item_id, gift.sender_profile_id, p_recipient_profile_id, 'gift');
-  return gift.id;
+  return message_id;
 end;
 $$;
 
 create or replace function public.decline_chat_nft_gift(p_gift_id uuid, p_recipient_profile_id uuid)
-returns boolean language plpgsql security definer set search_path = '' as $$
+returns uuid language plpgsql security definer set search_path = '' as $$
+declare
+  gift public.nft_gift_offers%rowtype;
+  result_offer_id uuid;
+  message_id uuid;
 begin
-  update public.nft_gift_offers set status = 'declined'
-  where id = p_gift_id and recipient_profile_id = p_recipient_profile_id and status = 'pending';
-  return found;
+  select * into gift from public.nft_gift_offers where id = p_gift_id for update;
+  if not found or gift.recipient_profile_id <> p_recipient_profile_id or gift.status <> 'pending' or gift.resolved_at is not null or gift.price_stars <= 0 then
+    return null;
+  end if;
+
+  insert into public.nft_gift_offers (chat_id, nft_item_id, sender_profile_id, recipient_profile_id, price_stars, status, completed_at)
+  values (gift.chat_id, gift.nft_item_id, gift.sender_profile_id, gift.recipient_profile_id, gift.price_stars, 'declined', now())
+  returning id into result_offer_id;
+
+  insert into public.nft_gift_responses (original_offer_id, result_offer_id, recipient_profile_id, status)
+  values (gift.id, result_offer_id, p_recipient_profile_id, 'declined');
+
+  update public.nft_gift_offers set resolved_at = now() where id = gift.id;
+
+  insert into public.messages (chat_id, sender_profile_id, body, kind, gift_offer_id)
+  values (gift.chat_id, gift.sender_profile_id, 'NFT-предложение отклонено', 'system', result_offer_id)
+  returning id into message_id;
+  return message_id;
 end;
 $$;
 
@@ -456,7 +502,7 @@ begin
   end if;
   select owner_profile_id into current_owner_id from public.nft_items where id = p_nft_item_id for update;
   if not found or current_owner_id <> p_seller_profile_id then raise exception 'Seller no longer owns this NFT'; end if;
-  if exists (select 1 from public.nft_gift_offers where nft_item_id = p_nft_item_id and status = 'pending') then
+  if exists (select 1 from public.nft_gift_offers where nft_item_id = p_nft_item_id and status = 'pending' and resolved_at is null) then
     raise exception 'Resolve the pending gift offer before listing this NFT';
   end if;
   if exists (select 1 from public.market_listings where nft_item_id = p_nft_item_id and status = 'active') then
@@ -490,7 +536,7 @@ declare
 begin
   foreach table_name in array array[
     'profiles', 'wallets', 'wallet_transactions', 'nft_collections', 'nft_models',
-    'nft_items', 'nft_transfers', 'market_listings', 'market_transactions', 'nft_gift_offers',
+    'nft_items', 'nft_transfers', 'market_listings', 'market_transactions', 'nft_gift_offers', 'nft_gift_responses',
     'chats', 'chat_members', 'messages', 'saved_messages'
   ] loop
     execute format('alter table public.%I enable row level security', table_name);

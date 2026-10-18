@@ -130,14 +130,21 @@ begin
   for update;
 
   if v_gift_item_id is null then
-    insert into public.nft_items (model_id, external_id, owner_profile_id)
-    values (v_model_id, clean_number, p_profile_id)
+    insert into public.nft_items (model_id, external_id, owner_profile_id, attributes)
+    values (v_model_id, clean_number, p_profile_id, jsonb_build_object('fragment_price_stars', p_price_stars))
     returning id into v_gift_item_id;
   elsif v_previous_owner_id is distinct from p_profile_id then
     update public.market_listings
     set status = 'cancelled', closed_at = now()
     where nft_item_id = v_gift_item_id and status = 'active';
-    update public.nft_items set owner_profile_id = p_profile_id where id = v_gift_item_id;
+    update public.nft_items
+    set owner_profile_id = p_profile_id,
+        attributes = coalesce(attributes, '{}'::jsonb) || jsonb_build_object('fragment_price_stars', p_price_stars)
+    where id = v_gift_item_id;
+  else
+    update public.nft_items
+    set attributes = coalesce(attributes, '{}'::jsonb) || jsonb_build_object('fragment_price_stars', p_price_stars)
+    where id = v_gift_item_id;
   end if;
 
   if v_previous_owner_id is distinct from p_profile_id then
@@ -149,13 +156,6 @@ begin
       case when v_previous_owner_id is null then 'mint' else 'admin' end
     );
   end if;
-
-  update public.market_listings
-  set status = 'cancelled', closed_at = now()
-  where nft_item_id = v_gift_item_id and status = 'active';
-
-  insert into public.market_listings (nft_item_id, seller_profile_id, price, currency)
-  values (v_gift_item_id, p_profile_id, p_price_stars, 'stars');
 
   return v_gift_item_id;
 end;

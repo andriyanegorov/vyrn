@@ -4,6 +4,9 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Чаты | VYRN</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@600&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="style.css?v=message-unblur-telegram-user-20261017">
   <script src="https://telegram.org/js/telegram-web-app.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/lottie-web/5.12.2/lottie.min.js" defer></script>
@@ -96,7 +99,7 @@
         <div class="conversation-input-shell" hidden>
           <input class="conversation-input" type="text" placeholder="Сообщение" autocomplete="off" aria-label="Сообщение" maxlength="4096" disabled>
         </div>
-        <button class="conversation-send" type="submit" aria-label="Отправить сообщение" hidden disabled>
+        <button class="conversation-send" type="submit" aria-label="  ть сообщение" hidden disabled>
           <svg viewBox="0 0 100 100" aria-hidden="true"><path fill="currentColor" d="M88.723 12.142C76.419 17.238 23.661 39.091 9.084 45.047c-9.776 3.815-4.053 7.392-4.053 7.392s8.345 2.861 15.499 5.007c7.153 2.146 10.968-.238 10.968-.238l33.62-22.652c11.922-8.107 9.061-1.431 6.199 1.431-6.199 6.2-16.452 15.975-25.036 23.844-3.815 3.338-1.908 6.199-.238 7.63 6.199 5.246 23.129 15.976 24.082 16.691 5.037 3.566 14.945 8.699 16.452-2.146 0 0 5.961-37.435 5.961-37.435 1.908-12.637 3.815-24.321 4.053-27.659.715-10.491-7.869-7.153-7.869-7.153Z"/></svg>
         </button>
       </div>
@@ -146,10 +149,10 @@
         </div>
         <div class="nft-modal-details">
           <dl class="nft-modal-metadata">
-            <div><dt>Владелец</dt><dd class="nft-modal-owner"></dd></div>
+            <div><dt>Владелец</dt><dd class="nft-modal-owner"><img class="nft-modal-owner-avatar" alt="" hidden><span class="nft-modal-owner-name"></span></dd></div>
             <div><dt>Коллекция</dt><dd>VYRN</dd></div>
             <div><dt>Модель</dt><dd class="nft-modal-model"></dd></div>
-            <div><dt>Стоимость</dt><dd class="nft-modal-price">—</dd></div>
+            <div><dt>Стоимость (FRAGMENT)</dt><dd class="nft-modal-price">—</dd></div>
           </dl>
           <button class="nft-modal-confirm" type="button">OK</button>
         </div>

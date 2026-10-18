@@ -321,6 +321,7 @@ const mapOwnedNft = (item) => {
 		slug: collectionSlug,
 		id: externalId,
 		name: model.name || collection.name || 'NFT',
+		fragmentPriceStars: Number(model.attributes?.fragment_price_stars ?? item.attributes?.fragment_price_stars) || null,
 		previewUrl: collectionSlug && item.external_id
 			? getNftPreviewUrl(collectionSlug, externalId)
 			: model.preview_url || '',
@@ -483,7 +484,16 @@ if (marketGrid) {
 					value.textContent = formatMarketPrice(entry.price || 0, entry.currency);
 					const currency = document.createElement('span');
 					currency.className = 'market-card-currency';
-					currency.textContent = entry.currency === 'ton' ? 'TON' : '★';
+					if (entry.currency === 'ton') {
+						currency.textContent = 'TON';
+					} else {
+						const currencyIcon = document.createElement('img');
+						currencyIcon.className = 'stars-inline-icon';
+						currencyIcon.src = 'stars.png';
+						currencyIcon.alt = '';
+						currencyIcon.setAttribute('aria-hidden', 'true');
+						currency.append(currencyIcon);
+					}
 					price.append(label, value, currency);
 					content.append(heading, price);
 					const seller = entry.seller;
@@ -701,6 +711,7 @@ if (nftGrid) {
 		card.dataset.nftTitle = title;
 		card.dataset.nftModel = gift.name;
 		card.dataset.nftFile = file;
+		card.dataset.nftFragmentPriceStars = gift.fragmentPriceStars ? String(gift.fragmentPriceStars) : '';
 		card.setAttribute('aria-label', `Открыть ${title}`);
 
 		const animationHost = document.createElement('div');
@@ -793,8 +804,12 @@ if (nftGrids.length && nftModal && nftModalAnimation && nftModalBackdrop) {
 	const nftModalArt = nftModal.querySelector('.nft-modal-art');
 	const nftModalTitle = nftModal.querySelector('#nft-modal-title');
 	const nftModalOwner = nftModal.querySelector('.nft-modal-owner');
+	const nftModalOwnerAvatar = nftModal.querySelector('.nft-modal-owner-avatar');
+	const nftModalOwnerName = nftModal.querySelector('.nft-modal-owner-name');
 	const nftModalModel = nftModal.querySelector('.nft-modal-model');
 	const nftModalPrice = nftModal.querySelector('.nft-modal-price');
+	const nftModalPriceLabel = nftModalPrice.parentElement.querySelector('dt');
+	const nftModalConfirm = nftModal.querySelector('.nft-modal-confirm');
 	const nftMarketControls = nftModal.querySelector('.nft-modal-market-controls');
 	const nftListingPrice = nftModal.querySelector('.nft-modal-listing-price');
 	const nftListingCurrency = nftModal.querySelector('.nft-modal-listing-currency');
@@ -803,6 +818,7 @@ if (nftGrids.length && nftModal && nftModalAnimation && nftModalBackdrop) {
 	let activeNftCard;
 	let activeNftAnimation;
 	let activeNftBackdrop;
+	let activeNftModalAction;
 	let animationRequestId = 0;
 
 	const clearNftAnimation = () => {
@@ -850,22 +866,33 @@ if (nftGrids.length && nftModal && nftModalAnimation && nftModalBackdrop) {
 		return overlayData;
 	};
 
-	const loadNftPrice = (fileName = '') => {
-		const giftId = fileName.replace(/\.tgs$/, '');
-		const gift = nftCollection.find((item) => `${item.slug}-${item.id}` === giftId);
-		if (!gift) {
+	const setNftModalPrice = (price) => {
+		if (!Number.isFinite(Number(price)) || Number(price) <= 0) {
 			nftModalPrice.textContent = 'Нет данных';
 			return;
 		}
-
 		const priceValue = document.createElement('span');
-		priceValue.textContent = Math.round(gift.lastSaleTon * 100).toLocaleString('ru-RU');
+		priceValue.textContent = Number(price).toLocaleString('ru-RU');
 		const currencyIcon = document.createElement('img');
 		currencyIcon.className = 'nft-modal-price-icon';
 		currencyIcon.src = 'stars.png';
 		currencyIcon.alt = '';
 		currencyIcon.setAttribute('aria-hidden', 'true');
 		nftModalPrice.replaceChildren(priceValue, currencyIcon);
+	};
+
+	const loadNftPrice = (fileName = '', fragmentPriceStars = null) => {
+		if (fragmentPriceStars !== null && Number.isFinite(Number(fragmentPriceStars))) {
+			setNftModalPrice(fragmentPriceStars);
+			return;
+		}
+		const giftId = fileName.replace(/\.tgs$/, '');
+		const gift = nftCollection.find((item) => `${item.slug}-${item.id}` === giftId);
+		if (!gift) {
+			setNftModalPrice(null);
+			return;
+		}
+		setNftModalPrice(Math.round(gift.lastSaleTon * 100));
 	};
 
 	const createNftBackdropData = (animationData) => {
@@ -938,11 +965,27 @@ if (nftGrids.length && nftModal && nftModalAnimation && nftModalBackdrop) {
 		}
 	};
 
-	window.openVyrnNftModal = ({ card = null, title, model, source, preview, file = '', owner = '' }) => {
+	window.openVyrnNftModal = ({ card = null, title, model, source, preview, file = '', owner = '', ownerAvatar = '', fragmentPriceStars = null, priceStars = null, onConfirm = null }) => {
 		nftModalTitle.textContent = title;
 		activeNftCard = card;
-		nftModalOwner.textContent = owner || card?.closest('.profile-page')?.querySelector('.profile-name')?.textContent.trim() || '';
+		activeNftModalAction = onConfirm;
+		const ownerName = owner || card?.closest('.profile-page')?.querySelector('.profile-name')?.textContent.trim() || '';
+		nftModalOwnerName.textContent = ownerName;
+		const profileAvatar = card?.closest('.profile-page')?.querySelector('.profile-avatar-image, .player-profile-avatar-art img');
+		const avatarSource = ownerAvatar || profileAvatar?.currentSrc || profileAvatar?.src || '';
+		nftModalOwnerAvatar.hidden = !avatarSource;
+		if (avatarSource) {
+			nftModalOwnerAvatar.src = avatarSource;
+			nftModalOwnerAvatar.onerror = () => {
+				nftModalOwnerAvatar.hidden = true;
+			};
+		} else {
+			nftModalOwnerAvatar.removeAttribute('src');
+			nftModalOwnerAvatar.onerror = null;
+		}
 		nftModalModel.textContent = model;
+		nftModalConfirm.textContent = onConfirm ? 'Подтвердить покупку' : 'OK';
+		nftModalPriceLabel.textContent = priceStars !== null ? 'Цена предложения' : 'Стоимость (FRAGMENT)';
 		if (nftMarketControls) {
 			const hasOwnedItem = Boolean(card?.dataset.nftItemId);
 			const isListed = card?.dataset.nftListed === 'true';
@@ -954,7 +997,10 @@ if (nftGrids.length && nftModal && nftModalAnimation && nftModalBackdrop) {
 		nftModal.showModal();
 		nftModal.querySelector('.nft-modal-close').focus();
 		loadModalAnimation(source, preview, title);
-		loadNftPrice(file);
+		loadNftPrice(file, fragmentPriceStars ?? card?.dataset.nftFragmentPriceStars ?? null);
+		if (priceStars !== null) {
+			setNftModalPrice(priceStars);
+		}
 	};
 
 	nftModalAnimation.addEventListener('click', (event) => {
@@ -982,7 +1028,8 @@ if (nftGrids.length && nftModal && nftModalAnimation && nftModalBackdrop) {
 				model: nftCard.dataset.nftModel,
 				source: nftCard.dataset.nftSrc,
 				preview: nftCard.dataset.nftPreview,
-				file: nftCard.dataset.nftFile
+				file: nftCard.dataset.nftFile,
+				fragmentPriceStars: nftCard.dataset.nftFragmentPriceStars || null
 			});
 		});
 	});
@@ -1029,7 +1076,22 @@ if (nftGrids.length && nftModal && nftModalAnimation && nftModalBackdrop) {
 
 	const closeNftModal = () => nftModal.close();
 	nftModal.querySelector('.nft-modal-close').addEventListener('click', closeNftModal);
-	nftModal.querySelector('.nft-modal-confirm').addEventListener('click', closeNftModal);
+	nftModalConfirm.addEventListener('click', async () => {
+		if (!activeNftModalAction) {
+			closeNftModal();
+			return;
+		}
+
+		nftModalConfirm.disabled = true;
+		try {
+			await activeNftModalAction();
+			closeNftModal();
+		} catch (error) {
+			window.alert(error.message);
+		} finally {
+			nftModalConfirm.disabled = false;
+		}
+	});
 	nftModal.addEventListener('click', (event) => {
 		if (event.target === nftModal) {
 			closeNftModal();
@@ -1044,6 +1106,9 @@ if (nftGrids.length && nftModal && nftModalAnimation && nftModalBackdrop) {
 	nftModal.addEventListener('close', () => {
 		clearNftAnimation();
 		activeNftCard = undefined;
+		activeNftModalAction = null;
+		nftModalConfirm.textContent = 'OK';
+		nftModalPriceLabel.textContent = 'Стоимость';
 	});
 }
 
@@ -1318,6 +1383,7 @@ if (chatRows.length && conversationDialog) {
 		id: message.id,
 		text: message.body,
 		time: new Intl.DateTimeFormat('ru-RU', { hour: '2-digit', minute: '2-digit' }).format(new Date(message.created_at)),
+		createdAt: message.created_at,
 		outgoing: message.sender_profile_id === remoteProfileId,
 		senderName: message.profiles ? getProfileDisplayName(message.profiles) : '',
 		senderAvatar: message.profiles?.avatar_url || '',
@@ -1332,6 +1398,7 @@ if (chatRows.length && conversationDialog) {
 		senderAvatar: message.senderAvatar || '',
 		giftId: message.gift?.id || null,
 		giftStatus: message.gift?.status || null,
+		giftResponseStatus: message.gift?.response?.status || null,
 		giftPrice: message.gift?.price_stars ?? null
 	})));
 	const refreshActiveMessages = async () => {
@@ -1352,6 +1419,12 @@ if (chatRows.length && conversationDialog) {
 			}
 			const nextMessages = [...serverMessages, ...pendingMessages];
 			const currentMessages = conversationThreads[activeChatIndex];
+			const chatRow = chatRows.find((row) => row.dataset.chatId === chatId);
+			if (chatRow) {
+				const latestMessage = result.messages.at(-1);
+				updateChatRowSummary(chatRow, { last_message: latestMessage, unread_count: 0 });
+				sortChatRows();
+			}
 			if (getMessageListKey(currentMessages) === getMessageListKey(nextMessages)) return;
 			conversationThreads[activeChatIndex] = nextMessages;
 			if (activeChatIndex === favoritesChatIndex) {
@@ -1367,6 +1440,45 @@ if (chatRows.length && conversationDialog) {
 		messageRefreshTimer = setInterval(() => refreshActiveMessages().catch(() => {}), 2500);
 	};
 	const favoritesPreview = chatRows[favoritesChatIndex]?.querySelector('.chat-message');
+	let chatListRefreshInFlight = false;
+	const sortChatRows = () => {
+		const list = document.querySelector('.chat-list');
+		if (!list) return;
+		const directRows = chatRows
+			.filter((row) => row.dataset.chatType === 'direct')
+			.sort((first, second) => (Date.parse(second.dataset.lastMessageAt || '') || 0) - (Date.parse(first.dataset.lastMessageAt || '') || 0));
+		const pinnedRows = chatRows.filter((row) => row.dataset.chatType !== 'direct');
+		list.append(...directRows, ...pinnedRows);
+	};
+	const updateChatRowSummary = (row, summary = {}) => {
+		const lastMessage = summary.last_message;
+		const preview = row.querySelector('.chat-message');
+		const unreadBadge = row.querySelector('.chat-unread');
+		if (preview && lastMessage) preview.textContent = lastMessage.body;
+		row.dataset.lastMessageAt = lastMessage?.created_at || summary.chats?.created_at || row.dataset.lastMessageAt || '';
+		if (unreadBadge) {
+			const unreadCount = Number(summary.unread_count) || 0;
+			unreadBadge.textContent = unreadCount > 99 ? '99+' : String(unreadCount);
+			unreadBadge.hidden = unreadCount === 0;
+			row.classList.toggle('has-unread', unreadCount > 0);
+			unreadBadge.setAttribute('aria-label', `${unreadCount} непрочитанных сообщений`);
+		}
+	};
+	const refreshChatList = async () => {
+		if (!window.VyrnApi || !chatsPage || conversationDialog?.open || chatListRefreshInFlight) return;
+		chatListRefreshInFlight = true;
+		try {
+			const result = await window.VyrnApi.chats();
+			result.chats.filter((member) => member.chats?.chat_type === 'direct' && member.peer).forEach((member) => {
+				const row = addRemoteChatRow(member.chat_id, member.peer, member);
+				updateChatRowSummary(row, member);
+			});
+			sortChatRows();
+		} catch {
+		} finally {
+			chatListRefreshInFlight = false;
+		}
+	};
 	if (favoritesPreview && favoriteMessages.length) {
 		favoritesPreview.textContent = favoriteMessages.at(-1).text;
 	}
@@ -1390,10 +1502,18 @@ if (chatRows.length && conversationDialog) {
 				if (activeChatIndex === favoritesChatIndex) renderConversationMessages();
 			}
 			result.chats.filter((member) => member.chats?.chat_type === 'direct').forEach((member) => {
-				if (member.peer) addRemoteChatRow(member.chat_id, member.peer);
+				if (member.peer) {
+					const row = addRemoteChatRow(member.chat_id, member.peer, member);
+					updateChatRowSummary(row, member);
+				}
 			});
+			sortChatRows();
 		}).catch((error) => {
 			console.error('Не удалось загрузить избранные сообщения:', error);
+		});
+		window.setInterval(refreshChatList, 5000);
+		document.addEventListener('visibilitychange', () => {
+			if (!document.hidden) refreshChatList();
 		});
 	}
 
@@ -1515,6 +1635,7 @@ if (chatRows.length && conversationDialog) {
 				const nftAnimation = nftCollection.slug && nftItem.external_id
 					? getNftAnimationUrl(nftFile)
 					: nftModel.animation_url || '';
+				const fragmentPriceStars = nftItem.attributes?.fragment_price_stars ?? null;
 				const senderName = message.senderName || (message.outgoing
 					? getProfileDisplayName(getTelegramUser())
 					: playerProfileName.textContent.trim()) || 'Игрок';
@@ -1523,11 +1644,22 @@ if (chatRows.length && conversationDialog) {
 				giftCard.className = 'gift-telegram-card';
 				const notification = document.createElement('p');
 				notification.className = 'gift-telegram-notification';
-				notification.textContent = offer.status === 'declined'
-					? 'Предложение о подарке отклонено'
-					: offer.price_stars > 0
-						? `${senderName} предложил вам приобрести NFT стоимостью ${Number(offer.price_stars).toLocaleString('ru-RU')} звёзд`
-						: `${senderName} отправил вам подарок`;
+				const peerName = playerProfileName.textContent.trim() || 'Собеседник';
+				if (offer.price_stars > 0 && offer.status === 'declined') {
+					notification.textContent = message.outgoing
+						? `${peerName} отказался от вашего предложения`
+						: 'Вы отказались от предложения';
+				} else if (offer.price_stars > 0 && offer.status === 'completed') {
+					notification.textContent = message.outgoing
+						? `${peerName} принял ваше предложение`
+						: 'Вы приняли предложение';
+				} else if (offer.price_stars > 0) {
+					notification.textContent = message.outgoing
+						? `Вы предложили NFT за ${Number(offer.price_stars).toLocaleString('ru-RU')} звёзд`
+						: `${senderName} предложил вам приобрести NFT за ${Number(offer.price_stars).toLocaleString('ru-RU')} звёзд`;
+				} else {
+					notification.textContent = message.outgoing ? 'Вы отправили подарок' : `${senderName} отправил вам подарок`;
+				}
 				const giftScene = document.createElement('div');
 				giftScene.className = 'gift-telegram-scene';
 				const preview = createNftPreviewImage(nftPreview, nftTitle, 'gift-telegram-art');
@@ -1556,42 +1688,57 @@ if (chatRows.length && conversationDialog) {
 				const giftSubtitle = document.createElement('p');
 				giftSubtitle.className = 'gift-telegram-subtitle';
 				giftSubtitle.textContent = nftTitle;
-				const giftView = document.createElement('button');
-				giftView.className = 'gift-telegram-view';
-				giftView.type = 'button';
-				giftView.textContent = 'Просмотр';
-				giftView.addEventListener('click', () => {
-					window.openVyrnNftModal({
-						title: nftTitle,
-						model: nftModel.name || nftCollection.name || 'NFT',
-						source: nftAnimation,
-						preview: nftPreview,
-						file: nftFile,
-						owner: senderName
+				const isPurchaseOffer = offer.price_stars > 0;
+				const isIncomingPurchaseOffer = offer.status === 'pending'
+					&& isPurchaseOffer
+					&& offer.recipient_profile_id === remoteProfileId
+					&& !message.outgoing;
+				if (!isPurchaseOffer) {
+					const giftView = document.createElement('button');
+					giftView.className = 'gift-telegram-view';
+					giftView.type = 'button';
+					giftView.textContent = 'Просмотр';
+					giftView.addEventListener('click', () => {
+						window.openVyrnNftModal({
+							title: nftTitle,
+							model: nftModel.name || nftCollection.name || 'NFT',
+							source: nftAnimation,
+							preview: nftPreview,
+							file: nftFile,
+							owner: senderName,
+							ownerAvatar: senderAvatar,
+							fragmentPriceStars
+						});
 					});
-				});
-				giftScene.append(preview, giftTitle, giftSubtitle, giftView);
+					giftScene.append(giftView);
+				}
+				giftScene.prepend(preview, giftTitle, giftSubtitle);
 				giftCard.append(notification, giftScene);
 				row.append(giftCard);
 
-				if (offer.status === 'pending' && offer.recipient_profile_id === remoteProfileId && !message.outgoing) {
+				if (isIncomingPurchaseOffer && !offer.response) {
 					const offerActions = document.createElement('div');
 					offerActions.className = 'gift-offer-actions';
 					const acceptButton = document.createElement('button');
 					acceptButton.type = 'button';
-					acceptButton.textContent = `Купить за ${Number(offer.price_stars).toLocaleString('ru-RU')} ★`;
-					acceptButton.addEventListener('click', async () => {
-						acceptButton.disabled = true;
-						declineButton.disabled = true;
-						try {
-							await window.VyrnApi.acceptNftGift(offer.id);
-							await refreshActiveMessages();
-							window.refreshVyrnAccount?.().catch(() => {});
-						} catch (error) {
-						acceptButton.disabled = false;
-						declineButton.disabled = false;
-						window.alert(error.message);
-					}
+					acceptButton.textContent = 'Принять';
+					acceptButton.addEventListener('click', () => {
+						window.openVyrnNftModal({
+							title: nftTitle,
+							model: nftModel.name || nftCollection.name || 'NFT',
+							source: nftAnimation,
+							preview: nftPreview,
+							file: nftFile,
+							owner: senderName,
+							ownerAvatar: senderAvatar,
+							fragmentPriceStars,
+							priceStars: offer.price_stars,
+							onConfirm: async () => {
+								await window.VyrnApi.acceptNftGift(offer.id);
+								await refreshActiveMessages();
+								window.refreshVyrnAccount?.().catch(() => {});
+							}
+						});
 					});
 					const declineButton = document.createElement('button');
 					declineButton.className = 'gift-offer-decline';
@@ -1661,7 +1808,17 @@ if (chatRows.length && conversationDialog) {
 	const updateGiftPriceLabel = () => {
 		const price = Number(giftPickerPrice?.value);
 		if (giftPickerSend) {
-			giftPickerSend.textContent = price === 0 ? 'Отправить бесплатно' : `Предложить за ${price.toLocaleString('ru-RU')} ★`;
+			if (price === 0) {
+				giftPickerSend.textContent = 'Отправить бесплатно';
+			} else {
+				giftPickerSend.replaceChildren(document.createTextNode(`Предложить за ${price.toLocaleString('ru-RU')} `));
+				const priceIcon = document.createElement('img');
+				priceIcon.className = 'stars-inline-icon';
+				priceIcon.src = 'stars.png';
+				priceIcon.alt = '';
+				priceIcon.setAttribute('aria-hidden', 'true');
+				giftPickerSend.append(priceIcon);
+			}
 			giftPickerSend.disabled = !selectedGiftItem || !Number.isSafeInteger(price) || price < 0;
 		}
 	};
@@ -1738,6 +1895,12 @@ if (chatRows.length && conversationDialog) {
 		chatRow.addEventListener('click', () => {
 			activeChatIndex = index;
 			activeServerChatId = chatRow.dataset.chatId || (index === favoritesChatIndex ? remoteSavedChatId : undefined);
+			const unreadBadge = chatRow.querySelector('.chat-unread');
+			if (unreadBadge) {
+				unreadBadge.textContent = '';
+				unreadBadge.hidden = true;
+				chatRow.classList.remove('has-unread');
+			}
 			const name = chatRow.querySelector('.chat-name').textContent.replace(/\s+/g, ' ').trim();
 			const channelBadge = chatRow.querySelector('.channel-verified');
 			const avatar = chatRow.querySelector('.chat-avatar').cloneNode(true);
@@ -1782,6 +1945,7 @@ if (chatRows.length && conversationDialog) {
 						card.dataset.nftTitle = title;
 						card.dataset.nftModel = gift.name;
 						card.dataset.nftFile = file;
+						card.dataset.nftFragmentPriceStars = gift.fragmentPriceStars ? String(gift.fragmentPriceStars) : '';
 						card.setAttribute('aria-label', `Открыть ${title}`);
 						card.append(createNftPreviewImage(card.dataset.nftPreview, title, 'profile-nft-preview'));
 						playerProfileNftGrid.append(card);
@@ -1813,9 +1977,12 @@ if (chatRows.length && conversationDialog) {
 	};
 	chatRows.forEach(bindChatRow);
 
-	addRemoteChatRow = (chatId, peer) => {
+	addRemoteChatRow = (chatId, peer, summary = {}) => {
 		const existing = chatRows.find((row) => row.dataset.chatId === chatId);
-		if (existing) return existing;
+		if (existing) {
+			updateChatRowSummary(existing, summary);
+			return existing;
+		}
 		const index = chatRows.length;
 		const row = document.createElement('button');
 		row.className = 'chat-row';
@@ -1844,7 +2011,14 @@ if (chatRows.length && conversationDialog) {
 		const type = document.createElement('span');
 		type.className = 'chat-time';
 		type.textContent = peer.username ? `@${peer.username}` : 'Игрок';
-		heading.append(name, type);
+		const side = document.createElement('span');
+		side.className = 'chat-direct-side';
+		const unreadBadge = document.createElement('span');
+		unreadBadge.className = 'chat-unread chat-direct-unread';
+		unreadBadge.hidden = true;
+		side.append(type, unreadBadge);
+		heading.append(name, side);
+		heading.append(unreadBadge);
 		const preview = document.createElement('span');
 		preview.className = 'chat-preview';
 		const lastMessage = document.createElement('span');
@@ -1855,6 +2029,7 @@ if (chatRows.length && conversationDialog) {
 		row.append(avatar, copy);
 		document.querySelector('.chat-list').append(row);
 		chatRows.push(row);
+		updateChatRowSummary(row, summary);
 		conversationThreads[index] = [];
 		playerProfiles[index] = {
 			profileId: peer.id,
@@ -1866,6 +2041,7 @@ if (chatRows.length && conversationDialog) {
 			canSend: true
 		};
 		bindChatRow(row, index);
+		sortChatRows();
 		return row;
 	};
 
@@ -2024,6 +2200,7 @@ if (chatRows.length && conversationDialog) {
 		showConversationProfile(false);
 		activeChatIndex = -1;
 		activeServerChatId = undefined;
+		refreshChatList();
 	});
 }
 
