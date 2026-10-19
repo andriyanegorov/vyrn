@@ -268,7 +268,11 @@ Deno.serve(async (request) => {
     const result = await supabase.from('nft_items')
       .select('id,external_id,attributes,acquired_at,nft_models(id,slug,name,preview_url,animation_url,nft_collections(name,slug)),market_listings(id,price,currency,status)')
       .eq('owner_profile_id', profileId).order('acquired_at', { ascending: false });
-    return result.error ? json({ error: result.error.message }, 500) : json({ profile: profileResult.data, items: result.data });
+    return result.error ? json({ error: result.error.message }, 500) : json({
+      profile: profileResult.data,
+      status: profileResult.data.status,
+      items: result.data,
+    });
   }
 
   if (action === 'create_chat') {

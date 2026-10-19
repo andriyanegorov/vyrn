@@ -217,6 +217,26 @@ begin
   delete from public.market_listings
   where nft_item_id = v_item_id;
 
+  update public.messages
+  set gift_offer_id = null
+  where gift_offer_id in (
+    select id from public.nft_gift_offers where nft_item_id = v_item_id
+  );
+
+  if to_regclass('public.nft_gift_responses') is not null then
+    execute '
+      delete from public.nft_gift_responses
+      where original_offer_id in (
+        select id from public.nft_gift_offers where nft_item_id = $1
+      ) or result_offer_id in (
+        select id from public.nft_gift_offers where nft_item_id = $1
+      )'
+    using v_item_id;
+  end if;
+
+  delete from public.nft_gift_offers
+  where nft_item_id = v_item_id;
+
   delete from public.nft_transfers
   where nft_item_id = v_item_id;
 
@@ -303,6 +323,27 @@ begin
 
   delete from public.market_transactions where nft_item_id = v_item_id;
   delete from public.market_listings where nft_item_id = v_item_id;
+
+  update public.messages
+  set gift_offer_id = null
+  where gift_offer_id in (
+    select id from public.nft_gift_offers where nft_item_id = v_item_id
+  );
+
+  if to_regclass('public.nft_gift_responses') is not null then
+    execute '
+      delete from public.nft_gift_responses
+      where original_offer_id in (
+        select id from public.nft_gift_offers where nft_item_id = $1
+      ) or result_offer_id in (
+        select id from public.nft_gift_offers where nft_item_id = $1
+      )'
+    using v_item_id;
+  end if;
+
+  delete from public.nft_gift_offers
+  where nft_item_id = v_item_id;
+
   delete from public.nft_transfers where nft_item_id = v_item_id;
   delete from public.nft_items where id = v_item_id;
   return v_item_id;

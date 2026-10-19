@@ -58,6 +58,14 @@ function createProfileStatusBadge(status) {
 	return badge;
 }
 
+function getProfileStatus(profile) {
+	const validStatuses = new Set(['premium', 'verified', 'verfied']);
+	const status = [profile?.accountStatus, profile?.account_status, profile?.status]
+		.map((value) => String(value || '').trim().toLowerCase())
+		.find((value) => validStatuses.has(value));
+	return status || '';
+}
+
 function renderProfileName(target, name, status) {
 	target.replaceChildren(document.createTextNode(name || ''));
 	const badge = createProfileStatusBadge(status);
@@ -1020,14 +1028,20 @@ let sharedPlayerProfileRequestId = 0;
 let sharedPlayerProfileData = null;
 
 const renderSharedPlayerProfile = (profile, items = []) => {
-	if ((!profile.first_name && !profile.last_name && !profile.nickname)
-		&& sharedPlayerProfileData?.id === profile.id) {
-		profile = sharedPlayerProfileData;
+	if (sharedPlayerProfileData?.id === profile.id) {
+		const cachedProfile = sharedPlayerProfileData;
+		profile = {
+			...cachedProfile,
+			...profile,
+			status: getProfileStatus(profile) || getProfileStatus(cachedProfile)
+		};
 	}
 	sharedPlayerProfileData = profile;
 	const displayName = getProfileDisplayName(profile);
-	playerProfileDialog.querySelector('.player-profile-page').dataset.profileId = profile.id || '';
-	renderProfileName(sharedPlayerProfileName, displayName, profile.status);
+	const profilePage = playerProfileDialog.querySelector('.player-profile-page');
+	profilePage.dataset.profileId = profile.id || '';
+	profilePage.dataset.accountStatus = getProfileStatus(profile);
+	renderProfileName(sharedPlayerProfileName, displayName, getProfileStatus(profile));
 	sharedPlayerProfileUsername.textContent = profile.username ? `@${profile.username.replace(/^@+/, '')}` : `@${profile.nickname || ''}`;
 	sharedPlayerProfileBio.textContent = profile.bio || '';
 	sharedPlayerProfileAvatar.replaceChildren();
@@ -1080,7 +1094,17 @@ window.openVyrnPlayerProfile = async (profileOrId) => {
 	try {
 		const result = await window.VyrnApi.profileNfts(profileId);
 		if (requestId !== sharedPlayerProfileRequestId || !playerProfileDialog.open) return;
-		renderSharedPlayerProfile(result.profile || initialProfile, result.items || []);
+		const loadedProfile = result.profile
+			? {
+				...initialProfile,
+				...result.profile,
+				status: getProfileStatus(result.profile) || result.status || getProfileStatus(initialProfile)
+			}
+			: {
+				...initialProfile,
+				status: result.status || getProfileStatus(initialProfile)
+			};
+		renderSharedPlayerProfile(loadedProfile, result.items || []);
 	} catch (error) {
 		if (requestId === sharedPlayerProfileRequestId) {
 			sharedPlayerProfileBio.textContent = error.message || 'Не удалось загрузить профиль';
@@ -1289,14 +1313,17 @@ if ((nftGrids.length || marketGrid) && nftModal && nftModalAnimation && nftModal
 		activeNftCard = card;
 		activeNftModalAction = onConfirm;
 		const isOwnProfileItem = Boolean(card?.closest('.profile-page:not(.player-profile-page)'));
-		const profilePageId = card?.closest('.player-profile-page')?.dataset.profileId;
+		const profilePage = card?.closest('.player-profile-page');
+		const profilePageId = profilePage?.dataset.profileId;
 		activeNftOwnerProfile = ownerProfile || (profilePageId
-			? sharedPlayerProfileData?.id === profilePageId ? sharedPlayerProfileData : { id: profilePageId }
+			? sharedPlayerProfileData?.id === profilePageId
+				? sharedPlayerProfileData
+				: { id: profilePageId, status: profilePage.dataset.accountStatus || '' }
 			: isOwnProfileItem ? window.VyrnAccount?.profile || null : null);
 		nftModalOwnerLink.disabled = !activeNftOwnerProfile?.id && !isOwnProfileItem;
 		nftModalOwnerLink.setAttribute('aria-label', activeNftOwnerProfile?.id ? `Открыть профиль ${ownerName}` : ownerName);
 		activeNftPriceCurrency = priceCurrency;
-		renderProfileName(nftModalOwnerName, ownerName, activeNftOwnerProfile?.status);
+		renderProfileName(nftModalOwnerName, ownerName, getProfileStatus(activeNftOwnerProfile));
 		const profileAvatar = card?.closest('.profile-page')?.querySelector('.profile-avatar-image, .player-profile-avatar-art img');
 		const avatarSource = ownerAvatar || profileAvatar?.currentSrc || profileAvatar?.src || '';
 		nftModalOwnerAvatar.hidden = !avatarSource;
@@ -1643,7 +1670,6 @@ if (chatsPage && chatsSearchInput) {
 				if (!chatRow) return;
 				chatsProfileResults.hidden = true;
 				chatsSearchInput.value = '';
-				chatRows = [...document.querySelectorAll('.chat-row')];
 				chatRow.click();
 			});
 			chatsProfileResultList.append(row);
@@ -2363,6 +2389,11 @@ if (chatRows.length && conversationDialog) {
 			}
 			const name = chatRow.querySelector('.chat-name').textContent.replace(/\s+/g, ' ').trim();
 			const profile = playerProfiles[index];
+			const profilePage = conversationProfile.querySelector('.player-profile-page');
+			if (profilePage) {
+				profilePage.dataset.profileId = profile.profileId || profile.id || '';
+				profilePage.dataset.accountStatus = getProfileStatus(profile);
+			}
 			const channelBadge = chatRow.querySelector('.channel-verified');
 			const avatar = chatRow.querySelector('.chat-avatar').cloneNode(true);
 			const headerAvatar = avatar.cloneNode(true);
@@ -2376,20 +2407,31 @@ if (chatRows.length && conversationDialog) {
 			profileAvatar.replaceChildren(profileAvatarArt);
 			profileAvatar.setAttribute('aria-label', `Увеличить аватар ${name}`);
 			profileAvatar.setAttribute('aria-expanded', 'false');
-			renderProfileName(conversationPeerName, name, profile.accountStatus);
+			renderProfileName(conversationPeerName, name, getProfileStatus(profile));
 			if (channelBadge) {
 				conversationPeerName.append(channelBadge.cloneNode(true));
 			}
 			conversationActions.hidden = !profile.profileId || !activeServerChatId;
 			conversationPeerStatus.textContent = profile.headerStatus;
-			renderProfileName(playerProfileName, name, profile.accountStatus);
+			renderProfileName(playerProfileName, name, getProfileStatus(profile));
 			playerProfileStatus.textContent = profile.status;
 			playerProfileUsername.textContent = profile.username;
 			playerProfileBio.textContent = profile.bio;
 			if (playerProfileNftGrid) playerProfileNftGrid.replaceChildren();
 			if (profile.profileId && window.VyrnApi) {
-				window.VyrnApi.profileNfts(profile.profileId).then(({ items }) => {
+				window.VyrnApi.profileNfts(profile.profileId).then(({ profile: latestProfile, items }) => {
 					if (activeChatIndex !== index || !playerProfileNftGrid) return;
+					if (latestProfile) {
+						const latestStatus = getProfileStatus(latestProfile);
+						profile.accountStatus = latestStatus;
+						profile.status = latestProfile.status;
+						playerProfiles[index] = { ...profile, ...latestProfile, accountStatus: latestStatus };
+						if (profilePage) profilePage.dataset.accountStatus = latestStatus;
+						renderProfileName(conversationPeerName, name, latestStatus);
+						renderProfileName(playerProfileName, name, latestStatus);
+						const chatName = chatRow.querySelector('.chat-name');
+						if (chatName) renderProfileName(chatName, getProfileDisplayName(latestProfile), latestStatus);
+					}
 					items.map(mapOwnedNft).forEach((gift) => {
 						const title = `${gift.name} #${gift.id}`;
 						const file = gift.slug ? `${gift.slug}-${gift.id}.tgs` : '';
@@ -2443,10 +2485,14 @@ if (chatRows.length && conversationDialog) {
 		if (existing) {
 			const existingIndex = chatRows.indexOf(existing);
 			const name = existing.querySelector('.chat-name');
-			if (name) renderProfileName(name, getProfileDisplayName(peer), peer.status);
-			if (playerProfiles[existingIndex]) {
-				playerProfiles[existingIndex].accountStatus = peer.status || '';
-			}
+			const existingProfile = playerProfiles[existingIndex] || {};
+			const status = getProfileStatus(peer) || getProfileStatus(existingProfile);
+			if (name) renderProfileName(name, getProfileDisplayName(peer), status);
+			playerProfiles[existingIndex] = {
+				...existingProfile,
+				...peer,
+				accountStatus: status
+			};
 			updateChatRowSummary(existing, summary);
 			return existing;
 		}
@@ -2506,7 +2552,7 @@ if (chatRows.length && conversationDialog) {
 			last_name: peer.last_name,
 			avatar_url: peer.avatar_url,
 			bio: peer.bio || '',
-			accountStatus: peer.status || '',
+			accountStatus: getProfileStatus(peer),
 			username: peer.username ? `@${peer.username}` : `@${peer.nickname}`,
 			status: 'профиль игрока',
 			headerStatus: 'в VYRN',

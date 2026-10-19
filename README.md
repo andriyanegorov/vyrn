@@ -42,7 +42,7 @@
 
 ## Админ-панель выдачи NFT
 
-1. В Supabase SQL Editor выполните `supabase/admin-panel.sql` после основной схемы.
+1. В Supabase SQL Editor выполните `supabase/admin-panel.sql` после основной схемы. После обновления SQL этого файла выполните его повторно, чтобы обновить функции админ-панели в Supabase.
 2. В `supabase/admin-set-password.sql` замените строку `REPLACE_WITH_A_LONG_RANDOM_ADMIN_PASSWORD` на уникальный пароль длиной от 20 символов и выполните этот SQL. Сам пароль не вставляйте в HTML/JS и не коммитьте этот SQL с заполненным паролем.
 3. Опубликуйте `admin.html`, `admin.css` и `admin.js` вместе с остальными файлами на GitHub Pages и откройте `/admin.html`.
 4. Введите пароль, найдите игрока по nickname, username, имени или Telegram ID. Выберите коллекцию из списка либо укажите slug/название вручную, введите номер и проверьте предпросмотр и ссылку Fragment.
