@@ -46,6 +46,24 @@ const canUseSupabaseAccount = () => window.VyrnApi?.isConfigured
 const canLoadPlayerData = () => canUseSupabaseAccount()
 	|| (window.VyrnApi?.isConfigured && window.VyrnApi.browserDemo);
 
+function createProfileStatusBadge(status) {
+	const normalizedStatus = String(status || '').trim().toLowerCase();
+	const isPremium = normalizedStatus === 'premium';
+	if (!isPremium && normalizedStatus !== 'verfied' && normalizedStatus !== 'verified') return null;
+	const badge = document.createElement('img');
+	badge.className = `profile-status-badge ${isPremium ? 'is-premium' : 'is-verified'}`;
+	badge.src = isPremium ? 'premium.svg' : 'verified.svg';
+	badge.alt = '';
+	badge.setAttribute('aria-label', isPremium ? 'Premium' : 'Подтверждённый профиль');
+	return badge;
+}
+
+function renderProfileName(target, name, status) {
+	target.replaceChildren(document.createTextNode(name || ''));
+	const badge = createProfileStatusBadge(status);
+	if (badge) target.append(badge);
+}
+
 const renderWalletBalance = (wallets = []) => {
 	const stars = wallets.find((wallet) => wallet.currency === 'stars');
 	if (!stars) return;
@@ -59,13 +77,178 @@ const renderWalletBalance = (wallets = []) => {
 
 window.refreshVyrnAccount = async () => {
 	const result = await window.VyrnApi.me();
+	window.VyrnAccount = result;
 	renderWalletBalance(result.wallets);
 	return result;
 };
-if (canUseSupabaseAccount() || (window.VyrnApi?.isConfigured && window.VyrnApi.browserDemo)) {
+if (!document.body.classList.contains('wallet-screen') && (canUseSupabaseAccount() || (window.VyrnApi?.isConfigured && window.VyrnApi.browserDemo))) {
 	window.VyrnAccountPromise = window.refreshVyrnAccount().catch((error) => {
 		console.error('Не удалось загрузить аккаунт VYRN:', error);
 		return null;
+	});
+}
+
+if (document.body.classList.contains('wallet-screen')) {
+	const walletBalanceElement = document.querySelector('[data-wallet-balance]');
+	const walletStarsIcon = document.querySelector('[data-wallet-stars-icon]');
+	const walletCurrencyLabel = document.querySelector('.wallet-currency');
+	const walletOtherBalance = document.querySelector('[data-wallet-other-balance]');
+	const walletAccount = document.querySelector('[data-wallet-account]');
+	const walletTransactions = document.querySelector('[data-wallet-transactions]');
+	const walletToast = document.querySelector('.wallet-toast');
+	const walletMenu = document.querySelector('.wallet-more-menu');
+	const walletMoreButton = document.querySelector('.wallet-header-button.is-more');
+	const walletCurrencyToggle = document.querySelector('.wallet-currency-toggle');
+	const walletCurrencyOptionsContainer = document.querySelector('#wallet-currency-options');
+	const walletCurrencyOptions = [...document.querySelectorAll('.wallet-currency-option')];
+	const walletCurrencyCurrent = document.querySelector('.wallet-menu-current');
+	const readWalletInteger = (value) => {
+		try {
+			return BigInt(value ?? 0);
+		} catch {
+			return 0n;
+		}
+	};
+	const formatWalletInteger = (value) => value.toLocaleString('ru-RU');
+	let walletBalances = new Map();
+	let activeWalletCurrency = 'stars';
+	const closeWalletMenu = () => {
+		walletMoreButton.setAttribute('aria-expanded', 'false');
+		walletCurrencyToggle.setAttribute('aria-expanded', 'false');
+		walletCurrencyOptionsContainer.hidden = true;
+		walletMenu.hidden = true;
+	};
+
+	const setWalletCurrency = (currency) => {
+		if (!walletBalances.has(currency)) return;
+		activeWalletCurrency = currency;
+		const balance = readWalletInteger(walletBalances.get(currency));
+		const otherCurrency = currency === 'stars' ? 'ton' : 'stars';
+		walletBalanceElement.textContent = formatWalletInteger(balance);
+		walletCurrencyLabel.textContent = currency.toUpperCase();
+		walletStarsIcon.hidden = currency !== 'stars';
+		walletOtherBalance.textContent = `${otherCurrency.toUpperCase()}: ${formatWalletInteger(readWalletInteger(walletBalances.get(otherCurrency)))}`;
+		walletCurrencyCurrent.textContent = currency.toUpperCase();
+		walletCurrencyOptions.forEach((option) => {
+			const isSelected = option.dataset.walletCurrency === currency;
+			option.classList.toggle('is-selected', isSelected);
+			option.setAttribute('aria-pressed', String(isSelected));
+		});
+	};
+
+	const renderWalletTransactions = (transactions, wallets) => {
+		const currencyByWalletId = new Map(wallets.map((wallet) => [wallet.id, wallet.currency]));
+		const descriptions = {
+			market_purchase: ['Покупка NFT', 'Покупка на VYRN Market'],
+			market_sale: ['Продажа NFT', 'Продажа на VYRN Market'],
+			chat_gift_purchase: ['Покупка подарка', 'Покупка в чате'],
+			chat_gift_sale: ['Продажа подарка', 'Продажа в чате']
+		};
+		walletTransactions.replaceChildren();
+		if (!transactions.length) {
+			const emptyState = document.createElement('p');
+			emptyState.className = 'wallet-empty-state';
+			emptyState.textContent = 'Операций пока нет';
+			walletTransactions.append(emptyState);
+			return;
+		}
+
+		transactions.forEach((transaction) => {
+			const amount = readWalletInteger(transaction.amount);
+			const currency = currencyByWalletId.get(transaction.wallet_id) || 'stars';
+			const [title, subtitle] = descriptions[transaction.reason] || [
+				String(transaction.reason || 'Операция').replaceAll('_', ' '),
+				'Операция с кошельком'
+			];
+			const row = document.createElement('article');
+			row.className = 'wallet-transaction';
+			const copy = document.createElement('div');
+			copy.className = 'wallet-transaction-copy';
+			const heading = document.createElement('strong');
+			heading.textContent = title;
+			const detail = document.createElement('span');
+			detail.textContent = subtitle;
+			const time = document.createElement('time');
+			const createdAt = new Date(transaction.created_at);
+			if (!Number.isNaN(createdAt.getTime())) {
+				time.dateTime = createdAt.toISOString();
+				time.textContent = new Intl.DateTimeFormat('ru-RU', {
+					day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit'
+				}).format(createdAt);
+			}
+			copy.append(heading, detail, time);
+			const amountElement = document.createElement('span');
+			amountElement.className = `wallet-transaction-amount${amount > 0n ? ' is-positive' : ''}`;
+			amountElement.append(`${amount > 0n ? '+' : '−'}${formatWalletInteger(amount < 0n ? -amount : amount)}`);
+			if (currency === 'stars') {
+				const icon = document.createElement('img');
+				icon.src = 'stars.png';
+				icon.alt = 'Stars';
+				amountElement.append(icon);
+			} else {
+				const currencyLabel = document.createElement('span');
+				currencyLabel.className = 'wallet-transaction-currency';
+				currencyLabel.textContent = currency.toUpperCase();
+				amountElement.append(currencyLabel);
+			}
+			row.append(copy, amountElement);
+			walletTransactions.append(row);
+		});
+	};
+
+	const loadWallet = async () => {
+		if (!window.VyrnApi?.isConfigured) throw new Error('Supabase API не подключён.');
+		if (!canUseSupabaseAccount()) throw new Error('Откройте кошелёк через Telegram.');
+		const result = await window.VyrnApi.wallet();
+		const wallets = Array.isArray(result.wallets) ? result.wallets : [];
+		walletBalances = new Map(wallets.map((wallet) => [wallet.currency, wallet.balance]));
+		if (!walletBalances.has('stars')) walletBalances.set('stars', 0);
+		if (!walletBalances.has('ton')) walletBalances.set('ton', 0);
+		walletAccount.textContent = result.profile?.username
+			? `@${result.profile.username}`
+			: result.profile?.nickname || '';
+		renderProfileName(walletAccount, walletAccount.textContent, result.profile?.status);
+		setWalletCurrency(activeWalletCurrency);
+		renderWalletTransactions(Array.isArray(result.transactions) ? result.transactions : [], wallets);
+		walletTransactions.setAttribute('aria-busy', 'false');
+	};
+
+	walletMoreButton.addEventListener('click', () => {
+		const isExpanded = walletMoreButton.getAttribute('aria-expanded') === 'true';
+		walletMoreButton.setAttribute('aria-expanded', String(!isExpanded));
+		walletMenu.hidden = isExpanded;
+	});
+	walletCurrencyToggle.addEventListener('click', () => {
+		const isExpanded = walletCurrencyToggle.getAttribute('aria-expanded') === 'true';
+		walletCurrencyToggle.setAttribute('aria-expanded', String(!isExpanded));
+		walletCurrencyOptionsContainer.hidden = isExpanded;
+	});
+	walletCurrencyOptions.forEach((option) => option.addEventListener('click', () => {
+		setWalletCurrency(option.dataset.walletCurrency);
+		closeWalletMenu();
+	}));
+	document.addEventListener('click', (event) => {
+		if (!walletMenu.contains(event.target) && !walletMoreButton.contains(event.target)) {
+			closeWalletMenu();
+		}
+	});
+	document.addEventListener('keydown', (event) => {
+		if (event.key === 'Escape') {
+			closeWalletMenu();
+		}
+	});
+
+	loadWallet().catch((error) => {
+		console.error('Не удалось загрузить кошелёк:', error);
+		walletBalanceElement.textContent = '—';
+		walletTransactions.replaceChildren();
+		const errorState = document.createElement('p');
+		errorState.className = 'wallet-empty-state';
+		errorState.textContent = 'Не удалось загрузить операции';
+		walletTransactions.append(errorState);
+		walletTransactions.setAttribute('aria-busy', 'false');
+		walletToast.textContent = error.message || 'Не удалось загрузить кошелёк';
+		walletToast.hidden = false;
 	});
 }
 
@@ -96,7 +279,8 @@ if (profileEditButton && profileEditorDialog && profileEditorForm && profileAvat
 		username: telegramUser?.username ? `@${telegramUser.username}` : profileDetailValues[0].textContent.trim(),
 		birthday: '',
 		phone: '',
-		avatar: telegramUser?.photo_url || ''
+		avatar: telegramUser?.photo_url || '',
+		status: ''
 	};
 	let profileData = defaultProfile;
 	let storedProfile;
@@ -166,7 +350,7 @@ if (profileEditButton && profileEditorDialog && profileEditorForm && profileAvat
 	};
 
 	const renderProfile = () => {
-		profileNameElement.textContent = [profileData.firstName, profileData.lastName].filter(Boolean).join(' ');
+		renderProfileName(profileNameElement, [profileData.firstName, profileData.lastName].filter(Boolean).join(' '), profileData.status);
 		profileDetailValues[0].textContent = profileData.username || (profileData.nickname ? `@${profileData.nickname}` : '');
 		profileDetailValues[1].textContent = profileData.about || '';
 		setAvatarImage(profileAvatarImage, profileData.avatar);
@@ -186,7 +370,8 @@ if (profileEditButton && profileEditorDialog && profileEditorForm && profileAvat
 				about: profile.bio || '',
 				birthday: profile.birthday || '',
 				phone: profile.phone || '',
-				avatar: profile.avatar_url || ''
+				avatar: profile.avatar_url || '',
+				status: profile.status || ''
 			};
 			renderProfile();
 		} catch (error) {
@@ -239,7 +424,8 @@ if (profileEditButton && profileEditorDialog && profileEditorForm && profileAvat
 			username: username ? `@${username}` : '',
 			birthday: profileEditorForm.elements.namedItem('birthday').value,
 			phone: profileEditorForm.elements.namedItem('phone').value.trim(),
-			avatar: profileData.avatar
+			avatar: profileData.avatar,
+			status: profileData.status
 		};
 		if (!window.VyrnApi) {
 			profileEditorError.textContent = 'Supabase API не подключён.';
@@ -450,6 +636,7 @@ if (marketGrid) {
 						: model.preview_url || (model.slug && itemId ? getNftPreviewUrl(model.slug, itemId) : './placeholder.png');
 					const card = document.createElement('article');
 					card.className = 'market-card';
+					card.dataset.marketCard = 'true';
 					card.dataset.marketName = title.toLocaleLowerCase('ru-RU');
 					card.dataset.marketCollection = model.name || collectionInfo.name || '';
 					card.dataset.marketPrice = String(entry.price || 0);
@@ -497,38 +684,32 @@ if (marketGrid) {
 					price.append(label, value, currency);
 					content.append(heading, price);
 					const seller = entry.seller;
-					if (seller) {
-						const sellerLabel = document.createElement('p');
-						sellerLabel.className = 'market-card-seller';
-						sellerLabel.textContent = `Продавец: ${getProfileDisplayName(seller)}`;
-						content.append(sellerLabel);
-					}
-
-					if (marketMode !== 'purchases') {
-						const action = document.createElement('button');
-						action.className = 'market-listing-action';
-						action.type = 'button';
-						const ownListing = marketMode === 'sales' || entry.seller_profile_id === result.current_profile_id;
-						action.textContent = ownListing ? 'Снять с продажи' : 'Купить';
-						action.addEventListener('click', async () => {
-							action.disabled = true;
-							try {
-								if (ownListing) {
-									await window.VyrnApi.cancelListing(entry.id);
-								} else {
-									if (!window.confirm(`Купить ${title} за ${value.textContent} ${currency.textContent}?`)) return;
-									await window.VyrnApi.buyListing(entry.id);
-									await window.refreshVyrnAccount();
-								}
-								await renderMarketList();
-							} catch (error) {
-								window.alert(error.message);
-							} finally {
-								action.disabled = false;
+					const isPurchase = marketMode === 'purchases';
+					const ownListing = !isPurchase && (marketMode === 'sales' || entry.seller_profile_id === result.current_profile_id);
+					card.marketListing = {
+						title,
+						model: model.name || 'NFT',
+						collection: collectionInfo.name || 'VYRN',
+						owner: isPurchase || ownListing ? 'Вы' : getProfileDisplayName(seller),
+						ownerAvatar: isPurchase || ownListing ? getTelegramUser()?.photo_url || '' : seller?.avatar_url || '',
+						ownerProfile: {
+							...(isPurchase || ownListing ? window.VyrnAccount?.profile || {} : seller || {}),
+							id: isPurchase || ownListing ? result.current_profile_id : entry.seller_profile_id,
+							status: isPurchase || ownListing ? result.current_profile_status : seller?.status
+						},
+						amount: entry.price || 0,
+						currency: entry.currency || 'stars',
+						actionLabel: isPurchase ? '' : ownListing ? 'Убрать с продажи' : 'Купить',
+						action: isPurchase ? null : async () => {
+							if (ownListing) {
+								await window.VyrnApi.cancelListing(entry.id);
+							} else {
+								await window.VyrnApi.buyListing(entry.id);
+								await window.refreshVyrnAccount();
 							}
-						});
-						content.append(action);
-					}
+							await renderMarketList();
+						}
+					};
 					card.append(imageFrame, content);
 					return card;
 				});
@@ -537,6 +718,11 @@ if (marketGrid) {
 				const visibleCards = remoteCards.filter((card) => {
 					return (!query || card.dataset.marketName.includes(query))
 						&& (!collection || card.dataset.marketCollection === collection);
+				});
+				visibleCards.forEach((card) => {
+					card.setAttribute('role', 'button');
+					card.tabIndex = 0;
+					card.setAttribute('aria-haspopup', 'dialog');
 				});
 				if (marketSort.value === 'price-asc' || marketSort.value === 'price-desc') {
 					const direction = marketSort.value === 'price-asc' ? 1 : -1;
@@ -565,6 +751,11 @@ if (marketGrid) {
 			const matchesCollection = !collection || card.dataset.marketCollection === collection;
 			return matchesQuery && matchesCollection;
 		}) : [];
+		visibleCards.forEach((card) => {
+			card.setAttribute('role', 'button');
+			card.tabIndex = 0;
+			card.setAttribute('aria-haspopup', 'dialog');
+		});
 		if (marketSort.value === 'price-asc' || marketSort.value === 'price-desc') {
 			const direction = marketSort.value === 'price-asc' ? 1 : -1;
 			visibleCards.sort((first, second) => {
@@ -639,7 +830,7 @@ const createTgsPreview = async (container, source) => {
 if (marketGrid) {
 	marketGrid.addEventListener('click', async (event) => {
 		const card = event.target.closest('.market-card');
-		if (!card || event.target.closest('.market-listing-action')) return;
+		if (!card) return;
 
 		const source = card.dataset.marketAnimation;
 		const frame = card.querySelector('.market-card-image-frame');
@@ -705,6 +896,7 @@ if (nftGrid) {
 		card.dataset.nftItemId = gift.itemId || '';
 		card.dataset.nftListed = String(Boolean(gift.isListed));
 		card.dataset.nftListingId = gift.listingId || '';
+		card.classList.toggle('is-listed', Boolean(gift.isListed));
 		card.dataset.nftSrc = source;
 		card.dataset.nftLink = file ? `https://nft.fragment.com/gift/${file}` : '';
 		card.dataset.nftPreview = gift.previewUrl || (gift.slug ? getNftPreviewUrl(gift.slug, gift.id) : './placeholder.png');
@@ -796,29 +988,143 @@ if (profileNftTabs) {
 	});
 }
 
+const playerProfileDialog = document.createElement('dialog');
+playerProfileDialog.className = 'player-profile-dialog';
+playerProfileDialog.setAttribute('aria-label', 'Профиль игрока');
+playerProfileDialog.innerHTML = `
+<section class="conversation-profile player-profile-view">
+  <button class="profile-edit-button player-profile-back" type="button" aria-label="Закрыть профиль игрока">Назад</button>
+  <main class="profile-page player-profile-page">
+    <div class="profile-content">
+      <section class="profile-summary" aria-labelledby="shared-player-profile-name">
+        <button class="profile-avatar" type="button" aria-label="Аватар игрока" aria-expanded="false"></button>
+        <h1 class="profile-name" id="shared-player-profile-name"></h1>
+        <p class="profile-status">профиль игрока</p>
+      </section>
+      <section class="profile-details" aria-label="Информация профиля">
+        <div class="profile-detail"><h2 class="profile-detail-label">Имя пользователя</h2><p class="profile-detail-value player-profile-username"></p></div>
+        <div class="profile-detail"><h2 class="profile-detail-label">О себе</h2><p class="profile-detail-value player-profile-bio"></p></div>
+      </section>
+      <section class="profile-nft-grid player-profile-nft-grid" aria-label="NFT игрока"></section>
+    </div>
+  </main>
+</section>`;
+document.body.append(playerProfileDialog);
+
+const sharedPlayerProfileName = playerProfileDialog.querySelector('.profile-name');
+const sharedPlayerProfileAvatar = playerProfileDialog.querySelector('.profile-avatar');
+const sharedPlayerProfileUsername = playerProfileDialog.querySelector('.player-profile-username');
+const sharedPlayerProfileBio = playerProfileDialog.querySelector('.player-profile-bio');
+const sharedPlayerProfileNfts = playerProfileDialog.querySelector('.player-profile-nft-grid');
+let sharedPlayerProfileRequestId = 0;
+let sharedPlayerProfileData = null;
+
+const renderSharedPlayerProfile = (profile, items = []) => {
+	if ((!profile.first_name && !profile.last_name && !profile.nickname)
+		&& sharedPlayerProfileData?.id === profile.id) {
+		profile = sharedPlayerProfileData;
+	}
+	sharedPlayerProfileData = profile;
+	const displayName = getProfileDisplayName(profile);
+	playerProfileDialog.querySelector('.player-profile-page').dataset.profileId = profile.id || '';
+	renderProfileName(sharedPlayerProfileName, displayName, profile.status);
+	sharedPlayerProfileUsername.textContent = profile.username ? `@${profile.username.replace(/^@+/, '')}` : `@${profile.nickname || ''}`;
+	sharedPlayerProfileBio.textContent = profile.bio || '';
+	sharedPlayerProfileAvatar.replaceChildren();
+	sharedPlayerProfileAvatar.setAttribute('aria-label', `Аватар ${displayName}`);
+	if (profile.avatar_url) {
+		const avatar = document.createElement('img');
+		avatar.className = 'profile-avatar-image';
+		avatar.src = profile.avatar_url;
+		avatar.alt = '';
+		sharedPlayerProfileAvatar.append(avatar);
+	} else {
+		sharedPlayerProfileAvatar.textContent = displayName.slice(0, 1).toLocaleUpperCase('ru-RU');
+	}
+	sharedPlayerProfileNfts.replaceChildren();
+	items.map(mapOwnedNft).forEach((gift) => {
+		const title = `${gift.name} #${gift.id}`;
+		const file = gift.slug ? `${gift.slug}-${gift.id}.tgs` : '';
+		const card = document.createElement('button');
+		card.className = 'profile-nft-cell';
+		card.type = 'button';
+		card.dataset.nftItemId = '';
+		card.dataset.nftListed = String(Boolean(gift.isListed));
+		card.dataset.nftListingId = gift.listingId || '';
+		card.classList.toggle('is-listed', Boolean(gift.isListed));
+		card.dataset.nftSrc = gift.animationUrl || (file ? getNftAnimationUrl(file) : '');
+		card.dataset.nftPreview = gift.previewUrl || './placeholder.png';
+		card.dataset.nftTitle = title;
+		card.dataset.nftModel = gift.name;
+		card.dataset.nftFile = file;
+		card.dataset.nftFragmentPriceStars = gift.fragmentPriceStars ? String(gift.fragmentPriceStars) : '';
+		card.setAttribute('aria-label', `Открыть ${title}`);
+		card.append(createNftPreviewImage(card.dataset.nftPreview, title, 'profile-nft-preview'));
+		sharedPlayerProfileNfts.append(card);
+	});
+};
+
+window.openVyrnPlayerProfile = async (profileOrId) => {
+	const profileId = typeof profileOrId === 'string' ? profileOrId : profileOrId?.id || profileOrId?.profileId;
+	if (!profileId) return;
+	const requestId = ++sharedPlayerProfileRequestId;
+	const providedProfile = typeof profileOrId === 'object' ? profileOrId : {};
+	const cachedProfile = sharedPlayerProfileData?.id === profileId ? sharedPlayerProfileData : null;
+	const initialProfile = providedProfile.first_name || providedProfile.last_name || providedProfile.nickname
+		? providedProfile
+		: cachedProfile || providedProfile;
+	if (!playerProfileDialog.open || !cachedProfile) {
+		renderSharedPlayerProfile(initialProfile, cachedProfile ? [...sharedPlayerProfileNfts.children] : []);
+	}
+	if (!playerProfileDialog.open) playerProfileDialog.showModal();
+	try {
+		const result = await window.VyrnApi.profileNfts(profileId);
+		if (requestId !== sharedPlayerProfileRequestId || !playerProfileDialog.open) return;
+		renderSharedPlayerProfile(result.profile || initialProfile, result.items || []);
+	} catch (error) {
+		if (requestId === sharedPlayerProfileRequestId) {
+			sharedPlayerProfileBio.textContent = error.message || 'Не удалось загрузить профиль';
+		}
+	}
+};
+
+playerProfileDialog.querySelector('.player-profile-back').addEventListener('click', () => playerProfileDialog.close());
+playerProfileDialog.addEventListener('click', (event) => {
+	if (event.target === playerProfileDialog) playerProfileDialog.close();
+});
+
 const nftGrids = [...document.querySelectorAll('.profile-nft-grid')];
 const nftModal = document.querySelector('.nft-modal');
 const nftModalAnimation = document.querySelector('.nft-modal-animation');
 const nftModalBackdrop = document.querySelector('.nft-modal-backdrop');
-if (nftGrids.length && nftModal && nftModalAnimation && nftModalBackdrop) {
+if ((nftGrids.length || marketGrid) && nftModal && nftModalAnimation && nftModalBackdrop) {
 	const nftModalArt = nftModal.querySelector('.nft-modal-art');
 	const nftModalTitle = nftModal.querySelector('#nft-modal-title');
+	const nftModalCollection = nftModal.querySelector('.nft-modal-collection');
+	const nftModalCollectionName = nftModal.querySelector('.nft-modal-collection-name');
 	const nftModalOwner = nftModal.querySelector('.nft-modal-owner');
+	const nftModalOwnerLink = nftModal.querySelector('.nft-modal-owner-link');
 	const nftModalOwnerAvatar = nftModal.querySelector('.nft-modal-owner-avatar');
 	const nftModalOwnerName = nftModal.querySelector('.nft-modal-owner-name');
 	const nftModalModel = nftModal.querySelector('.nft-modal-model');
 	const nftModalPrice = nftModal.querySelector('.nft-modal-price');
 	const nftModalPriceLabel = nftModalPrice.parentElement.querySelector('dt');
 	const nftModalConfirm = nftModal.querySelector('.nft-modal-confirm');
-	const nftMarketControls = nftModal.querySelector('.nft-modal-market-controls');
-	const nftListingPrice = nftModal.querySelector('.nft-modal-listing-price');
-	const nftListingCurrency = nftModal.querySelector('.nft-modal-listing-currency');
-	const nftListButton = nftModal.querySelector('.nft-modal-list-button');
-	const nftUnlistButton = nftModal.querySelector('.nft-modal-unlist-button');
+	const nftModalSellButton = nftModal.querySelector('.nft-modal-sell-button');
+	const nftModalError = nftModal.querySelector('.nft-modal-error');
+	const nftModalErrorMessage = nftModal.querySelector('[data-nft-modal-error]');
+	const nftModalErrorWalletLink = nftModalError?.querySelector('a');
+	const nftListingDialog = document.querySelector('.nft-listing-dialog');
+	const nftListingForm = nftListingDialog?.querySelector('.nft-listing-form');
+	const nftListingPrice = nftListingDialog?.querySelector('#nft-listing-price');
+	const nftListingError = nftListingDialog?.querySelector('.nft-listing-error');
+	const nftListingSubmit = nftListingDialog?.querySelector('.nft-listing-submit');
 	let activeNftCard;
 	let activeNftAnimation;
 	let activeNftBackdrop;
 	let activeNftModalAction;
+	let activeNftOwnerProfile;
+	let activeNftPriceCurrency = 'stars';
 	let animationRequestId = 0;
 
 	const clearNftAnimation = () => {
@@ -866,13 +1172,21 @@ if (nftGrids.length && nftModal && nftModalAnimation && nftModalBackdrop) {
 		return overlayData;
 	};
 
-	const setNftModalPrice = (price) => {
+	const setNftModalPrice = (price, currency = 'stars') => {
 		if (!Number.isFinite(Number(price)) || Number(price) <= 0) {
 			nftModalPrice.textContent = 'Нет данных';
 			return;
 		}
 		const priceValue = document.createElement('span');
-		priceValue.textContent = Number(price).toLocaleString('ru-RU');
+		priceValue.textContent = currency === 'ton'
+			? formatMarketPrice(price, currency)
+			: Number(price).toLocaleString('ru-RU');
+		if (currency === 'ton') {
+			const currencyLabel = document.createElement('span');
+			currencyLabel.textContent = 'TON';
+			nftModalPrice.replaceChildren(priceValue, currencyLabel);
+			return;
+		}
 		const currencyIcon = document.createElement('img');
 		currencyIcon.className = 'nft-modal-price-icon';
 		currencyIcon.src = 'stars.png';
@@ -965,12 +1279,24 @@ if (nftGrids.length && nftModal && nftModalAnimation && nftModalBackdrop) {
 		}
 	};
 
-	window.openVyrnNftModal = ({ card = null, title, model, source, preview, file = '', owner = '', ownerAvatar = '', fragmentPriceStars = null, priceStars = null, onConfirm = null }) => {
+	window.openVyrnNftModal = ({ card = null, title, model, source, preview, file = '', owner = '', ownerAvatar = '', ownerProfile = null, collection = 'VYRN', fragmentPriceStars = null, priceStars = null, priceCurrency = 'stars', confirmText = '', onConfirm = null }) => {
 		nftModalTitle.textContent = title;
+		nftModalCollection.textContent = `Коллекция ${collection}`;
+		if (nftModalCollectionName) nftModalCollectionName.textContent = collection;
+		if (nftModalError) nftModalError.hidden = true;
+		if (nftModalErrorWalletLink) nftModalErrorWalletLink.hidden = true;
+		const ownerName = owner || card?.closest('.profile-page')?.querySelector('.profile-name')?.textContent.trim() || '';
 		activeNftCard = card;
 		activeNftModalAction = onConfirm;
-		const ownerName = owner || card?.closest('.profile-page')?.querySelector('.profile-name')?.textContent.trim() || '';
-		nftModalOwnerName.textContent = ownerName;
+		const isOwnProfileItem = Boolean(card?.closest('.profile-page:not(.player-profile-page)'));
+		const profilePageId = card?.closest('.player-profile-page')?.dataset.profileId;
+		activeNftOwnerProfile = ownerProfile || (profilePageId
+			? sharedPlayerProfileData?.id === profilePageId ? sharedPlayerProfileData : { id: profilePageId }
+			: isOwnProfileItem ? window.VyrnAccount?.profile || null : null);
+		nftModalOwnerLink.disabled = !activeNftOwnerProfile?.id && !isOwnProfileItem;
+		nftModalOwnerLink.setAttribute('aria-label', activeNftOwnerProfile?.id ? `Открыть профиль ${ownerName}` : ownerName);
+		activeNftPriceCurrency = priceCurrency;
+		renderProfileName(nftModalOwnerName, ownerName, activeNftOwnerProfile?.status);
 		const profileAvatar = card?.closest('.profile-page')?.querySelector('.profile-avatar-image, .player-profile-avatar-art img');
 		const avatarSource = ownerAvatar || profileAvatar?.currentSrc || profileAvatar?.src || '';
 		nftModalOwnerAvatar.hidden = !avatarSource;
@@ -984,14 +1310,13 @@ if (nftGrids.length && nftModal && nftModalAnimation && nftModalBackdrop) {
 			nftModalOwnerAvatar.onerror = null;
 		}
 		nftModalModel.textContent = model;
-		nftModalConfirm.textContent = onConfirm ? 'Подтвердить покупку' : 'OK';
-		nftModalPriceLabel.textContent = priceStars !== null ? 'Цена предложения' : 'Стоимость (FRAGMENT)';
-		if (nftMarketControls) {
-			const hasOwnedItem = Boolean(card?.dataset.nftItemId);
+		nftModalConfirm.textContent = confirmText || (onConfirm ? 'Подтвердить покупку' : 'OK');
+		nftModalPriceLabel.textContent = priceStars !== null ? 'Цена' : 'Ценность (FRAGMENT)';
+		if (nftModalSellButton) {
+			const canManageListing = Boolean(card?.dataset.nftItemId);
 			const isListed = card?.dataset.nftListed === 'true';
-			nftMarketControls.hidden = !hasOwnedItem;
-			if (nftListButton) nftListButton.hidden = isListed;
-			if (nftUnlistButton) nftUnlistButton.hidden = !isListed;
+			nftModalSellButton.hidden = !canManageListing;
+			nftModalSellButton.textContent = isListed ? 'Снять с продажи' : 'Продать';
 		}
 		clearNftAnimation();
 		nftModal.showModal();
@@ -999,9 +1324,24 @@ if (nftGrids.length && nftModal && nftModalAnimation && nftModalBackdrop) {
 		loadModalAnimation(source, preview, title);
 		loadNftPrice(file, fragmentPriceStars ?? card?.dataset.nftFragmentPriceStars ?? null);
 		if (priceStars !== null) {
-			setNftModalPrice(priceStars);
+			setNftModalPrice(priceStars, priceCurrency);
 		}
 	};
+
+	nftModalOwnerLink.addEventListener('click', async () => {
+		let ownerProfile = activeNftOwnerProfile;
+		if (!ownerProfile?.id && activeNftCard?.closest('.profile-page:not(.player-profile-page)')) {
+			try {
+				const account = await (window.VyrnAccountPromise || window.refreshVyrnAccount?.());
+				ownerProfile = account?.profile;
+			} catch {
+				return;
+			}
+		}
+		if (!ownerProfile?.id) return;
+		nftModal.close();
+		window.openVyrnPlayerProfile(ownerProfile);
+	});
 
 	nftModalAnimation.addEventListener('click', (event) => {
 		const target = event.target;
@@ -1034,45 +1374,105 @@ if (nftGrids.length && nftModal && nftModalAnimation && nftModalBackdrop) {
 		});
 	});
 
-	if (nftMarketControls && nftListButton && nftUnlistButton) {
-		nftListButton.addEventListener('click', async () => {
-			const enteredPrice = Number(nftListingPrice.value);
-			const price = nftListingCurrency.value === 'ton' ? Math.round(enteredPrice * 1_000_000_000) : enteredPrice;
-			if (!activeNftCard?.dataset.nftItemId || !Number.isSafeInteger(price) || price <= 0) {
-				nftListingPrice.focus();
-				return;
-			}
-			nftListButton.disabled = true;
-			try {
-				const result = await window.VyrnApi.createListing(activeNftCard.dataset.nftItemId, price, nftListingCurrency.value);
-				activeNftCard.dataset.nftListed = 'true';
-				activeNftCard.dataset.nftListingId = result.listing.id;
-				nftListButton.hidden = true;
-				nftUnlistButton.hidden = false;
-				filterProfileNftCards();
-			} catch (error) {
-				window.alert(error.message);
-			} finally {
-				nftListButton.disabled = false;
-			}
+	if (marketGrid) {
+		const openMarketCard = (card) => {
+			const listing = card.marketListing || {
+				title: card.dataset.marketTitle,
+				model: card.dataset.marketCollection,
+				collection: 'VYRN',
+				owner: 'VYRN Market',
+				amount: card.dataset.marketPrice,
+				currency: 'stars',
+				actionLabel: '',
+				action: null
+			};
+			window.openVyrnNftModal({
+				card,
+				title: listing.title,
+				model: listing.model,
+				collection: listing.collection,
+				source: card.dataset.marketAnimation,
+				preview: card.dataset.marketPreview,
+				owner: listing.owner,
+				ownerAvatar: listing.ownerAvatar,
+				ownerProfile: listing.ownerProfile,
+				priceStars: listing.amount,
+				priceCurrency: listing.currency,
+				confirmText: listing.actionLabel || 'Закрыть',
+				onConfirm: listing.action
+			});
+		};
+		marketGrid.addEventListener('click', (event) => {
+			const card = event.target.closest('.market-card');
+			if (card) openMarketCard(card);
 		});
-		nftUnlistButton.addEventListener('click', async () => {
-			if (!activeNftCard?.dataset.nftListingId) return;
-			nftUnlistButton.disabled = true;
-			try {
-				await window.VyrnApi.cancelListing(activeNftCard.dataset.nftListingId);
-				activeNftCard.dataset.nftListed = 'false';
-				activeNftCard.dataset.nftListingId = '';
-				nftListButton.hidden = false;
-				nftUnlistButton.hidden = true;
-				filterProfileNftCards();
-			} catch (error) {
-				window.alert(error.message);
-			} finally {
-				nftUnlistButton.disabled = false;
-			}
+		marketGrid.addEventListener('keydown', (event) => {
+			if (event.key !== 'Enter' && event.key !== ' ') return;
+			const card = event.target.closest('.market-card');
+			if (!card) return;
+			event.preventDefault();
+			openMarketCard(card);
 		});
 	}
+
+	const updateListingState = (isListed, listingId = '') => {
+		if (!activeNftCard) return;
+		activeNftCard.dataset.nftListed = String(isListed);
+		activeNftCard.dataset.nftListingId = listingId;
+		activeNftCard.classList.toggle('is-listed', isListed);
+		if (nftModalSellButton) {
+			nftModalSellButton.textContent = isListed ? 'Снять с продажи' : 'Продать';
+		}
+		filterProfileNftCards();
+	};
+
+	nftModalSellButton?.addEventListener('click', async () => {
+		if (!activeNftCard?.dataset.nftItemId) return;
+		if (activeNftCard.dataset.nftListed === 'true') {
+			nftModalSellButton.disabled = true;
+			try {
+				await window.VyrnApi.cancelListing(activeNftCard.dataset.nftListingId);
+				updateListingState(false);
+			} catch (error) {
+				window.alert(error.message);
+			} finally {
+				nftModalSellButton.disabled = false;
+			}
+			return;
+		}
+		if (!nftListingDialog || !nftListingPrice) return;
+		nftListingForm.reset();
+		nftListingError.hidden = true;
+		nftListingDialog.showModal();
+		nftListingPrice.focus();
+	});
+
+	nftListingForm?.addEventListener('submit', async (event) => {
+		event.preventDefault();
+		const price = Number(nftListingPrice.value);
+		if (!activeNftCard?.dataset.nftItemId || !Number.isSafeInteger(price) || price <= 0) {
+			nftListingPrice.focus();
+			return;
+		}
+		nftListingError.hidden = true;
+		nftListingSubmit.disabled = true;
+		try {
+			const result = await window.VyrnApi.createListing(activeNftCard.dataset.nftItemId, price, 'stars');
+			updateListingState(true, result.listing.id);
+			nftListingDialog.close();
+		} catch (error) {
+			nftListingError.textContent = error.message || 'Не удалось выставить NFT';
+			nftListingError.hidden = false;
+		} finally {
+			nftListingSubmit.disabled = false;
+		}
+	});
+
+	nftListingDialog?.querySelector('.nft-listing-cancel').addEventListener('click', () => nftListingDialog.close());
+	nftListingDialog?.querySelector('.nft-listing-close').addEventListener('click', () => nftListingDialog.close());
+	nftListingDialog?.addEventListener('click', (event) => {
+		if (event.target === nftListingDialog) nftListingDialog.close();
+	});
 
 	const closeNftModal = () => nftModal.close();
 	nftModal.querySelector('.nft-modal-close').addEventListener('click', closeNftModal);
@@ -1087,7 +1487,16 @@ if (nftGrids.length && nftModal && nftModalAnimation && nftModalBackdrop) {
 			await activeNftModalAction();
 			closeNftModal();
 		} catch (error) {
-			window.alert(error.message);
+			const insufficientBalance = /insufficient balance/i.test(error.message || '');
+			if (nftModalError && nftModalErrorMessage && nftModalErrorWalletLink) {
+				nftModalErrorMessage.textContent = insufficientBalance
+					? `Недостаточно ${activeNftPriceCurrency === 'ton' ? 'TON' : 'Stars'} для покупки.`
+					: error.message || 'Не удалось выполнить действие.';
+				nftModalErrorWalletLink.hidden = !insufficientBalance;
+				nftModalError.hidden = false;
+			} else {
+				window.alert(error.message);
+			}
 		} finally {
 			nftModalConfirm.disabled = false;
 		}
@@ -1223,7 +1632,7 @@ if (chatsPage && chatsSearchInput) {
 			const copy = document.createElement('span');
 			copy.className = 'chat-profile-result-copy';
 			const name = document.createElement('strong');
-			name.textContent = getProfileDisplayName(result.peer);
+		renderProfileName(name, getProfileDisplayName(result.peer), result.peer.status);
 			const username = document.createElement('span');
 			username.textContent = result.peer.username ? `@${result.peer.username}` : 'Профиль игрока';
 			copy.append(name, username);
@@ -1387,6 +1796,8 @@ if (chatRows.length && conversationDialog) {
 		outgoing: message.sender_profile_id === remoteProfileId,
 		senderName: message.profiles ? getProfileDisplayName(message.profiles) : '',
 		senderAvatar: message.profiles?.avatar_url || '',
+		senderProfileId: message.profiles?.id || message.sender_profile_id,
+		senderProfile: message.profiles || null,
 		gift: message.gift_offer || null
 	}));
 	const getMessageListKey = (messages) => JSON.stringify(messages.map((message) => ({
@@ -1396,6 +1807,7 @@ if (chatRows.length && conversationDialog) {
 		outgoing: message.outgoing,
 		senderName: message.senderName || '',
 		senderAvatar: message.senderAvatar || '',
+		senderStatus: message.senderProfile?.status || '',
 		giftId: message.gift?.id || null,
 		giftStatus: message.gift?.status || null,
 		giftResponseStatus: message.gift?.response?.status || null,
@@ -1640,25 +2052,46 @@ if (chatRows.length && conversationDialog) {
 					? getProfileDisplayName(getTelegramUser())
 					: playerProfileName.textContent.trim()) || 'Игрок';
 				const senderAvatar = message.senderAvatar || (message.outgoing ? getTelegramUser()?.photo_url : '');
+				const senderProfile = message.senderProfile
+					? { ...message.senderProfile, id: message.senderProfile.id || message.senderProfileId || offer.sender_profile_id }
+					: message.outgoing
+						? { id: offer.sender_profile_id || remoteProfileId, ...getTelegramUser() }
+						: playerProfiles[activeChatIndex];
 				const giftCard = document.createElement('section');
 				giftCard.className = 'gift-telegram-card';
 				const notification = document.createElement('p');
 				notification.className = 'gift-telegram-notification';
 				const peerName = playerProfileName.textContent.trim() || 'Собеседник';
+				const appendPlayerNameToNotification = (prefix, name, suffix, status) => {
+					notification.replaceChildren(document.createTextNode(prefix));
+					const nameElement = document.createElement('span');
+					renderProfileName(nameElement, name, status);
+					notification.append(nameElement, document.createTextNode(suffix));
+				};
 				if (offer.price_stars > 0 && offer.status === 'declined') {
-					notification.textContent = message.outgoing
-						? `${peerName} отказался от вашего предложения`
-						: 'Вы отказались от предложения';
+					if (message.outgoing) {
+						appendPlayerNameToNotification('', peerName, ' отказался от вашего предложения', playerProfiles[activeChatIndex]?.accountStatus);
+					} else {
+						notification.textContent = 'Вы отказались от предложения';
+					}
 				} else if (offer.price_stars > 0 && offer.status === 'completed') {
-					notification.textContent = message.outgoing
-						? `${peerName} принял ваше предложение`
-						: 'Вы приняли предложение';
+					if (message.outgoing) {
+						appendPlayerNameToNotification('', peerName, ' принял ваше предложение', playerProfiles[activeChatIndex]?.accountStatus);
+					} else {
+						notification.textContent = 'Вы приняли предложение';
+					}
 				} else if (offer.price_stars > 0) {
-					notification.textContent = message.outgoing
-						? `Вы предложили NFT за ${Number(offer.price_stars).toLocaleString('ru-RU')} звёзд`
-						: `${senderName} предложил вам приобрести NFT за ${Number(offer.price_stars).toLocaleString('ru-RU')} звёзд`;
+					if (message.outgoing) {
+						notification.textContent = `Вы предложили NFT за ${Number(offer.price_stars).toLocaleString('ru-RU')} звёзд`;
+					} else {
+						appendPlayerNameToNotification('', senderName, ` предложил вам приобрести NFT за ${Number(offer.price_stars).toLocaleString('ru-RU')} звёзд`, senderProfile?.status);
+					}
 				} else {
-					notification.textContent = message.outgoing ? 'Вы отправили подарок' : `${senderName} отправил вам подарок`;
+					if (message.outgoing) {
+						notification.textContent = 'Вы отправили подарок';
+					} else {
+						appendPlayerNameToNotification('', senderName, ' отправил вам подарок', senderProfile?.status);
+					}
 				}
 				const giftScene = document.createElement('div');
 				giftScene.className = 'gift-telegram-scene';
@@ -1682,9 +2115,15 @@ if (chatRows.length && conversationDialog) {
 						}));
 					}, { once: true });
 				}
+				const senderLink = document.createElement('button');
+				senderLink.className = 'gift-telegram-sender-link';
+				senderLink.type = 'button';
+				senderLink.disabled = !senderProfile?.id && !senderProfile?.profileId;
+				senderLink.addEventListener('click', () => window.openVyrnPlayerProfile(senderProfile));
 				const senderNameElement = document.createElement('span');
-				senderNameElement.textContent = senderName;
-				giftTitle.append(giftFrom, senderAvatarElement, senderNameElement);
+				renderProfileName(senderNameElement, senderName, senderProfile?.status);
+				senderLink.append(senderAvatarElement, senderNameElement);
+				giftTitle.append(giftFrom, senderLink);
 				const giftSubtitle = document.createElement('p');
 				giftSubtitle.className = 'gift-telegram-subtitle';
 				giftSubtitle.textContent = nftTitle;
@@ -1707,6 +2146,7 @@ if (chatRows.length && conversationDialog) {
 							file: nftFile,
 							owner: senderName,
 							ownerAvatar: senderAvatar,
+							ownerProfile: senderProfile,
 							fragmentPriceStars
 						});
 					});
@@ -1731,6 +2171,7 @@ if (chatRows.length && conversationDialog) {
 							file: nftFile,
 							owner: senderName,
 							ownerAvatar: senderAvatar,
+							ownerProfile: senderProfile,
 							fragmentPriceStars,
 							priceStars: offer.price_stars,
 							onConfirm: async () => {
@@ -1805,6 +2246,15 @@ if (chatRows.length && conversationDialog) {
 		conversationScreen.hidden = showProfile;
 		conversationProfile.hidden = !showProfile;
 	};
+	const openStandalonePlayerProfile = window.openVyrnPlayerProfile;
+	window.openVyrnPlayerProfile = (profileOrId) => {
+		const profileId = typeof profileOrId === 'string' ? profileOrId : profileOrId?.id || profileOrId?.profileId;
+		if (profileId && playerProfiles[activeChatIndex]?.profileId === profileId) {
+			showConversationProfile(true);
+			return;
+		}
+		return openStandalonePlayerProfile(profileOrId);
+	};
 	const updateGiftPriceLabel = () => {
 		const price = Number(giftPickerPrice?.value);
 		if (giftPickerSend) {
@@ -1832,7 +2282,17 @@ if (chatRows.length && conversationDialog) {
 		giftPickerEmpty.hidden = true;
 		giftPickerError.hidden = true;
 		giftPickerPrice.value = '0';
-		giftPickerRecipient.textContent = `Кому: ${conversationPeerName.textContent.trim()}`;
+		giftPickerRecipient.replaceChildren(document.createTextNode('Кому: '));
+		const recipientProfile = playerProfiles[activeChatIndex];
+		const recipientLink = document.createElement('button');
+		recipientLink.className = 'gift-picker-recipient-player';
+		recipientLink.type = 'button';
+		recipientLink.textContent = conversationPeerName.textContent.trim();
+		recipientLink.addEventListener('click', () => {
+			giftPickerDialog.close();
+			window.openVyrnPlayerProfile(recipientProfile);
+		});
+		giftPickerRecipient.append(recipientLink);
 		giftPickerDialog.showModal();
 		try {
 			const { items } = await window.VyrnApi.myNfts();
@@ -1902,6 +2362,7 @@ if (chatRows.length && conversationDialog) {
 				chatRow.classList.remove('has-unread');
 			}
 			const name = chatRow.querySelector('.chat-name').textContent.replace(/\s+/g, ' ').trim();
+			const profile = playerProfiles[index];
 			const channelBadge = chatRow.querySelector('.channel-verified');
 			const avatar = chatRow.querySelector('.chat-avatar').cloneNode(true);
 			const headerAvatar = avatar.cloneNode(true);
@@ -1915,14 +2376,13 @@ if (chatRows.length && conversationDialog) {
 			profileAvatar.replaceChildren(profileAvatarArt);
 			profileAvatar.setAttribute('aria-label', `Увеличить аватар ${name}`);
 			profileAvatar.setAttribute('aria-expanded', 'false');
-			conversationPeerName.replaceChildren(document.createTextNode(name));
+			renderProfileName(conversationPeerName, name, profile.accountStatus);
 			if (channelBadge) {
 				conversationPeerName.append(channelBadge.cloneNode(true));
 			}
-			const profile = playerProfiles[index];
 			conversationActions.hidden = !profile.profileId || !activeServerChatId;
 			conversationPeerStatus.textContent = profile.headerStatus;
-			playerProfileName.textContent = name;
+			renderProfileName(playerProfileName, name, profile.accountStatus);
 			playerProfileStatus.textContent = profile.status;
 			playerProfileUsername.textContent = profile.username;
 			playerProfileBio.textContent = profile.bio;
@@ -1937,8 +2397,9 @@ if (chatRows.length && conversationDialog) {
 						card.className = 'profile-nft-cell';
 						card.type = 'button';
 						card.dataset.nftItemId = '';
-						card.dataset.nftListed = 'false';
-						card.dataset.nftListingId = '';
+						card.dataset.nftListed = String(Boolean(gift.isListed));
+						card.dataset.nftListingId = gift.listingId || '';
+						card.classList.toggle('is-listed', Boolean(gift.isListed));
 						card.dataset.nftSrc = gift.animationUrl || (file ? getNftAnimationUrl(file) : '');
 						card.dataset.nftLink = file ? `https://nft.fragment.com/gift/${file}` : '';
 						card.dataset.nftPreview = gift.previewUrl || (gift.slug ? getNftPreviewUrl(gift.slug, gift.id) : './placeholder.png');
@@ -2007,7 +2468,7 @@ if (chatRows.length && conversationDialog) {
 		heading.className = 'chat-heading';
 		const name = document.createElement('span');
 		name.className = 'chat-name';
-		name.textContent = getProfileDisplayName(peer);
+		renderProfileName(name, getProfileDisplayName(peer), peer.status);
 		const type = document.createElement('span');
 		type.className = 'chat-time';
 		type.textContent = peer.username ? `@${peer.username}` : 'Игрок';
@@ -2032,7 +2493,14 @@ if (chatRows.length && conversationDialog) {
 		updateChatRowSummary(row, summary);
 		conversationThreads[index] = [];
 		playerProfiles[index] = {
+			id: peer.id,
 			profileId: peer.id,
+			nickname: peer.nickname,
+			first_name: peer.first_name,
+			last_name: peer.last_name,
+			avatar_url: peer.avatar_url,
+			bio: peer.bio || '',
+			accountStatus: peer.status || '',
 			username: peer.username ? `@${peer.username}` : `@${peer.nickname}`,
 			status: 'профиль игрока',
 			headerStatus: 'в VYRN',

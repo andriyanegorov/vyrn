@@ -7,16 +7,16 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@600&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="style.css?v=market-search-spacing-20261017">
+  <link rel="stylesheet" href="style.css?v=profile-status-all-20261019">
   <script src="https://telegram.org/js/telegram-web-app.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/lottie-web/5.12.2/lottie.min.js" defer></script>
   <script src="supabase-client-config.js?v=wallet-balance-read-20261018" defer></script>
   <script src="supabase-api.js?v=browser-full-api-20261018" defer></script>
-  <script src="script.js?v=browser-full-api-20261018" defer></script>
+  <script src="script.js?v=profile-status-everywhere-20261019" defer></script>
 </head>
 <body class="market-screen">
   <header class="site-header">
-    <a class="brand" href="index.html#home" aria-label="Рынок VYRN">РЫНОК</a>
+    <a class="brand" href="index.html#home" aria-label="Рынок VYRN">VYRN</a>
     <div class="star-balance" aria-label="Баланс: 0 звёзд">
       <img src="stars.png" alt="" aria-hidden="true">
       <span>0</span>
@@ -52,6 +52,34 @@
     <section class="market-grid" aria-label="Подарки на рынке"></section>
     <p class="market-empty" hidden>Ничего не найдено</p>
   </main>
+  <dialog class="nft-modal" aria-labelledby="nft-modal-title">
+    <section class="nft-modal-card">
+      <div class="nft-modal-art">
+        <div class="nft-modal-backdrop" aria-hidden="true" hidden></div>
+        <button class="nft-modal-close" type="button" aria-label="Закрыть окно">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6 6 12 12M18 6 6 18" /></svg>
+        </button>
+        <div class="nft-modal-animation" aria-hidden="true" hidden></div>
+        <div class="nft-modal-heading">
+          <h2 id="nft-modal-title"></h2>
+          <p class="nft-modal-collection">Коллекция VYRN</p>
+        </div>
+      </div>
+      <div class="nft-modal-details">
+        <dl class="nft-modal-metadata">
+          <div><dt>Владелец</dt><dd class="nft-modal-owner"><div class="nft-modal-owner-actions"><button class="nft-modal-owner-link" type="button"><img class="nft-modal-owner-avatar" alt="" hidden><span class="nft-modal-owner-name"></span></button></div></dd></div>
+          <div><dt>Коллекция</dt><dd class="nft-modal-collection-name">VYRN</dd></div>
+          <div><dt>Модель</dt><dd class="nft-modal-model"></dd></div>
+          <div><dt>Цена</dt><dd class="nft-modal-price">—</dd></div>
+        </dl>
+        <div class="nft-modal-error" role="alert" hidden>
+          <span data-nft-modal-error></span>
+          <a href="wallet.html">Открыть кошелёк</a>
+        </div>
+        <button class="nft-modal-confirm" type="button">Закрыть</button>
+      </div>
+    </section>
+  </dialog>
   <nav class="bottom-nav" aria-label="Основная навигация">
     <span class="nav-indicator" aria-hidden="true"></span>
     <a class="nav-button" href="index.html#home">

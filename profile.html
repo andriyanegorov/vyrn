@@ -7,12 +7,12 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@600&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="style.css?v=profile-editor-avatar-scroll-2-20261017">
+  <link rel="stylesheet" href="style.css?v=profile-status-all-20261019">
   <script src="https://telegram.org/js/telegram-web-app.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/lottie-web/5.12.2/lottie.min.js" defer></script>
   <script src="supabase-client-config.js?v=wallet-balance-read-20261018" defer></script>
   <script src="supabase-api.js?v=browser-full-api-20261018" defer></script>
-  <script src="script.js?v=browser-full-api-20261018" defer></script>
+  <script src="script.js?v=profile-status-everywhere-20261019" defer></script>
 </head>
 <body>
   <main class="profile-page">
@@ -106,20 +106,33 @@
       </div>
       <div class="nft-modal-details">
         <dl class="nft-modal-metadata">
-          <div><dt>Владелец</dt><dd class="nft-modal-owner"><img class="nft-modal-owner-avatar" alt="" hidden><span class="nft-modal-owner-name"></span></dd></div>
+          <div><dt>Владелец</dt><dd class="nft-modal-owner"><div class="nft-modal-owner-actions"><button class="nft-modal-owner-link" type="button"><img class="nft-modal-owner-avatar" alt="" hidden><span class="nft-modal-owner-name"></span></button><button class="nft-modal-sell-button" type="button" hidden>Продать</button></div></dd></div>
           <div><dt>Коллекция</dt><dd>VYRN</dd></div>
           <div><dt>Модель</dt><dd class="nft-modal-model"></dd></div>
           <div><dt>Стоимость (FRAGMENT)</dt><dd class="nft-modal-price">—</dd></div>
         </dl>
-        <div class="nft-modal-market-controls" hidden>
-          <label>Цена<input class="nft-modal-listing-price" type="number" min="0.000000001" step="any" inputmode="decimal" placeholder="Сумма"></label>
-          <label>Валюта<select class="nft-modal-listing-currency"><option value="stars">Звёзды</option><option value="ton">TON</option></select></label>
-          <button class="nft-modal-list-button" type="button">Выставить на рынок</button>
-          <button class="nft-modal-unlist-button" type="button" hidden>Снять с продажи</button>
-        </div>
         <button class="nft-modal-confirm" type="button">OK</button>
       </div>
     </section>
+  </dialog>
+  <dialog class="nft-listing-dialog" aria-labelledby="nft-listing-title">
+    <form class="nft-listing-form">
+      <header class="nft-listing-header">
+        <h2 id="nft-listing-title">Продать NFT</h2>
+        <button class="nft-listing-close" type="button" aria-label="Закрыть">×</button>
+      </header>
+      <p class="nft-listing-description">Укажите цену в Stars</p>
+      <label class="nft-listing-price-label" for="nft-listing-price">Цена</label>
+      <div class="nft-listing-price-field">
+        <input id="nft-listing-price" type="number" min="1" step="1" inputmode="numeric" placeholder="0" required>
+        <img src="stars.png" alt="Stars">
+      </div>
+      <p class="nft-listing-error" role="alert" hidden></p>
+      <footer class="nft-listing-actions">
+        <button class="nft-listing-cancel" type="button">Отмена</button>
+        <button class="nft-listing-submit" type="submit">Выставить на продажу</button>
+      </footer>
+    </form>
   </dialog>
   <nav class="bottom-nav" aria-label="Основная навигация">
     <span class="nav-indicator" aria-hidden="true"></span>

@@ -223,6 +223,19 @@ Deno.serve(async (request) => {
     return json({ profile, wallets });
   }
 
+  if (action === 'wallet') {
+    const { data: wallets, error: walletError } = await supabase.from('wallets')
+      .select('id,currency,balance').eq('profile_id', profile.id);
+    if (walletError) return json({ error: walletError.message }, 500);
+    const walletIds = wallets.map((wallet: { id: string }) => wallet.id);
+    if (!walletIds.length) return json({ profile, wallets, transactions: [] });
+    const { data: transactions, error: transactionError } = await supabase.from('wallet_transactions')
+      .select('id,wallet_id,amount,reason,reference_id,created_at')
+      .in('wallet_id', walletIds).order('created_at', { ascending: false }).limit(50);
+    if (transactionError) return json({ error: transactionError.message }, 500);
+    return json({ profile, wallets, transactions });
+  }
+
   if (action === 'update_profile') {
     const allowed = ['nickname', 'username', 'first_name', 'last_name', 'bio', 'birthday', 'phone'];
     const changes: Record<string, unknown> = {};
@@ -247,19 +260,24 @@ Deno.serve(async (request) => {
   if (action === 'profile_nfts') {
     const profileId = typeof input.profile_id === 'string' ? input.profile_id : '';
     if (!profileId) return json({ error: 'Profile ID is required' }, 400);
+    const profileResult = await supabase.from('profiles')
+      .select('id,nickname,username,first_name,last_name,avatar_url,bio,status')
+      .eq('id', profileId).maybeSingle();
+    if (profileResult.error) return json({ error: profileResult.error.message }, 500);
+    if (!profileResult.data) return json({ error: 'Player not found' }, 404);
     const result = await supabase.from('nft_items')
       .select('id,external_id,attributes,acquired_at,nft_models(id,slug,name,preview_url,animation_url,nft_collections(name,slug)),market_listings(id,price,currency,status)')
       .eq('owner_profile_id', profileId).order('acquired_at', { ascending: false });
-    return result.error ? json({ error: result.error.message }, 500) : json({ items: result.data });
+    return result.error ? json({ error: result.error.message }, 500) : json({ profile: profileResult.data, items: result.data });
   }
 
   if (action === 'create_chat') {
     const nickname = typeof input.nickname === 'string' ? input.nickname.trim().replace(/^@+/, '') : '';
     if (!nickname || nickname.length > 32) return json({ error: 'Enter a valid player nickname' }, 400);
-    let target = await supabase.from('profiles').select('id,nickname,username,first_name,last_name,avatar_url').eq('nickname', nickname).maybeSingle();
-    if (!target.data) target = await supabase.from('profiles').select('id,nickname,username,first_name,last_name,avatar_url').eq('username', nickname).maybeSingle();
-    if (!target.data) target = await supabase.from('profiles').select('id,nickname,username,first_name,last_name,avatar_url').ilike('first_name', `%${nickname}%`).limit(1).maybeSingle();
-    if (!target.data) target = await supabase.from('profiles').select('id,nickname,username,first_name,last_name,avatar_url').ilike('last_name', `%${nickname}%`).limit(1).maybeSingle();
+    let target = await supabase.from('profiles').select('id,nickname,username,first_name,last_name,avatar_url,status').eq('nickname', nickname).maybeSingle();
+    if (!target.data) target = await supabase.from('profiles').select('id,nickname,username,first_name,last_name,avatar_url,status').eq('username', nickname).maybeSingle();
+    if (!target.data) target = await supabase.from('profiles').select('id,nickname,username,first_name,last_name,avatar_url,status').ilike('first_name', `%${nickname}%`).limit(1).maybeSingle();
+    if (!target.data) target = await supabase.from('profiles').select('id,nickname,username,first_name,last_name,avatar_url,status').ilike('last_name', `%${nickname}%`).limit(1).maybeSingle();
     if (target.error) return json({ error: target.error.message }, 500);
     if (!target.data) return json({ error: 'Player not found' }, 404);
     if (target.data.id === profile.id) return json({ error: 'You cannot start a chat with yourself' }, 400);
@@ -272,7 +290,7 @@ Deno.serve(async (request) => {
 
   if (action === 'market') {  
     let query = supabase.from('market_listings')
-      .select('id,nft_item_id,seller_profile_id,price,currency,created_at,seller:profiles!market_listings_seller_profile_id_fkey(nickname,username,first_name,last_name,avatar_url),nft_items(id,external_id,attributes,nft_models(slug,name,preview_url,animation_url,nft_collections(name,slug)))')
+      .select('id,nft_item_id,seller_profile_id,price,currency,created_at,seller:profiles!market_listings_seller_profile_id_fkey(id,nickname,username,first_name,last_name,avatar_url,bio,status),nft_items(id,external_id,attributes,nft_models(slug,name,preview_url,animation_url,nft_collections(name,slug)))')
       .eq('status', 'active').order('created_at', { ascending: false });
     if (input.mode === 'sales') query = query.eq('seller_profile_id', profile.id);
     const result = await query;
@@ -281,9 +299,9 @@ Deno.serve(async (request) => {
       const purchases = await supabase.from('market_transactions')
         .select('id,nft_item_id,buyer_profile_id,seller_profile_id,price,currency,created_at,seller:profiles!market_transactions_seller_profile_id_fkey(nickname,username,first_name,last_name),nft_items(id,external_id,attributes,nft_models(slug,name,preview_url,animation_url,nft_collections(name,slug)))')
         .eq('buyer_profile_id', profile.id).order('created_at', { ascending: false });
-      return purchases.error ? json({ error: purchases.error.message }, 500) : json({ items: purchases.data, current_profile_id: profile.id });
+      return purchases.error ? json({ error: purchases.error.message }, 500) : json({ items: purchases.data, current_profile_id: profile.id, current_profile_status: profile.status });
     }
-    return json({ items: result.data, current_profile_id: profile.id });
+    return json({ items: result.data, current_profile_id: profile.id, current_profile_status: profile.status });
   }
 
   if (action === 'create_listing') {
@@ -322,7 +340,7 @@ Deno.serve(async (request) => {
       if (member.chats.chat_type !== 'direct') return member;
       const [peerResult, latestMessage, unreadMessages] = await Promise.all([
         supabase.from('chat_members')
-          .select('profiles!inner(id,nickname,username,first_name,last_name,avatar_url)')
+          .select('profiles!inner(id,nickname,username,first_name,last_name,avatar_url,bio,status)')
           .eq('chat_id', member.chat_id).neq('profile_id', profile.id).maybeSingle(),
         supabase.from('messages').select('body,created_at,sender_profile_id')
           .eq('chat_id', member.chat_id).is('deleted_at', null).order('created_at', { ascending: false }).limit(1).maybeSingle(),
@@ -351,7 +369,7 @@ Deno.serve(async (request) => {
     const markedRead = await supabase.from('chat_members').update({ last_read_at: readAt })
       .eq('chat_id', input.chat_id).eq('profile_id', profile.id);
     if (markedRead.error) return json({ error: markedRead.error.message }, 500);
-    const result = await supabase.from('messages').select('id,sender_profile_id,body,kind,created_at,gift_offer_id,profiles!messages_sender_profile_id_fkey(nickname,username,first_name,last_name,avatar_url),gift_offer:nft_gift_offers!messages_gift_offer_id_fkey(id,nft_item_id,sender_profile_id,recipient_profile_id,price_stars,status,nft_items(external_id,attributes,nft_models(name,slug,preview_url,animation_url,nft_collections(name,slug))))')
+    const result = await supabase.from('messages').select('id,sender_profile_id,body,kind,created_at,gift_offer_id,profiles!messages_sender_profile_id_fkey(id,nickname,username,first_name,last_name,avatar_url,bio,status),gift_offer:nft_gift_offers!messages_gift_offer_id_fkey(id,nft_item_id,sender_profile_id,recipient_profile_id,price_stars,status,nft_items(external_id,attributes,nft_models(name,slug,preview_url,animation_url,nft_collections(name,slug))))')
       .eq('chat_id', input.chat_id).is('deleted_at', null).order('created_at', { ascending: true }).limit(200);
     if (result.error) return json({ error: result.error.message }, 500);
     return json({ messages: await attachGiftResponses(result.data) });
@@ -370,7 +388,7 @@ Deno.serve(async (request) => {
     });
     if (created.error) return json({ error: created.error.message }, 400);
     const message = await supabase.from('messages')
-      .select('id,sender_profile_id,body,kind,created_at,gift_offer_id,profiles!messages_sender_profile_id_fkey(nickname,username,first_name,last_name,avatar_url),gift_offer:nft_gift_offers!messages_gift_offer_id_fkey(id,nft_item_id,sender_profile_id,recipient_profile_id,price_stars,status,nft_items(external_id,attributes,nft_models(name,slug,preview_url,animation_url,nft_collections(name,slug))))')
+      .select('id,sender_profile_id,body,kind,created_at,gift_offer_id,profiles!messages_sender_profile_id_fkey(id,nickname,username,first_name,last_name,avatar_url,bio,status),gift_offer:nft_gift_offers!messages_gift_offer_id_fkey(id,nft_item_id,sender_profile_id,recipient_profile_id,price_stars,status,nft_items(external_id,attributes,nft_models(name,slug,preview_url,animation_url,nft_collections(name,slug))))')
       .eq('id', created.data).single();
     if (message.error) return json({ error: message.error.message }, 500);
     const [enrichedMessage] = await attachGiftResponses([message.data]);

@@ -33,6 +33,7 @@
     isConfigured: Boolean(config.url && !config.url.includes('YOUR_PROJECT_REF') && config.anonKey && !config.anonKey.includes('YOUR_SUPABASE')),
     browserDemo: config.browserDemo === true,
     me: () => request('me'),
+    wallet: () => request('wallet'),
     updateProfile: (profile) => request('update_profile', profile),
     myNfts: () => request('my_nfts'),
     profileNfts: (profileId) => request('profile_nfts', { profile_id: profileId }),

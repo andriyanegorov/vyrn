@@ -13,7 +13,9 @@ on conflict (singleton) do nothing;
 alter table public.admin_settings enable row level security;
 revoke all on public.admin_settings from public, anon, authenticated;
 
-create or replace function public.admin_search_players(p_password text, p_query text default '')
+drop function if exists public.admin_search_players(text, text);
+
+create function public.admin_search_players(p_password text, p_query text default '')
 returns table (
   profile_id uuid,
   telegram_id bigint,
@@ -22,6 +24,7 @@ returns table (
   first_name text,
   last_name text,
   avatar_url text,
+  status text,
   nft_count bigint
 )
 language plpgsql
@@ -46,7 +49,7 @@ begin
 
   return query
     select players.id, players.telegram_id, players.nickname, players.username,
-      players.first_name, players.last_name, players.avatar_url,
+      players.first_name, players.last_name, players.avatar_url, players.status,
       count(items.id)::bigint as nft_count
     from public.profiles as players
     left join public.nft_items as items on items.owner_profile_id = players.id

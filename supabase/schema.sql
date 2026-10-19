@@ -27,12 +27,14 @@ create table if not exists public.profiles (
   first_name text not null default '',
   last_name text not null default '',
   avatar_url text,
+  status text not null default '',
   bio text not null default '' check (char_length(bio) <= 160),
   birthday date,
   phone text,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );
+alter table public.profiles add column if not exists status text not null default '';
 create unique index if not exists profiles_telegram_username_unique on public.profiles(telegram_username) where telegram_username is not null;
 
 create table if not exists public.wallets (

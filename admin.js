@@ -343,6 +343,16 @@ xmasstocking|Xmas Stockings
   };
 
   const renderPlayerResults = (players) => {
+    const appendStatusBadge = (target, status) => {
+      const normalizedStatus = String(status || '').trim().toLowerCase();
+      if (normalizedStatus !== 'verfied' && normalizedStatus !== 'verified' && normalizedStatus !== 'premium') return;
+      const badge = document.createElement('img');
+      badge.className = `profile-status-badge ${normalizedStatus === 'premium' ? 'is-premium' : 'is-verified'}`;
+      badge.src = normalizedStatus === 'premium' ? 'premium.svg' : 'verified.svg';
+      badge.alt = '';
+      badge.setAttribute('aria-label', normalizedStatus === 'premium' ? 'Premium' : 'Подтверждённый профиль');
+      target.append(badge);
+    };
     playerResults.replaceChildren();
     if (!players.length) {
       const empty = document.createElement('p');
@@ -370,6 +380,7 @@ xmasstocking|Xmas Stockings
       copy.className = 'admin-player-copy';
       const name = document.createElement('strong');
       name.textContent = player.nickname;
+      appendStatusBadge(name, player.status);
       const meta = document.createElement('span');
       meta.textContent = `${player.username ? `@${player.username} · ` : ''}Telegram ID ${player.telegram_id}`;
       copy.append(name, meta);
@@ -385,7 +396,10 @@ xmasstocking|Xmas Stockings
         const label = document.createElement('span');
         label.textContent = 'Получатель';
         const value = document.createElement('strong');
-        value.textContent = `${player.nickname} · Telegram ID ${player.telegram_id}`;
+        const selectedName = document.createElement('span');
+        selectedName.textContent = player.nickname;
+        appendStatusBadge(selectedName, player.status);
+        value.append(selectedName, document.createTextNode(` · Telegram ID ${player.telegram_id}`));
         summary.append(label, value);
         const clear = document.createElement('button');
         clear.className = 'admin-clear-selection';
