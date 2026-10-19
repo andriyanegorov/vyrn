@@ -2441,6 +2441,12 @@ if (chatRows.length && conversationDialog) {
 	addRemoteChatRow = (chatId, peer, summary = {}) => {
 		const existing = chatRows.find((row) => row.dataset.chatId === chatId);
 		if (existing) {
+			const existingIndex = chatRows.indexOf(existing);
+			const name = existing.querySelector('.chat-name');
+			if (name) renderProfileName(name, getProfileDisplayName(peer), peer.status);
+			if (playerProfiles[existingIndex]) {
+				playerProfiles[existingIndex].accountStatus = peer.status || '';
+			}
 			updateChatRowSummary(existing, summary);
 			return existing;
 		}
