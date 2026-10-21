@@ -1294,17 +1294,48 @@ body.chats-screen {
 }
 
 .chats-search {
+  display: flex;
   min-width: 0;
   flex: 1;
   height: 48px;
+  align-items: center;
+  gap: 9px;
   box-sizing: border-box;
-  padding-right: 8px;
+  padding: 0 8px 0 13px;
   border: 1px solid #dfe1e4;
   border-radius: 24px;
   background: #fff;
 }
 
+.chats-search svg {
+  width: 19px;
+  height: 19px;
+  flex: 0 0 auto;
+  fill: none;
+  stroke: #696d76;
+  stroke-linecap: round;
+  stroke-width: 1.8;
+}
+
+.chats-search input {
+  width: 100%;
+  min-width: 0;
+  height: 100%;
+  padding: 0;
+  border: 0;
+  outline: 0;
+  background: transparent;
+  color: #24262c;
+  font: inherit;
+  font-size: 14px;
+}
+
+.chats-search input::placeholder {
+  color: #90939b;
+}
+
 .chats-search-clear {
+  flex: 0 0 auto;
   width: 28px;
   height: 28px;
   border: 0;
@@ -1705,7 +1736,7 @@ body.chats-screen {
 
 .conversation-screen {
   isolation: isolate;
-  background: url("chat_bg.png") center / cover no-repeat;
+  background: #e9f0ed url("./assets/chat_bg.png") center / cover no-repeat;
 }
 
 .conversation-screen[hidden],

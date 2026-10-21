@@ -377,22 +377,22 @@ begin
     raise exception 'Type УДАЛИТЬ ВСЕ NFT to confirm the project-wide deletion';
   end if;
 
-  delete from public.market_transactions;
-  delete from public.market_listings;
+  delete from public.market_transactions where id is not null;
+  delete from public.market_listings where id is not null;
 
   update public.messages
   set gift_offer_id = null
   where gift_offer_id is not null;
 
   if to_regclass('public.nft_gift_responses') is not null then
-    execute 'delete from public.nft_gift_responses';
+    execute 'delete from public.nft_gift_responses where id is not null';
   end if;
   if to_regclass('public.nft_gift_offers') is not null then
-    execute 'delete from public.nft_gift_offers';
+    execute 'delete from public.nft_gift_offers where id is not null';
   end if;
 
-  delete from public.nft_transfers;
-  delete from public.nft_items;
+  delete from public.nft_transfers where id is not null;
+  delete from public.nft_items where id is not null;
   get diagnostics deleted_count = row_count;
   return deleted_count;
 end;

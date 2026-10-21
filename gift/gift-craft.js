@@ -79,6 +79,20 @@ function renderGrid(){
     g.appendChild(empty);
   }
 }
+async function refreshCraftBalance(){
+  try{
+    const {wallets=[]}=await window.VyrnApi.me();
+    const stars=wallets.find(wallet=>wallet.currency==='stars');
+    if(!stars)return;
+    const balance=document.querySelector('.star-balance');
+    const label=balance?.querySelector('span');
+    if(!balance||!label)return;
+    label.textContent=Number(stars.balance).toLocaleString('ru-RU');
+    balance.setAttribute('aria-label',`Баланс: ${label.textContent} звёзд`);
+  }catch(error){
+    console.error('Не удалось загрузить баланс звёзд:',error);
+  }
+}
 $('#openCraft').onclick=()=>openCraft();
 async function loadInventory(notify=true){
   try{
@@ -144,7 +158,6 @@ function total(){
 function renderPriceFields(){
   const box=$('#priceFields');box.replaceChildren();
   slots.filter(Boolean).forEach(g=>{
-    const row=document.createElement('div');row.className='price-row';
     const label=document.createElement('span');label.className='price-label';
     label.textContent=`${g.name} #${g.id}`;
     const input=document.createElement('input');input.className='price-input';
@@ -202,8 +215,8 @@ function renderCraft(){
   $('#pcTxt').textContent=`${Number(t.toFixed(1))}%`;
   const collection=slots.find(Boolean)?.collectionName;
   $('#info').textContent=collection
-    ?`Одна коллекция: «${collection}». Цена Fragment считается как GRAM / 10 × 80 ★ и влияет на шанс; её можно изменить. При неудаче NFT сгорят.`
-    :'Выбери NFT из одной коллекции. Цена Fragment: GRAM / 10 × 80 ★; её можно изменить. При неудаче NFT сгорят.';
+    ?`Одна коллекция: «${collection}». При неудаче NFT сгорят.`
+    :'Выбери NFT из одной коллекции, её можно изменить. При неудаче NFT сгорят.';
   renderPriceFields();
   const sel=slots.filter(Boolean);
   const ch=$('#chips');ch.replaceChildren();
@@ -463,3 +476,4 @@ function stopConf(){cancelAnimationFrame(raf);cx.clearRect(0,0,cv.width,cv.heigh
 function toast(t){const e=$('#toast');e.textContent=t;e.classList.add('on');setTimeout(()=>e.classList.remove('on'),1800)}
 renderGrid();
 loadInventory();
+refreshCraftBalance();

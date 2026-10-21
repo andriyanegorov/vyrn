@@ -4,20 +4,46 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
 <title>Крафт NFT | VYRN</title>
-<link rel="stylesheet" href="gift-craft.css?v=craft-nft-20261021-v2">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Manrope:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="gift-craft.css?v=craft-index-header-20261022">
 </head>
 <body>
 <div id="app">
-  <div class="top">
-    <a class="round" href="../index.html" aria-label="На главную" style="text-decoration:none">‹</a>
-    <div class="title"><b>VYRN</b><small id="cnt"></small></div>
-    <span class="round" aria-hidden="true" style="visibility:hidden">✦</span>
-  </div>
+  <header class="top">
+    <a class="brand" href="../index.html" aria-label="VYRN, главная">VYRN</a>
+    <small class="inventory-count" id="cnt"></small>
+    <a class="star-balance" href="../wallet.html" aria-label="Баланс: 0 звёзд">
+      <img src="../assets/stars.png" alt="" aria-hidden="true">
+      <span>0</span>
+    </a>
+  </header>
   <div class="bar">
-    <button class="pill main" id="openCraft">⚒ Создать NFT</button>
+    <img class="craft-banner" src="../assets/craft.png" alt="Крафт NFT">
+    <button class="pill main" id="openCraft">Скрафтить NFT</button>
   </div>
   <div class="note">Выбери NFT из своей коллекции. Результат крафта рассчитывается и сохраняется на сервере.</div>
   <div id="grid"></div>
+  <nav class="bottom-nav" aria-label="Основная навигация">
+    <span class="nav-indicator" aria-hidden="true"></span>
+    <a class="nav-button is-active" href="../index.html" aria-current="page">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m3 10 9-7 9 7M5 9v11h14V9M9 20v-6h6v6" /></svg>
+      <span>Главное</span>
+    </a>
+    <a class="nav-button" href="../market.html">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 10h18l-1.5-6h-15L3 10Zm0 0v10h18V10M8 20v-6h8v6" /></svg>
+      <span>Рынок</span>
+    </a>
+    <a class="nav-button" href="../chats.html">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 11.5a7.5 7.5 0 0 1-7.5 7.5H6l-3 2v-5.5A7.5 7.5 0 1 1 20 11.5Z" /></svg>
+      <span>Чаты</span>
+    </a>
+    <a class="nav-button" href="../profile.html">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="8" r="4" /><path d="M4 21a8 8 0 0 1 16 0" /></svg>
+      <span>Профиль</span>
+    </a>
+  </nav>
 
   <div class="sheet-bg" id="bg1"></div>
   <div class="sheet craft" id="craftSheet">
@@ -67,6 +93,6 @@
 <script src="https://telegram.org/js/telegram-web-app.js"></script>
 <script src="../supabase-client-config.js?v=craft-nft-20261021"></script>
 <script src="../supabase-api.js?v=craft-nft-20261021-v3"></script>
-<script src="gift-craft.js?v=craft-nft-20261021-v2"></script>
+<script src="gift-craft.js?v=craft-index-header-20261022"></script>
 </body>
 </html>
