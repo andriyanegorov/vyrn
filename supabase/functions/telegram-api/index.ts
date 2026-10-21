@@ -461,20 +461,35 @@ Deno.serve(async (request) => {
     return result.error ? json({ error: result.error.message }, 500) : json({ chat_id: result.data, peer: target.data });
   }
 
-  if (action === 'market') {  
-    let query = supabase.from('market_listings')
-      .select('id,nft_item_id,seller_profile_id,price,currency,created_at,seller:profiles!market_listings_seller_profile_id_fkey(id,nickname,username,first_name,last_name,avatar_url,bio,status),nft_items(id,external_id,attributes,nft_models(slug,name,preview_url,animation_url,nft_collections(name,slug)))')
-      .eq('status', 'active').order('created_at', { ascending: false });
-    if (input.mode === 'sales') query = query.eq('seller_profile_id', profile.id);
-    const result = await query;
-    if (result.error) return json({ error: result.error.message }, 500);
+  if (action === 'market') {
+    const pageSize = 1000;
     if (input.mode === 'purchases') {
-      const purchases = await supabase.from('market_transactions')
-        .select('id,nft_item_id,buyer_profile_id,seller_profile_id,price,currency,created_at,seller:profiles!market_transactions_seller_profile_id_fkey(nickname,username,first_name,last_name),nft_items(id,external_id,attributes,nft_models(slug,name,preview_url,animation_url,nft_collections(name,slug)))')
-        .eq('buyer_profile_id', profile.id).order('created_at', { ascending: false });
-      return purchases.error ? json({ error: purchases.error.message }, 500) : json({ items: purchases.data, current_profile_id: profile.id, current_profile_status: profile.status });
+      const purchases = [];
+      for (let offset = 0; ; offset += pageSize) {
+        const page = await supabase.from('market_transactions')
+          .select('id,nft_item_id,buyer_profile_id,seller_profile_id,price,currency,created_at,seller:profiles!market_transactions_seller_profile_id_fkey(nickname,username,first_name,last_name),nft_items(id,external_id,attributes,nft_models(slug,name,preview_url,animation_url,nft_collections(name,slug)))')
+          .eq('buyer_profile_id', profile.id).order('created_at', { ascending: false })
+          .range(offset, offset + pageSize - 1);
+        if (page.error) return json({ error: page.error.message }, 500);
+        purchases.push(...page.data);
+        if (page.data.length < pageSize) break;
+      }
+      return json({ items: purchases, current_profile_id: profile.id, current_profile_status: profile.status });
     }
-    return json({ items: result.data, current_profile_id: profile.id, current_profile_status: profile.status });
+
+    const listings = [];
+    for (let offset = 0; ; offset += pageSize) {
+      let query = supabase.from('market_listings')
+        .select('id,nft_item_id,seller_profile_id,price,currency,created_at,seller:profiles!market_listings_seller_profile_id_fkey(id,nickname,username,first_name,last_name,avatar_url,bio,status),nft_items(id,external_id,attributes,nft_models(slug,name,preview_url,animation_url,nft_collections(name,slug)))')
+        .eq('status', 'active').order('created_at', { ascending: false })
+        .range(offset, offset + pageSize - 1);
+      if (input.mode === 'sales') query = query.eq('seller_profile_id', profile.id);
+      const page = await query;
+      if (page.error) return json({ error: page.error.message }, 500);
+      listings.push(...page.data);
+      if (page.data.length < pageSize) break;
+    }
+    return json({ items: listings, current_profile_id: profile.id, current_profile_status: profile.status });
   }
 
   if (action === 'create_listing') {

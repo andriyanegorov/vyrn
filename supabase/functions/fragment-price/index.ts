@@ -24,7 +24,6 @@ const readFragmentGift = (html: string) => {
     || html.match(/value=["']([^"']+)["'][^>]*id=["']bid_value["']/i);
   const rawPrice = priceField?.[1]?.replace(/,/g, '').trim() || '';
   const grams = Number(rawPrice);
-  if (!Number.isFinite(grams) || grams <= 0) return null;
 
   const traits: Record<string, { name: string; rarity_percent: number | null }> = {};
   for (const [, row] of html.matchAll(/<tr\b[^>]*>([\s\S]*?)<\/tr>/gi)) {
@@ -38,7 +37,34 @@ const readFragmentGift = (html: string) => {
     traits[label] = { name, rarity_percent: Number.isFinite(rarity) ? rarity : null };
   }
 
-  return { grams, traits };
+  return { grams: Number.isFinite(grams) && grams > 0 ? grams : null, traits };
+};
+
+const fetchFragmentGift = async (slug: string, number: string) => {
+  const response = await fetch(`https://fragment.com/gift/${slug}-${number}`, {
+    headers: { 'User-Agent': 'Mozilla/5.0 VYRN Fragment price reader' },
+    signal: AbortSignal.timeout(15_000),
+  });
+  if (!response.ok) throw new Error(`Fragment returned ${response.status}`);
+  const gift = readFragmentGift(await response.text());
+  if (gift === null || gift.grams === null) throw new Error('Цена этого подарка не найдена на Fragment.');
+  return {
+    grams: gift.grams,
+    stars: Math.max(1, Math.round(gift.grams / 10 * 80)),
+    traits: gift.traits,
+  };
+};
+
+const mapLimit = async <T, R>(values: T[], limit: number, mapper: (value: T) => Promise<R>) => {
+  const results = new Array<R>(values.length);
+  let nextIndex = 0;
+  await Promise.all(Array.from({ length: Math.min(limit, values.length) }, async () => {
+    while (nextIndex < values.length) {
+      const index = nextIndex++;
+      results[index] = await mapper(values[index]);
+    }
+  }));
+  return results;
 };
 
 Deno.serve(async (request) => {
@@ -52,25 +78,46 @@ Deno.serve(async (request) => {
     return json({ error: 'Invalid JSON' }, 400);
   }
 
+  if (Array.isArray(input.gifts)) {
+    if (input.gifts.length < 1 || input.gifts.length > 40) {
+      return json({ error: 'Batch must contain between 1 and 40 Fragment gifts.' }, 400);
+    }
+    const gifts = input.gifts.map((entry) => {
+      const gift = entry && typeof entry === 'object' ? entry as Record<string, unknown> : {};
+      const slug = typeof gift.collection_slug === 'string' ? gift.collection_slug.trim().toLowerCase() : '';
+      const number = typeof gift.gift_number === 'string'
+        ? gift.gift_number.trim()
+        : String(gift.gift_number || '').trim();
+      return { slug, number };
+    });
+    if (gifts.some(({ slug, number }) =>
+      !/^[a-z0-9]+$/.test(slug) || !/^\d{1,12}$/.test(number) || Number(number) <= 0)) {
+      return json({ error: 'Invalid Fragment gift collection or number in batch.' }, 400);
+    }
+
+    const items = await mapLimit(gifts, 8, async ({ slug, number }) => {
+      try {
+        const details = await fetchFragmentGift(slug, number);
+        return { collection_slug: slug, gift_number: number, traits: details.traits };
+      } catch (error) {
+        return {
+          collection_slug: slug,
+          gift_number: number,
+          error: error instanceof Error ? error.message : 'Не удалось загрузить атрибуты Fragment.',
+        };
+      }
+    });
+    return json({ items });
+  }
+
   const slug = typeof input.collection_slug === 'string' ? input.collection_slug.trim().toLowerCase() : '';
   const number = typeof input.gift_number === 'string' ? input.gift_number.trim() : String(input.gift_number || '').trim();
   if (!/^[a-z0-9]+$/.test(slug) || !/^\d{1,12}$/.test(number) || Number(number) <= 0) {
     return json({ error: 'Invalid Fragment gift collection or number' }, 400);
   }
 
-  const url = `https://fragment.com/gift/${slug}-${number}`;
   try {
-    const response = await fetch(url, {
-      headers: { 'User-Agent': 'Mozilla/5.0 VYRN Fragment price reader' },
-    });
-    if (!response.ok) return json({ error: `Fragment returned ${response.status}` }, 502);
-    const gift = readFragmentGift(await response.text());
-    if (gift === null) return json({ error: 'Цена этого подарка не найдена на Fragment.' }, 404);
-    return json({
-      grams: gift.grams,
-      stars: Math.max(1, Math.round(gift.grams / 10 * 80)),
-      traits: gift.traits,
-    });
+    return json(await fetchFragmentGift(slug, number));
   } catch {
     return json({ error: 'Не удалось получить цену Fragment.' }, 502);
   }

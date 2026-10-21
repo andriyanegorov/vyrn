@@ -563,15 +563,149 @@ if (collectionPreviewGrid) {
 
 const marketGrid = document.querySelector('.market-grid');
 if (marketGrid) {
-	const marketSearch = document.querySelector('.market-search-input');
 	const marketCollectionFilter = document.querySelector('.market-collection-filter');
+	const marketModelFilter = document.querySelector('.market-model-filter');
+	const marketBackdropFilter = document.querySelector('.market-backdrop-filter');
+	const marketSymbolFilter = document.querySelector('.market-symbol-filter');
 	const marketSort = document.querySelector('.market-sort');
+	const marketFilterDialog = document.querySelector('.market-filter-dialog');
+	const marketFilterForm = document.querySelector('.market-filter-panel');
+	const marketFilterButton = document.querySelector('.market-filter-open');
+	const marketFilterClose = document.querySelector('.market-filter-close');
+	const marketFilterReset = document.querySelector('.market-filter-reset');
+	const marketFilterStatus = document.querySelector('.market-filter-status');
 	const marketEmpty = document.querySelector('.market-empty');
 	const marketTradeButtons = [...document.querySelectorAll('.market-trade-button')];
 	const marketTradeNav = document.querySelector('.market-trade-nav');
 	const marketTradeIndicator = marketTradeNav.querySelector('.market-trade-indicator');
 	const marketCards = [];
+	let currentMarketCards = marketCards;
 	let marketMode = 'all';
+	const marketTraitCache = new Map();
+	const marketTraitRequests = new Set();
+	const selectedTraitFilters = { model: '', backdrop: '', symbol: '' };
+	const marketFilters = [
+		{ element: marketCollectionFilter, key: 'marketCollection', label: 'Все коллекции' },
+		{ element: marketModelFilter, key: 'marketModel', label: 'Все модели' },
+		{ element: marketBackdropFilter, key: 'marketBackdrop', label: 'Все фоны' },
+		{ element: marketSymbolFilter, key: 'marketSymbol', label: 'Все символы' }
+	];
+	const updateMarketFilterOptions = (cards) => {
+		marketFilters.forEach(({ element, key, label }) => {
+			const selectedValue = element.value;
+			const values = [...new Set(cards.map((card) => card.dataset[key]).filter(Boolean))]
+				.sort((first, second) => first.localeCompare(second, 'ru'));
+			element.replaceChildren(new Option(label, ''));
+			values.forEach((value) => element.add(new Option(value, value)));
+			element.value = values.includes(selectedValue) ? selectedValue : '';
+		});
+	};
+	const getFragmentTrait = (attributes, traitName) => {
+		const trait = attributes?.fragment_traits?.[traitName];
+		return typeof trait?.name === 'string' ? trait.name.trim() : '';
+	};
+	const applyMarketTraits = (card, traits) => {
+		if (!card.dataset.marketModel) card.dataset.marketModel = getFragmentTrait({ fragment_traits: traits }, 'model');
+		if (!card.dataset.marketBackdrop) card.dataset.marketBackdrop = getFragmentTrait({ fragment_traits: traits }, 'backdrop');
+		if (!card.dataset.marketSymbol) card.dataset.marketSymbol = getFragmentTrait({ fragment_traits: traits }, 'symbol');
+	};
+	const hasMarketTraits = (card) => Boolean(
+		card.dataset.marketModel && card.dataset.marketBackdrop && card.dataset.marketSymbol,
+	);
+	const hydrateMarketTraits = (cards) => {
+		currentMarketCards = cards;
+		cards.forEach((card) => {
+			const key = card.dataset.marketTraitKey;
+			if (key && marketTraitCache.has(key)) applyMarketTraits(card, marketTraitCache.get(key));
+		});
+		updateMarketFilterOptions(cards);
+
+		const pending = [...new Map(cards.filter((card) => card.dataset.marketTraitKey
+			&& !hasMarketTraits(card)
+			&& !marketTraitCache.has(card.dataset.marketTraitKey)
+			&& !marketTraitRequests.has(card.dataset.marketTraitKey))
+			.map((card) => [card.dataset.marketTraitKey, card])).values()];
+		if (!pending.length) return;
+		if (!window.VyrnApi?.isConfigured || typeof window.VyrnApi.fragmentPrices !== 'function') {
+			marketFilterStatus.textContent = 'Подключите Supabase, чтобы загрузить атрибуты NFT с Fragment.';
+			return;
+		}
+
+		marketFilterStatus.textContent = `Загружаем атрибуты Fragment: 0 из ${pending.length}…`;
+		let failedCount = 0;
+		let loadedCount = 0;
+		pending.forEach((card) => marketTraitRequests.add(card.dataset.marketTraitKey));
+		const batches = [];
+		for (let index = 0; index < pending.length; index += 40) {
+			batches.push(pending.slice(index, index + 40));
+		}
+		let nextBatch = 0;
+		const worker = async () => {
+			while (nextBatch < batches.length) {
+				const batch = batches[nextBatch++];
+				try {
+					const results = await window.VyrnApi.fragmentPrices(batch.map((card) => ({
+						collection_slug: card.dataset.marketSlug,
+						gift_number: card.dataset.marketExternalId,
+					})));
+					const resultsByKey = new Map(results.map((result) => [
+						`${result.collection_slug}-${result.gift_number}`,
+						result,
+					]));
+					batch.forEach((card) => {
+						const key = card.dataset.marketTraitKey;
+						const result = resultsByKey.get(key);
+						const traits = result?.traits && typeof result.traits === 'object' ? result.traits : {};
+						const hasTraits = ['model', 'backdrop', 'symbol']
+							.some((trait) => typeof traits[trait]?.name === 'string');
+						marketTraitCache.set(key, traits);
+						if (hasTraits) {
+							currentMarketCards
+								.filter((item) => item.dataset.marketTraitKey === key)
+								.forEach((item) => applyMarketTraits(item, traits));
+							loadedCount++;
+						} else {
+							failedCount++;
+							console.warn(`Не удалось загрузить атрибуты Fragment для ${key}:`, result?.error || 'Атрибуты отсутствуют.');
+						}
+						marketTraitRequests.delete(key);
+					});
+					updateMarketFilterOptions(currentMarketCards);
+				} catch (error) {
+					batch.forEach((card) => {
+						marketTraitCache.set(card.dataset.marketTraitKey, {});
+						marketTraitRequests.delete(card.dataset.marketTraitKey);
+					});
+					failedCount += batch.length;
+					console.warn('Не удалось загрузить пакет атрибутов Fragment:', error);
+				}
+				marketFilterStatus.textContent = `Загружаем атрибуты Fragment: ${loadedCount + failedCount} из ${pending.length}…`;
+			}
+		};
+		Promise.all(Array.from({ length: Math.min(2, batches.length) }, worker)).then(() => {
+			marketFilterStatus.textContent = failedCount
+				? `Загружены атрибуты для ${loadedCount} NFT; для ${failedCount} NFT Fragment не вернул данные.`
+				: `Загружены атрибуты для ${loadedCount} NFT.`;
+		});
+	};
+	const syncFilterButton = () => {
+		const selectedCount = Object.values(selectedTraitFilters).filter(Boolean).length;
+		marketFilterButton.querySelector('span').textContent = selectedCount
+			? `Фильтр · ${selectedCount}`
+			: 'Фильтр';
+	};
+	const applyTraitFilters = () => {
+		selectedTraitFilters.model = marketModelFilter.value;
+		selectedTraitFilters.backdrop = marketBackdropFilter.value;
+		selectedTraitFilters.symbol = marketSymbolFilter.value;
+		syncFilterButton();
+		renderMarketList();
+	};
+	const restoreTraitFilters = () => {
+		marketModelFilter.value = selectedTraitFilters.model;
+		marketBackdropFilter.value = selectedTraitFilters.backdrop;
+		marketSymbolFilter.value = selectedTraitFilters.symbol;
+	};
 	const moveMarketIndicator = (button) => {
 		const buttonBounds = button.getBoundingClientRect();
 		const navBounds = marketTradeNav.getBoundingClientRect();
@@ -587,6 +721,12 @@ if (marketGrid) {
 		card.className = 'market-card';
 		card.dataset.marketName = title.toLocaleLowerCase('ru-RU');
 		card.dataset.marketCollection = gift.name;
+		card.dataset.marketSlug = gift.slug;
+		card.dataset.marketExternalId = String(gift.id);
+		card.dataset.marketTraitKey = `${gift.slug}-${gift.id}`;
+		card.dataset.marketModel = '';
+		card.dataset.marketBackdrop = '';
+		card.dataset.marketSymbol = '';
 		card.dataset.marketPrice = String(Math.round(gift.lastSaleTon * 100));
 		card.dataset.marketAnimation = getNftAnimationUrl(`${gift.slug}-${gift.id}.tgs`);
 		card.dataset.marketPreview = getNftPreviewUrl(gift.slug, gift.id);
@@ -624,8 +764,8 @@ if (marketGrid) {
 		content.append(heading, price);
 		card.append(imageFrame, content);
 		marketCards.push(card);
-		marketCollectionFilter.add(new Option(gift.name, gift.name));
 	});
+	if (!canUseSupabaseAccount()) hydrateMarketTraits(marketCards);
 
 	let marketRequestId = 0;
 	const renderMarketList = async () => {
@@ -649,6 +789,14 @@ if (marketGrid) {
 					card.dataset.marketCard = 'true';
 					card.dataset.marketName = title.toLocaleLowerCase('ru-RU');
 					card.dataset.marketCollection = model.name || collectionInfo.name || '';
+					card.dataset.marketModel = getFragmentTrait(nft.attributes, 'model');
+					card.dataset.marketBackdrop = getFragmentTrait(nft.attributes, 'backdrop');
+					card.dataset.marketSymbol = getFragmentTrait(nft.attributes, 'symbol');
+					card.dataset.marketSlug = collectionInfo.slug || '';
+					card.dataset.marketExternalId = visualId || '';
+					card.dataset.marketTraitKey = collectionInfo.slug && visualId
+						? `${collectionInfo.slug}-${visualId}`
+						: '';
 					card.dataset.marketPrice = String(entry.price || 0);
 					card.dataset.marketAnimation = collectionInfo.slug && nft.external_id
 						? getNftAnimationUrl(`${collectionInfo.slug}-${visualId}.tgs`)
@@ -723,11 +871,13 @@ if (marketGrid) {
 					card.append(imageFrame, content);
 					return card;
 				});
-				const query = marketSearch.value.trim().toLocaleLowerCase('ru-RU');
-				const collection = marketCollectionFilter.value;
+				hydrateMarketTraits(remoteCards);
 				const visibleCards = remoteCards.filter((card) => {
-					return (!query || card.dataset.marketName.includes(query))
-						&& (!collection || card.dataset.marketCollection === collection);
+					const matchesCollection = !marketCollectionFilter.value
+						|| card.dataset.marketCollection === marketCollectionFilter.value;
+					const matchesTraits = Object.entries(selectedTraitFilters).every(([trait, value]) =>
+						!value || card.dataset[`market${trait[0].toUpperCase()}${trait.slice(1)}`] === value);
+					return matchesCollection && matchesTraits;
 				});
 				visibleCards.forEach((card) => {
 					card.setAttribute('role', 'button');
@@ -754,12 +904,13 @@ if (marketGrid) {
 				return;
 			}
 		}
-		const query = marketSearch.value.trim().toLocaleLowerCase('ru-RU');
-		const collection = marketCollectionFilter.value;
+		updateMarketFilterOptions(marketCards);
 		const visibleCards = marketMode === 'all' ? marketCards.filter((card) => {
-			const matchesQuery = !query || card.dataset.marketName.includes(query);
-			const matchesCollection = !collection || card.dataset.marketCollection === collection;
-			return matchesQuery && matchesCollection;
+			const matchesCollection = !marketCollectionFilter.value
+				|| card.dataset.marketCollection === marketCollectionFilter.value;
+			const matchesTraits = Object.entries(selectedTraitFilters).every(([trait, value]) =>
+				!value || card.dataset[`market${trait[0].toUpperCase()}${trait.slice(1)}`] === value);
+			return matchesCollection && matchesTraits;
 		}) : [];
 		visibleCards.forEach((card) => {
 			card.setAttribute('role', 'button');
@@ -786,9 +937,26 @@ if (marketGrid) {
 		marketEmpty.hidden = visibleCards.length > 0;
 	};
 
-	marketSearch.addEventListener('input', renderMarketList);
 	marketCollectionFilter.addEventListener('change', renderMarketList);
 	marketSort.addEventListener('change', renderMarketList);
+	marketFilterButton.addEventListener('click', () => {
+		restoreTraitFilters();
+		marketFilterDialog.showModal();
+	});
+	marketFilterClose.addEventListener('click', () => marketFilterDialog.close());
+	marketFilterDialog.addEventListener('close', restoreTraitFilters);
+	marketFilterReset.addEventListener('click', () => {
+		marketModelFilter.value = '';
+		marketBackdropFilter.value = '';
+		marketSymbolFilter.value = '';
+		applyTraitFilters();
+		marketFilterDialog.close();
+	});
+	marketFilterForm.addEventListener('submit', (event) => {
+		event.preventDefault();
+		applyTraitFilters();
+		marketFilterDialog.close();
+	});
 	marketTradeButtons.forEach((button) => {
 		button.addEventListener('click', () => {
 			marketMode = button.dataset.marketMode;

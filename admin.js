@@ -151,6 +151,17 @@ xmasstocking|Xmas Stockings
   const loadInventoryButton = document.querySelector('.admin-load-inventory-button');
   const inventoryStatus = document.querySelector('.admin-inventory-status');
   const inventoryList = document.querySelector('.admin-inventory-list');
+  const deleteAllConfirmation = document.querySelector('.admin-delete-all-confirmation');
+  const deleteAllButton = document.querySelector('.admin-delete-all-nfts-button');
+  const deleteAllStatus = document.querySelector('.admin-delete-all-status');
+  const randomMinPriceInput = document.querySelector('.admin-random-min-price');
+  const randomMaxPriceInput = document.querySelector('.admin-random-max-price');
+  const randomQuantityInput = document.querySelector('.admin-random-quantity');
+  const randomFilterSelect = document.querySelector('.admin-random-filter');
+  const randomCollectionSelect = document.querySelector('.admin-random-collection-select');
+  const randomStatus = document.querySelector('.admin-random-status');
+  const randomMarketButton = document.querySelector('.admin-random-market-button');
+  const randomPlayerButton = document.querySelector('.admin-random-player-button');
   let selectedPlayer = null;
   let giftPreviewUrl = '';
   let priceRequestId = 0;
@@ -309,6 +320,30 @@ xmasstocking|Xmas Stockings
     return data.collections;
   };
 
+  const randomFragmentRequest = async (payload) => {
+    if (!config.url || !config.anonKey || config.url.includes('YOUR_PROJECT_REF') || config.anonKey.includes('YOUR_SUPABASE')) {
+      throw new Error('Проверь URL и anon key в supabase-client-config.js.');
+    }
+    let response;
+    try {
+      response = await fetch(`${config.url.replace(/\/$/, '')}/functions/v1/admin-random-gifts`, {
+        method: 'POST',
+        headers: {
+          apikey: config.anonKey,
+          Authorization: `Bearer ${config.anonKey}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(payload)
+      });
+    } catch {
+      throw new Error('Edge Function admin-random-gifts не опубликована или не отвечает.');
+    }
+    const data = await response.json().catch(() => null);
+    if (!response.ok) throw new Error(data?.error || `Не удалось выполнить массовую операцию (${response.status}).`);
+    if (!Array.isArray(data?.items)) throw new Error('Сервер вернул некорректный результат массовой операции.');
+    return data;
+  };
+
   const mergeCollections = (additionalCollections) => {
     const bySlug = new Map(collections.map((collection) => [collection.slug, collection]));
     additionalCollections.forEach((collection) => {
@@ -316,6 +351,16 @@ xmasstocking|Xmas Stockings
       bySlug.set(collection.slug, { slug: collection.slug, name: collection.name });
     });
     collections = [...bySlug.values()].sort((first, second) => first.name.localeCompare(second.name, 'en'));
+    renderRandomCollections();
+  };
+
+  const renderRandomCollections = () => {
+    const currentSlug = randomCollectionSelect.value;
+    randomCollectionSelect.replaceChildren(new Option('Все коллекции', ''));
+    collections.forEach((collection) => {
+      randomCollectionSelect.add(new Option(`${collection.name} · ${collection.slug}`, collection.slug));
+    });
+    if (collections.some((collection) => collection.slug === currentSlug)) randomCollectionSelect.value = currentSlug;
   };
 
   const renderCollections = () => {
@@ -425,6 +470,7 @@ xmasstocking|Xmas Stockings
       button.append(avatar, copy, count);
       button.addEventListener('click', () => {
         selectedPlayer = player;
+        randomPlayerButton.disabled = false;
         selectedPlayerHost.replaceChildren();
         const summary = document.createElement('div');
         summary.className = 'admin-selected-summary';
@@ -442,6 +488,7 @@ xmasstocking|Xmas Stockings
         clear.textContent = 'Сменить';
         clear.addEventListener('click', () => {
           selectedPlayer = null;
+          randomPlayerButton.disabled = true;
           selectedPlayerHost.hidden = true;
           playerResults.querySelectorAll('.admin-player-result').forEach((item) => item.setAttribute('aria-pressed', 'false'));
           updateGiftPreview();
@@ -536,6 +583,97 @@ xmasstocking|Xmas Stockings
   customSlugInput.addEventListener('input', updateGiftPreview);
   customNameInput.addEventListener('input', updateGiftPreview);
   loadInventoryButton.addEventListener('click', loadInventory);
+  deleteAllButton.addEventListener('click', async () => {
+    const confirmation = 'УДАЛИТЬ ВСЕ NFT';
+    if (!passwordInput.value) {
+      showStatus(deleteAllStatus, 'Сначала введи пароль администратора.', true);
+      passwordInput.focus();
+      return;
+    }
+    if (deleteAllConfirmation.value.trim() !== confirmation) {
+      showStatus(deleteAllStatus, `Для продолжения точно введи «${confirmation}».`, true);
+      deleteAllConfirmation.focus();
+      return;
+    }
+    if (!window.confirm('Это удалит все NFT проекта и связанную с ними историю рынка и передач. Отменить операцию будет невозможно. Продолжить?')) return;
+
+    deleteAllButton.disabled = true;
+    showStatus(deleteAllStatus, 'Удаляем все NFT и связанные записи…');
+    try {
+      const deletedCount = await rpc('admin_remove_all_nfts', {
+        p_password: passwordInput.value,
+        p_confirmation: confirmation
+      });
+      deleteAllConfirmation.value = '';
+      showStatus(deleteAllStatus, `Удалено NFT: ${Number(deletedCount).toLocaleString('ru-RU')}.`);
+      await loadInventory();
+    } catch (error) {
+      showStatus(deleteAllStatus, error.message, true);
+    } finally {
+      deleteAllButton.disabled = false;
+    }
+  });
+  const runRandomGiftAction = async (mode) => {
+    if (!passwordInput.value) {
+      showStatus(randomStatus, 'Сначала введи пароль администратора.', true);
+      passwordInput.focus();
+      return;
+    }
+    if (mode === 'player' && !selectedPlayer) {
+      showStatus(randomStatus, 'Сначала найди и выбери игрока в разделе «Игрок».', true);
+      playerQuery.focus();
+      return;
+    }
+    const minPrice = Number(randomMinPriceInput.value);
+    const maxPrice = Number(randomMaxPriceInput.value);
+    const quantity = Number(randomQuantityInput.value);
+    if (!Number.isSafeInteger(minPrice) || minPrice < 1
+      || !Number.isSafeInteger(maxPrice) || maxPrice < minPrice
+      || !Number.isInteger(quantity) || quantity < 1 || quantity > 30) {
+      showStatus(randomStatus, 'Укажи корректный диапазон Stars и количество от 1 до 30 NFT.', true);
+      return;
+    }
+    const collection = collections.find((item) => item.slug === randomCollectionSelect.value);
+    if (randomCollectionSelect.value && !collection) {
+      showStatus(randomStatus, 'Выбранная коллекция недоступна. Обнови список коллекций.', true);
+      return;
+    }
+    const destination = mode === 'market'
+      ? 'Выставить случайные NFT на маркет от профиля @vyrn'
+      : `Выдать ${quantity} случайных NFT игроку ${selectedPlayer.nickname}`;
+    if (!window.confirm(`${destination} в диапазоне ${minPrice}–${maxPrice} Stars?`)) return;
+
+    randomMarketButton.disabled = true;
+    randomPlayerButton.disabled = true;
+    showStatus(randomStatus, 'Ищем NFT и проверяем цены Fragment. Это может занять минуту…');
+    try {
+      const result = await randomFragmentRequest({
+        password: passwordInput.value,
+        mode,
+        profile_id: mode === 'player' ? selectedPlayer.profile_id : null,
+        min_stars: minPrice,
+        max_stars: maxPrice,
+        quantity,
+        fragment_filter: randomFilterSelect.value,
+        collection_slug: collection?.slug || null
+      });
+      const listed = result.items.map((item) => `${item.collection_name} #${item.gift_number} · ${item.price_stars} Stars`);
+      const action = mode === 'market' ? 'выставлено на маркет' : 'выдано игроку';
+      const listingWarning = result.listing_failures?.length
+        ? `\nНе удалось загрузить один из фильтров Fragment: ${result.listing_failures.join('; ')}`
+        : '';
+      const summary = `${result.items.length} NFT ${action}${mode === 'player' ? ` ${selectedPlayer.nickname}` : ' от VYRN'}:\n${listed.join('\n')}${listingWarning}`;
+      showStatus(randomStatus, summary);
+      if (mode === 'player') await refreshPlayers();
+    } catch (error) {
+      showStatus(randomStatus, error.message, true);
+    } finally {
+      randomMarketButton.disabled = false;
+      randomPlayerButton.disabled = !selectedPlayer;
+    }
+  };
+  randomMarketButton.addEventListener('click', () => runRandomGiftAction('market'));
+  randomPlayerButton.addEventListener('click', () => runRandomGiftAction('player'));
   syncCatalogButton.addEventListener('click', async () => {
     if (!passwordInput.value) {
       showStatus(catalogStatus, 'Сначала введи пароль администратора.', true);
@@ -566,9 +704,13 @@ xmasstocking|Xmas Stockings
     showStatus(playerStatus, '');
     showStatus(grantStatus, '');
     showStatus(catalogStatus, '');
+    showStatus(randomStatus, '');
+    showStatus(deleteAllStatus, '');
   });
 
   renderCollections();
+  renderRandomCollections();
+  randomPlayerButton.disabled = true;
   fragmentCatalogRequest({ action: 'list' }).then((savedCollections) => {
     mergeCollections(savedCollections);
     renderCollections();

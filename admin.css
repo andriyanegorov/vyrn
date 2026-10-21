@@ -249,6 +249,58 @@ body.admin-page {
   margin-top: 18px;
 }
 
+.admin-danger-section {
+  margin-top: 18px;
+  border-color: #e5b7b1;
+}
+
+.admin-danger-section .admin-section-heading .admin-step,
+.admin-danger-section .admin-section-heading h2 {
+  color: var(--admin-red);
+}
+
+.admin-danger-warning {
+  margin: 0 0 16px;
+  color: #783c35;
+  font-size: 12px;
+  line-height: 1.6;
+}
+
+.admin-delete-all-confirmation-field {
+  max-width: 460px;
+  margin-bottom: 12px;
+}
+
+.admin-delete-all-nfts-button,
+.admin-delete-all-nfts-button:hover:not(:disabled) {
+  background: var(--admin-red);
+}
+
+.admin-delete-all-nfts-button:hover:not(:disabled) {
+  background: #92372e;
+}
+
+.admin-random-section {
+  margin-top: 18px;
+}
+
+.admin-random-fields {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.admin-random-actions {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.admin-random-status {
+  white-space: pre-line;
+}
+
 .admin-inventory-toolbar {
   display: flex;
   align-items: center;
@@ -634,11 +686,19 @@ body.admin-page {
     grid-template-columns: 1fr;
   }
 
+  .admin-random-fields {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
   .admin-number-field {
     grid-column: auto;
   }
 
   .admin-gift-actions {
+    grid-template-columns: 1fr;
+  }
+
+  .admin-random-actions {
     grid-template-columns: 1fr;
   }
 

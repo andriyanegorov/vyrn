@@ -7,12 +7,12 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Manrope:wght@400;500;600;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="style.css?v=fonts-manrope-inter-20261021">
+  <link rel="stylesheet" href="style.css?v=market-trait-options-20261021">
   <script src="https://telegram.org/js/telegram-web-app.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/lottie-web/5.12.2/lottie.min.js" defer></script>
   <script src="supabase-client-config.js?v=wallet-balance-read-20261018" defer></script>
-  <script src="supabase-api.js?v=browser-full-api-20261018" defer></script>
-  <script src="script.js?v=craft-visual-id-20261021" defer></script>
+  <script src="supabase-api.js?v=market-fragment-traits-batch-20261021" defer></script>
+  <script src="script.js?v=market-fragment-traits-batch-20261021" defer></script>
 </head>
 <body class="market-screen">
   <header class="site-header">
@@ -23,11 +23,7 @@
     </div>
   </header>
   <main class="market-page">
-    <section class="market-tools" aria-label="Поиск и фильтры рынка">
-      <label class="market-search">
-        <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="10.8" cy="10.8" r="6.8"/><path d="m16 16 5 5"/></svg>
-        <input class="market-search-input" type="search" placeholder="Название или номер" aria-label="Поиск подарков">
-      </label>
+    <section class="market-tools" aria-label="Коллекция, сортировка и фильтры рынка">
       <label class="market-collection-select">
         <span class="visually-hidden">Коллекция</span>
         <select class="market-collection-filter" aria-label="Фильтр коллекции">
@@ -42,6 +38,10 @@
           <option value="price-desc">Цена: сначала дороже</option>
         </select>
       </label>
+      <button class="market-filter-open" type="button" aria-haspopup="dialog">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M7 12h10m-7 5h4"/><circle cx="8" cy="7" r="2"/><circle cx="15" cy="12" r="2"/><circle cx="12" cy="17" r="2"/></svg>
+        <span>Фильтр</span>
+      </button>
     </section>
     <nav class="market-trade-nav" aria-label="Разделы рынка">
       <span class="market-trade-indicator" aria-hidden="true"></span>
@@ -52,6 +52,37 @@
     <section class="market-grid" aria-label="Подарки на рынке"></section>
     <p class="market-empty" hidden>Ничего не найдено</p>
   </main>
+  <dialog class="market-filter-dialog" aria-labelledby="market-filter-title">
+    <form class="market-filter-panel">
+      <div class="market-filter-heading">
+        <h2 id="market-filter-title">Фильтры</h2>
+        <button class="market-filter-close" type="button" aria-label="Закрыть фильтры">×</button>
+      </div>
+      <label class="market-model-select">
+        <span>Модель</span>
+        <select class="market-model-filter" aria-label="Фильтр модели">
+          <option value="">Все модели</option>
+        </select>
+      </label>
+      <label class="market-backdrop-select">
+        <span>Фон</span>
+        <select class="market-backdrop-filter" aria-label="Фильтр фона">
+          <option value="">Все фоны</option>
+        </select>
+      </label>
+      <label class="market-symbol-select">
+        <span>Символ</span>
+        <select class="market-symbol-filter" aria-label="Фильтр символа">
+          <option value="">Все символы</option>
+        </select>
+      </label>
+      <p class="market-filter-status" role="status" aria-live="polite"></p>
+      <div class="market-filter-actions">
+        <button class="market-filter-reset" type="button">Сбросить</button>
+        <button class="market-filter-apply" type="submit">Применить</button>
+      </div>
+    </form>
+  </dialog>
   <dialog class="nft-modal" aria-labelledby="nft-modal-title">
     <section class="nft-modal-card">
       <div class="nft-modal-art">

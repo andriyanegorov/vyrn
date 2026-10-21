@@ -37,6 +37,26 @@
   window.VyrnApi = {
     isConfigured: Boolean(config.url && !config.url.includes('YOUR_PROJECT_REF') && config.anonKey && !config.anonKey.includes('YOUR_SUPABASE')),
     browserDemo: config.browserDemo === true,
+    fragmentPrices: async (gifts) => {
+      if (!config.url || config.url.includes('YOUR_PROJECT_REF') || !config.anonKey || config.anonKey.includes('YOUR_SUPABASE')) {
+        throw new Error('Добавьте URL проекта и anon key в supabase-client-config.js.');
+      }
+      const response = await fetch(`${config.url.replace(/\/$/, '')}/functions/v1/fragment-price`, {
+        method: 'POST',
+        headers: {
+          apikey: config.anonKey,
+          Authorization: `Bearer ${config.anonKey}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ gifts }),
+        signal: AbortSignal.timeout(90_000),
+      });
+      const result = await response.json().catch(() => null);
+      if (!response.ok || !Array.isArray(result?.items)) {
+        throw new Error(result?.error || `Не удалось загрузить атрибуты Fragment (${response.status}).`);
+      }
+      return result.items;
+    },
     me: () => request('me'),
     wallet: () => request('wallet'),
     updateProfile: (profile) => request('update_profile', profile),

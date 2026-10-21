@@ -8,9 +8,9 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Inter:wght@400;500;600;700&family=Manrope:wght@400;500;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="style.css?v=fonts-manrope-inter-20261021">
-  <link rel="stylesheet" href="admin.css?v=fragment-catalog-sync-20261021">
+  <link rel="stylesheet" href="admin.css?v=delete-all-nfts-20261021">
   <script src="supabase-client-config.js?v=admin-panel-number-media-20261018" defer></script>
-  <script src="admin.js?v=fragment-catalog-sync-20261021" defer></script>
+  <script src="admin.js?v=delete-all-nfts-20261021" defer></script>
 </head>
 <body class="admin-page">
   <header class="admin-header">
@@ -105,9 +105,50 @@
         </div>
       </section>
     </div>
-    <section class="admin-section admin-inventory-section" aria-labelledby="inventory-heading">
+    <section class="admin-section admin-random-section" aria-labelledby="random-heading">
       <div class="admin-section-heading">
         <span class="admin-step">03</span>
+        <div><h2 id="random-heading">Случайные NFT</h2><p>Выберите диапазон цены Fragment и количество подарков</p></div>
+      </div>
+      <div class="admin-random-fields">
+        <label class="admin-field">
+          <span>Объявления на Fragment</span>
+          <select class="admin-random-filter" aria-label="Тип объявлений Fragment">
+            <option value="sale">For sale · в продаже</option>
+            <option value="auction">Auction · аукцион</option>
+            <option value="both">For sale + Auction</option>
+          </select>
+        </label>
+        <label class="admin-field">
+          <span>Цена от, Stars</span>
+          <input class="admin-random-min-price" type="number" min="1" max="9007199254740991" step="1" value="1" required>
+        </label>
+        <label class="admin-field">
+          <span>Цена до, Stars</span>
+          <input class="admin-random-max-price" type="number" min="1" max="9007199254740991" step="1" value="1000" required>
+        </label>
+        <label class="admin-field">
+          <span>Количество NFT</span>
+          <input class="admin-random-quantity" type="number" min="1" max="30" step="1" value="1" required>
+        </label>
+        <label class="admin-field admin-random-collection-field">
+          <span>Коллекция (необязательно)</span>
+          <select class="admin-random-collection-select" aria-label="Коллекция для случайного выбора">
+            <option value="">Все коллекции</option>
+          </select>
+        </label>
+      </div>
+      <p class="admin-price-note">Для публикации на маркете каждому NFT случайно назначается отдельная цена из указанного диапазона. При выдаче игроку диапазон, как и раньше, фильтрует автоцену Fragment: GRAM / 10 × 80 Stars.</p>
+      <p class="admin-fragment-note">Сканируются только активные объявления Fragment — до 30 страниц по выбранному фильтру. Для выдачи игроку сначала выберите его в разделе «Игрок» выше.</p>
+      <p class="admin-status admin-random-status" role="status" hidden></p>
+      <div class="admin-random-actions">
+        <button class="admin-button admin-random-market-button" type="button">Выставить на маркет от VYRN</button>
+        <button class="admin-button admin-random-player-button" type="button">Выдать выбранному игроку</button>
+      </div>
+    </section>
+    <section class="admin-section admin-inventory-section" aria-labelledby="inventory-heading">
+      <div class="admin-section-heading">
+        <span class="admin-step">04</span>
         <div><h2 id="inventory-heading">Все NFT игроков</h2><p>Полный список владений с физическим удалением из базы</p></div>
       </div>
       <div class="admin-inventory-toolbar">
@@ -117,6 +158,19 @@
       <div class="admin-inventory-list" aria-live="polite">
         <p class="admin-empty-result">Нажмите «Загрузить список NFT».</p>
       </div>
+    </section>
+    <section class="admin-section admin-danger-section" aria-labelledby="delete-all-nfts-heading">
+      <div class="admin-section-heading">
+        <span class="admin-step">!</span>
+        <div><h2 id="delete-all-nfts-heading">Опасная зона</h2><p>Безвозвратное удаление NFT со всего проекта</p></div>
+      </div>
+      <p class="admin-danger-warning">Будут удалены все NFT, объявления рынка, сделки, передачи и связанные предложения подарков. Профили, балансы игроков и каталог коллекций сохранятся.</p>
+      <label class="admin-field admin-delete-all-confirmation-field">
+        <span>Для подтверждения введите: УДАЛИТЬ ВСЕ NFT</span>
+        <input class="admin-delete-all-confirmation" type="text" autocomplete="off" spellcheck="false" placeholder="УДАЛИТЬ ВСЕ NFT">
+      </label>
+      <button class="admin-button admin-delete-all-nfts-button" type="button">Удалить все NFT проекта</button>
+      <p class="admin-status admin-delete-all-status" role="status" hidden></p>
     </section>
     <p class="admin-footnote">Выдачи записываются в историю NFT-передач. Сайт хранит только публичные метаданные подарка и номер экземпляра.</p>
   </main>
