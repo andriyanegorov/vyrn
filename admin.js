@@ -1,6 +1,6 @@
 (() => {
   const config = window.VYRN_SUPABASE_CONFIG || {};
-  const collections = `
+  let collections = `
 algorithmcup|Algorithm Cups
 artisanbrick|Artisan Bricks
 astralshard|Astral Shards
@@ -146,6 +146,8 @@ xmasstocking|Xmas Stockings
   const grantButton = document.querySelector('.admin-grant-button');
   const removeButton = document.querySelector('.admin-remove-button');
   const grantStatus = document.querySelector('.admin-grant-status');
+  const syncCatalogButton = document.querySelector('.admin-sync-catalog-button');
+  const catalogStatus = document.querySelector('.admin-catalog-status');
   const loadInventoryButton = document.querySelector('.admin-load-inventory-button');
   const inventoryStatus = document.querySelector('.admin-inventory-status');
   const inventoryList = document.querySelector('.admin-inventory-list');
@@ -283,6 +285,39 @@ xmasstocking|Xmas Stockings
     return data;
   };
 
+  const fragmentCatalogRequest = async (payload) => {
+    if (!config.url || !config.anonKey || config.url.includes('YOUR_PROJECT_REF') || config.anonKey.includes('YOUR_SUPABASE')) {
+      throw new Error('Проверь URL и anon key в supabase-client-config.js.');
+    }
+    let response;
+    try {
+      response = await fetch(`${config.url.replace(/\/$/, '')}/functions/v1/fragment-catalog`, {
+        method: 'POST',
+        headers: {
+          apikey: config.anonKey,
+          Authorization: `Bearer ${config.anonKey}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(payload)
+      });
+    } catch {
+      throw new Error('Edge Function fragment-catalog не опубликована или не отвечает.');
+    }
+    const data = await response.json().catch(() => null);
+    if (!response.ok) throw new Error(data?.error || `Не удалось загрузить каталог Fragment (${response.status}).`);
+    if (!Array.isArray(data?.collections)) throw new Error('Сервер вернул некорректный каталог Fragment.');
+    return data.collections;
+  };
+
+  const mergeCollections = (additionalCollections) => {
+    const bySlug = new Map(collections.map((collection) => [collection.slug, collection]));
+    additionalCollections.forEach((collection) => {
+      if (typeof collection?.slug !== 'string' || typeof collection?.name !== 'string') return;
+      bySlug.set(collection.slug, { slug: collection.slug, name: collection.name });
+    });
+    collections = [...bySlug.values()].sort((first, second) => first.name.localeCompare(second.name, 'en'));
+  };
+
   const renderCollections = () => {
     const search = collectionQuery.value.trim().toLocaleLowerCase('ru-RU');
     const currentSlug = collectionSelect.value;
@@ -348,7 +383,7 @@ xmasstocking|Xmas Stockings
       if (normalizedStatus !== 'verfied' && normalizedStatus !== 'verified' && normalizedStatus !== 'premium') return;
       const badge = document.createElement('img');
       badge.className = `profile-status-badge ${normalizedStatus === 'premium' ? 'is-premium' : 'is-verified'}`;
-      badge.src = normalizedStatus === 'premium' ? 'premium.svg' : 'verified.svg';
+      badge.src = normalizedStatus === 'premium' ? './assets/svg/premium.svg' : './assets/svg/verified.svg';
       badge.alt = '';
       badge.setAttribute('aria-label', normalizedStatus === 'premium' ? 'Premium' : 'Подтверждённый профиль');
       target.append(badge);
@@ -501,6 +536,28 @@ xmasstocking|Xmas Stockings
   customSlugInput.addEventListener('input', updateGiftPreview);
   customNameInput.addEventListener('input', updateGiftPreview);
   loadInventoryButton.addEventListener('click', loadInventory);
+  syncCatalogButton.addEventListener('click', async () => {
+    if (!passwordInput.value) {
+      showStatus(catalogStatus, 'Сначала введи пароль администратора.', true);
+      passwordInput.focus();
+      return;
+    }
+    syncCatalogButton.disabled = true;
+    showStatus(catalogStatus, 'Загружаем каталог Fragment…');
+    try {
+      const syncedCollections = await fragmentCatalogRequest({
+        action: 'sync',
+        password: passwordInput.value
+      });
+      mergeCollections(syncedCollections);
+      renderCollections();
+      showStatus(catalogStatus, `Каталог обновлён: ${collections.length} коллекций доступно в списке.`);
+    } catch (error) {
+      showStatus(catalogStatus, error.message, true);
+    } finally {
+      syncCatalogButton.disabled = false;
+    }
+  });
   giftPriceInput.addEventListener('input', () => {
     giftPriceInput.dataset.source = 'manual';
     grantButton.disabled = !selectedPlayer || !giftPreviewUrl || !Number.isSafeInteger(Number(giftPriceInput.value)) || Number(giftPriceInput.value) <= 0;
@@ -508,7 +565,14 @@ xmasstocking|Xmas Stockings
   passwordInput.addEventListener('input', () => {
     showStatus(playerStatus, '');
     showStatus(grantStatus, '');
+    showStatus(catalogStatus, '');
   });
 
   renderCollections();
+  fragmentCatalogRequest({ action: 'list' }).then((savedCollections) => {
+    mergeCollections(savedCollections);
+    renderCollections();
+  }).catch((error) => {
+    showStatus(catalogStatus, `Сохранённый список из базы недоступен: ${error.message}`, true);
+  });
 })();

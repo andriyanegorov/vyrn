@@ -52,7 +52,7 @@ function createProfileStatusBadge(status) {
 	if (!isPremium && normalizedStatus !== 'verfied' && normalizedStatus !== 'verified') return null;
 	const badge = document.createElement('img');
 	badge.className = `profile-status-badge ${isPremium ? 'is-premium' : 'is-verified'}`;
-	badge.src = isPremium ? 'premium.svg' : 'verified.svg';
+	badge.src = isPremium ? './assets/svg/premium.svg' : './assets/svg/verified.svg';
 	badge.alt = '';
 	badge.setAttribute('aria-label', isPremium ? 'Premium' : 'Подтверждённый профиль');
 	return badge;
@@ -190,7 +190,7 @@ if (document.body.classList.contains('wallet-screen')) {
 			amountElement.append(`${amount > 0n ? '+' : '−'}${formatWalletInteger(amount < 0n ? -amount : amount)}`);
 			if (currency === 'stars') {
 				const icon = document.createElement('img');
-				icon.src = 'stars.png';
+				icon.src = './assets/stars.png';
 				icon.alt = 'Stars';
 				amountElement.append(icon);
 			} else {
@@ -509,6 +509,7 @@ const mapOwnedNft = (item) => {
 	const model = item.nft_models || {};
 	const collection = model.nft_collections || {};
 	const externalId = item.external_id || item.id.slice(0, 8);
+	const visualId = item.attributes?.crafting?.visual_external_id || externalId;
 	const collectionSlug = collection.slug || model.slug || '';
 	return {
 		itemId: item.id,
@@ -517,10 +518,10 @@ const mapOwnedNft = (item) => {
 		name: model.name || collection.name || 'NFT',
 		fragmentPriceStars: Number(model.attributes?.fragment_price_stars ?? item.attributes?.fragment_price_stars) || null,
 		previewUrl: collectionSlug && item.external_id
-			? getNftPreviewUrl(collectionSlug, externalId)
+			? getNftPreviewUrl(collectionSlug, visualId)
 			: model.preview_url || '',
 		animationUrl: collectionSlug && item.external_id
-			? getNftAnimationUrl(`${collectionSlug}-${externalId}.tgs`)
+			? getNftAnimationUrl(`${collectionSlug}-${visualId}.tgs`)
 			: model.animation_url || '',
 		listingId: (item.market_listings || []).find((listing) => listing.status === 'active')?.id || '',
 		isListed: (item.market_listings || []).some((listing) => listing.status === 'active')
@@ -546,7 +547,7 @@ if (collectionPreviewGrid) {
 			const image = createNftPreviewImage(imageSource, title, 'collection-preview-image');
 		image.loading = 'lazy';
 		image.addEventListener('error', () => {
-			image.src = './placeholder.png';
+			image.src = './assets/placeholder.png';
 		}, { once: true });
 		collectionPreviewGrid.append(image);
 		});
@@ -616,7 +617,7 @@ if (marketGrid) {
 		value.className = 'market-card-price-value';
 		value.textContent = priceStars.toLocaleString('ru-RU');
 		const icon = document.createElement('img');
-		icon.src = 'stars.png';
+		icon.src = './assets/stars.png';
 		icon.alt = '';
 		icon.setAttribute('aria-hidden', 'true');
 		price.append(label, value, icon);
@@ -638,10 +639,11 @@ if (marketGrid) {
 					const model = nft.nft_models || {};
 					const collectionInfo = model.nft_collections || {};
 					const itemId = nft.external_id || nft.id || entry.nft_item_id;
+					const visualId = nft.attributes?.crafting?.visual_external_id || nft.external_id || itemId;
 					const title = `${model.name || 'NFT'} #${itemId}`;
 					const imageSource = collectionInfo.slug && nft.external_id
-						? getNftPreviewUrl(collectionInfo.slug, nft.external_id)
-						: model.preview_url || (model.slug && itemId ? getNftPreviewUrl(model.slug, itemId) : './placeholder.png');
+						? getNftPreviewUrl(collectionInfo.slug, visualId)
+						: model.preview_url || (model.slug && itemId ? getNftPreviewUrl(model.slug, itemId) : './assets/placeholder.png');
 					const card = document.createElement('article');
 					card.className = 'market-card';
 					card.dataset.marketCard = 'true';
@@ -649,7 +651,7 @@ if (marketGrid) {
 					card.dataset.marketCollection = model.name || collectionInfo.name || '';
 					card.dataset.marketPrice = String(entry.price || 0);
 					card.dataset.marketAnimation = collectionInfo.slug && nft.external_id
-						? getNftAnimationUrl(`${collectionInfo.slug}-${nft.external_id}.tgs`)
+						? getNftAnimationUrl(`${collectionInfo.slug}-${visualId}.tgs`)
 						: model.animation_url || '';
 					card.dataset.marketPreview = imageSource;
 					card.dataset.marketTitle = title;
@@ -658,7 +660,7 @@ if (marketGrid) {
 					imageFrame.className = 'market-card-image-frame';
 					const image = createNftPreviewImage(imageSource, title, 'market-card-image');
 					image.loading = 'lazy';
-					image.addEventListener('error', () => { image.src = './placeholder.png'; }, { once: true });
+					image.addEventListener('error', () => { image.src = './assets/placeholder.png'; }, { once: true });
 					imageFrame.append(image);
 
 					const content = document.createElement('div');
@@ -684,7 +686,7 @@ if (marketGrid) {
 					} else {
 						const currencyIcon = document.createElement('img');
 						currencyIcon.className = 'stars-inline-icon';
-						currencyIcon.src = 'stars.png';
+						currencyIcon.src = './assets/stars.png';
 						currencyIcon.alt = '';
 						currencyIcon.setAttribute('aria-hidden', 'true');
 						currency.append(currencyIcon);
@@ -907,7 +909,7 @@ if (nftGrid) {
 		card.classList.toggle('is-listed', Boolean(gift.isListed));
 		card.dataset.nftSrc = source;
 		card.dataset.nftLink = file ? `https://nft.fragment.com/gift/${file}` : '';
-		card.dataset.nftPreview = gift.previewUrl || (gift.slug ? getNftPreviewUrl(gift.slug, gift.id) : './placeholder.png');
+		card.dataset.nftPreview = gift.previewUrl || (gift.slug ? getNftPreviewUrl(gift.slug, gift.id) : './assets/placeholder.png');
 		card.dataset.nftTitle = title;
 		card.dataset.nftModel = gift.name;
 		card.dataset.nftFile = file;
@@ -1067,7 +1069,7 @@ const renderSharedPlayerProfile = (profile, items = []) => {
 		card.dataset.nftListingId = gift.listingId || '';
 		card.classList.toggle('is-listed', Boolean(gift.isListed));
 		card.dataset.nftSrc = gift.animationUrl || (file ? getNftAnimationUrl(file) : '');
-		card.dataset.nftPreview = gift.previewUrl || './placeholder.png';
+		card.dataset.nftPreview = gift.previewUrl || './assets/placeholder.png';
 		card.dataset.nftTitle = title;
 		card.dataset.nftModel = gift.name;
 		card.dataset.nftFile = file;
@@ -1213,7 +1215,7 @@ if ((nftGrids.length || marketGrid) && nftModal && nftModalAnimation && nftModal
 		}
 		const currencyIcon = document.createElement('img');
 		currencyIcon.className = 'nft-modal-price-icon';
-		currencyIcon.src = 'stars.png';
+		currencyIcon.src = './assets/stars.png';
 		currencyIcon.alt = '';
 		currencyIcon.setAttribute('aria-hidden', 'true');
 		nftModalPrice.replaceChildren(priceValue, currencyIcon);
@@ -2063,12 +2065,13 @@ if (chatRows.length && conversationDialog) {
 				const nftModel = nftItem.nft_models || {};
 				const nftCollection = nftModel.nft_collections || {};
 				const nftId = nftItem.external_id || offer.nft_item_id.slice(0, 8);
+				const nftVisualId = nftItem.attributes?.crafting?.visual_external_id || nftItem.external_id;
 				const nftTitle = `${nftModel.name || nftCollection.name || 'NFT'} #${nftId}`;
 				const nftPreview = nftCollection.slug && nftItem.external_id
-					? getNftPreviewUrl(nftCollection.slug, nftItem.external_id)
-					: nftModel.preview_url || './placeholder.svg';
+					? getNftPreviewUrl(nftCollection.slug, nftVisualId)
+					: nftModel.preview_url || './assets/svg/placeholder.svg';
 				const nftFile = nftCollection.slug && nftItem.external_id
-					? `${nftCollection.slug}-${nftItem.external_id}.tgs`
+					? `${nftCollection.slug}-${nftVisualId}.tgs`
 					: '';
 				const nftAnimation = nftCollection.slug && nftItem.external_id
 					? getNftAnimationUrl(nftFile)
@@ -2290,7 +2293,7 @@ if (chatRows.length && conversationDialog) {
 				giftPickerSend.replaceChildren(document.createTextNode(`Предложить за ${price.toLocaleString('ru-RU')} `));
 				const priceIcon = document.createElement('img');
 				priceIcon.className = 'stars-inline-icon';
-				priceIcon.src = 'stars.png';
+				priceIcon.src = './assets/stars.png';
 				priceIcon.alt = '';
 				priceIcon.setAttribute('aria-hidden', 'true');
 				giftPickerSend.append(priceIcon);
@@ -2331,8 +2334,8 @@ if (chatRows.length && conversationDialog) {
 				card.type = 'button';
 				card.disabled = gift.isListed;
 				card.title = gift.isListed ? 'Сначала снимите NFT с продажи' : `${gift.name} #${gift.id}`;
-				const image = createNftPreviewImage(gift.previewUrl || './placeholder.svg', `${gift.name} #${gift.id}`, '');
-				image.addEventListener('error', () => { image.src = './placeholder.svg'; }, { once: true });
+				const image = createNftPreviewImage(gift.previewUrl || './assets/svg/placeholder.svg', `${gift.name} #${gift.id}`, '');
+				image.addEventListener('error', () => { image.src = './assets/svg/placeholder.svg'; }, { once: true });
 				const title = document.createElement('span');
 				title.textContent = `${gift.name} #${gift.id}`;
 				card.append(image, title);
@@ -2444,7 +2447,7 @@ if (chatRows.length && conversationDialog) {
 						card.classList.toggle('is-listed', Boolean(gift.isListed));
 						card.dataset.nftSrc = gift.animationUrl || (file ? getNftAnimationUrl(file) : '');
 						card.dataset.nftLink = file ? `https://nft.fragment.com/gift/${file}` : '';
-						card.dataset.nftPreview = gift.previewUrl || (gift.slug ? getNftPreviewUrl(gift.slug, gift.id) : './placeholder.png');
+						card.dataset.nftPreview = gift.previewUrl || (gift.slug ? getNftPreviewUrl(gift.slug, gift.id) : './assets/placeholder.png');
 						card.dataset.nftTitle = title;
 						card.dataset.nftModel = gift.name;
 						card.dataset.nftFile = file;

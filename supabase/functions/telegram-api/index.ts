@@ -97,6 +97,15 @@ const readUnverifiedTelegramUser = (initData: string) => {
   }
 };
 
+const readFragmentGiftNumbers = (html: string, collectionSlug: string) => {
+  const numbers = new Set<string>();
+  const pattern = new RegExp(`<a\\b[^>]*href=["']\\/gift\\/${collectionSlug}-(\\d+)(?:[?#][^"']*)?["']`, 'gi');
+  for (const match of html.matchAll(pattern)) {
+    if (/^\d{1,12}$/.test(match[1]) && Number(match[1]) > 0) numbers.add(match[1]);
+  }
+  return [...numbers];
+};
+
 Deno.serve(async (request) => {
   if (request.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders });
   if (request.method !== 'POST') return json({ error: 'Method not allowed' }, 405);
@@ -250,11 +259,171 @@ Deno.serve(async (request) => {
     return json({ profile: result.data });
   }
 
+  if (action === 'refresh_nft_price') {
+    const itemId = typeof input.nft_item_id === 'string' ? input.nft_item_id : '';
+    if (!/^[0-9a-f-]{36}$/i.test(itemId)) return json({ error: 'Invalid NFT ID' }, 400);
+
+    const ownedItem = await supabase.from('nft_items')
+      .select('id,external_id,attributes,nft_models(nft_collections(slug))')
+      .eq('id', itemId).eq('owner_profile_id', profile.id).maybeSingle();
+    if (ownedItem.error) return json({ error: ownedItem.error.message }, 500);
+    if (!ownedItem.data?.external_id) return json({ error: 'NFT not found or has no Fragment serial number' }, 404);
+
+    const collectionSlug = ownedItem.data.nft_models?.nft_collections?.slug;
+    if (!/^[a-z0-9]+$/.test(collectionSlug || '') || !/^\d{1,12}$/.test(ownedItem.data.external_id)) {
+      return json({ error: 'NFT has invalid Fragment collection data' }, 400);
+    }
+
+    let priceResponse: Response;
+    try {
+      priceResponse = await fetch(`${supabaseUrl.replace(/\/$/, '')}/functions/v1/fragment-price`, {
+        method: 'POST',
+        headers: {
+          apikey: serviceRoleKey,
+          Authorization: `Bearer ${serviceRoleKey}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          collection_slug: collectionSlug,
+          gift_number: ownedItem.data.external_id,
+        }),
+        signal: AbortSignal.timeout(20_000),
+      });
+    } catch {
+      return json({ error: 'Не удалось получить цену и характеристики NFT с Fragment.' }, 502);
+    }
+
+    const fragmentData = await priceResponse.json().catch(() => null);
+    if (!priceResponse.ok || !fragmentData || typeof fragmentData.grams !== 'number'
+      || typeof fragmentData.stars !== 'number' || !fragmentData.traits) {
+      return json({
+        error: fragmentData?.error || 'Fragment не вернул цену и характеристики этого NFT.',
+      }, priceResponse.ok ? 502 : priceResponse.status);
+    }
+
+    const attributes = {
+      ...(ownedItem.data.attributes || {}),
+      fragment_price_grams: fragmentData.grams,
+      fragment_price_fragment_stars: fragmentData.stars,
+      fragment_price_stars: ownedItem.data.attributes?.fragment_price_manual === true
+        ? ownedItem.data.attributes.fragment_price_stars
+        : fragmentData.stars,
+      fragment_traits: fragmentData.traits,
+      fragment_traits_updated_at: new Date().toISOString(),
+    };
+    const savedItem = await supabase.from('nft_items').update({ attributes })
+      .eq('id', itemId).eq('owner_profile_id', profile.id)
+      .select('id,attributes').maybeSingle();
+    if (savedItem.error) return json({ error: savedItem.error.message }, 500);
+    if (!savedItem.data) return json({ error: 'NFT ownership changed before its price could be saved' }, 409);
+    return json({ item: savedItem.data });
+  }
+
+  if (action === 'update_nft_price') {
+    const itemId = typeof input.nft_item_id === 'string' ? input.nft_item_id : '';
+    const priceStars = Number(input.price_stars);
+    if (!/^[0-9a-f-]{36}$/i.test(itemId)
+      || !Number.isFinite(priceStars)
+      || priceStars < 0.01
+      || priceStars > 1_000_000_000_000
+      || Math.abs(priceStars * 100 - Math.round(priceStars * 100)) > 0.000001) {
+      return json({ error: 'Укажите цену от 0,01 до 1 000 000 000 000 ★, не более двух знаков после запятой.' }, 400);
+    }
+    const ownedItem = await supabase.from('nft_items')
+      .select('attributes').eq('id', itemId).eq('owner_profile_id', profile.id).maybeSingle();
+    if (ownedItem.error) return json({ error: ownedItem.error.message }, 500);
+    if (!ownedItem.data) return json({ error: 'NFT not found or no longer owned by this player' }, 404);
+
+    const savedItem = await supabase.from('nft_items').update({
+      attributes: {
+        ...(ownedItem.data.attributes || {}),
+        fragment_price_stars: priceStars,
+        fragment_price_manual: true,
+      },
+    }).eq('id', itemId).eq('owner_profile_id', profile.id).select('id,attributes').maybeSingle();
+    if (savedItem.error) return json({ error: savedItem.error.message }, 500);
+    if (!savedItem.data) return json({ error: 'NFT ownership changed before its price could be saved' }, 409);
+    return json({ item: savedItem.data });
+  }
+
   if (action === 'my_nfts') {
     const result = await supabase.from('nft_items')
       .select('id,external_id,attributes,acquired_at,nft_models(id,slug,name,preview_url,animation_url,nft_collections(name,slug)),market_listings(id,price,currency,status)')
       .eq('owner_profile_id', profile.id).order('acquired_at', { ascending: false });
     return result.error ? json({ error: result.error.message }, 500) : json({ items: result.data });
+  }
+
+  if (action === 'craft_nfts') {
+    if (!Array.isArray(input.nft_item_ids)
+      || input.nft_item_ids.length < 1
+      || input.nft_item_ids.length > 4
+      || input.nft_item_ids.some((itemId) => typeof itemId !== 'string')) {
+      return json({ error: 'Select between 1 and 4 NFTs' }, 400);
+    }
+    if (new Set(input.nft_item_ids).size !== input.nft_item_ids.length) {
+      return json({ error: 'Duplicate NFTs are not allowed' }, 400);
+    }
+
+    const selectedItems = await supabase.from('nft_items')
+      .select('id,external_id,attributes,nft_models!inner(nft_collections!inner(slug))')
+      .in('id', input.nft_item_ids).eq('owner_profile_id', profile.id);
+    if (selectedItems.error) {
+      return json({ error: selectedItems.error.message, code: selectedItems.error.code }, 409);
+    }
+    if (selectedItems.data.length !== input.nft_item_ids.length) {
+      return json({ error: 'One or more NFTs are no longer owned by this player' }, 409);
+    }
+    const collectionSlugs = new Set(selectedItems.data.map((item: any) => item.nft_models?.nft_collections?.slug));
+    if (collectionSlugs.size !== 1) return json({ error: 'Crafting is only allowed within one collection' }, 409);
+    const collectionSlug = [...collectionSlugs][0];
+    if (typeof collectionSlug !== 'string' || !/^[a-z0-9]+$/.test(collectionSlug)) {
+      return json({ error: 'NFT has invalid Fragment collection data' }, 409);
+    }
+    const selectedVisualIds = new Set(selectedItems.data.map((item: any) =>
+      String(item.attributes?.crafting?.visual_external_id || item.external_id || '')
+    ));
+
+    let collectionResponse: Response;
+    try {
+      collectionResponse = await fetch(`https://fragment.com/gifts/${collectionSlug}`, {
+        headers: { 'User-Agent': 'Mozilla/5.0 VYRN Fragment catalog reader' },
+        signal: AbortSignal.timeout(15_000),
+      });
+    } catch {
+      return json({ error: 'Не удалось загрузить список подарков этой коллекции с Fragment.' }, 502);
+    }
+    if (!collectionResponse.ok) {
+      return json({ error: `Fragment вернул HTTP ${collectionResponse.status} для этой коллекции.` }, 502);
+    }
+    const contentLength = Number(collectionResponse.headers.get('content-length') || 0);
+    if (contentLength > 8_000_000) return json({ error: 'Ответ Fragment слишком большой.' }, 502);
+    const collectionHtml = await collectionResponse.text();
+    if (collectionHtml.length > 8_000_000) return json({ error: 'Ответ Fragment слишком большой.' }, 502);
+    const availableVisualIds = readFragmentGiftNumbers(collectionHtml, collectionSlug)
+      .filter((giftNumber) => !selectedVisualIds.has(giftNumber));
+    if (!availableVisualIds.length) {
+      return json({ error: 'Fragment не вернул другой подарок для этой коллекции. Список NFT не изменён.' }, 502);
+    }
+    const outputVisualExternalId = availableVisualIds[Math.floor(Math.random() * availableVisualIds.length)];
+
+    const result = await supabase.rpc('craft_nfts', {
+      p_profile_id: profile.id,
+      p_nft_item_ids: input.nft_item_ids,
+      p_output_visual_external_id: outputVisualExternalId,
+    });
+    if (result.error) {
+      if (result.error.code === 'PGRST202' || result.error.code === '42883') {
+        return json({
+          error: 'Функция крафта в базе данных не обновлена. Примените supabase/crafting.sql в Supabase SQL Editor, затем повторите попытку.',
+          code: result.error.code,
+        }, 503);
+      }
+      return json({
+        error: result.error.message,
+        code: result.error.code,
+      }, 409);
+    }
+    return json(result.data);
   }
 
   if (action === 'profile_nfts') {

@@ -30,7 +30,16 @@ body {
   min-height: 100vh;
   background: #f5f5f5;
   color: #ffffff;
-  font-family: "SF Pro Display", "SF Pro Text", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  font-family: "Manrope", sans-serif;
+  font-weight: 400;
+}
+
+button {
+  font-family: inherit;
+}
+
+button[class] {
+  font-weight: 600;
 }
 
 .site-header {
@@ -179,6 +188,7 @@ display: flex;
   color: #202733;
   font: inherit;
   text-align: left;
+  text-decoration: none;
   cursor: pointer;
   transition: background-color 160ms ease, border-color 160ms ease, transform 160ms ease;
 }
@@ -516,7 +526,8 @@ display: flex;
   box-shadow: 0 4px 12px rgba(64, 78, 120, 0.1);
   color: #22242a;
   font-size: 14px;
-  font-weight: 650;
+  font-family: "Inter", sans-serif;
+  font-weight: 600;
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
 }
@@ -661,7 +672,7 @@ display: flex;
   margin: 0;
   color: #111318;
   font-size: 24px;
-  font-weight: 750;
+  font-weight: 700;
   line-height: 1.08;
 }
 
@@ -2008,7 +2019,7 @@ body.chats-screen {
 
 .gift-picker-controls label {
   font-size: 13px;
-  font-weight: 650;
+  font-weight: 600;
 }
 
 .gift-picker-price-field {
@@ -2044,7 +2055,7 @@ body.chats-screen {
   background: #2776c5;
   color: white;
   font: inherit;
-  font-weight: 650;
+  font-weight: 600;
   cursor: pointer;
 }
 
@@ -2987,7 +2998,7 @@ body.chats-screen {
 .market-card-price-value {
   font-family: "Inter", "SF Pro Text", sans-serif;
   font-size: 16px;
-  font-weight: 650;
+  font-weight: 600;
   font-variant-numeric: tabular-nums;
 }
 
@@ -3003,7 +3014,8 @@ body.chats-screen {
   gap: 3px;
   color: #6d727b;
   font-size: 12px;
-  font-weight: 650;
+  font-family: "Inter", sans-serif;
+  font-weight: 600;
 }
 
 .stars-inline-icon {
@@ -3189,7 +3201,7 @@ body.chats-screen {
 }
 
 .profile-editor-save {
-  font-weight: 750 !important;
+  font-weight: 600 !important;
 }
 
 .profile-editor-avatar {
@@ -3919,7 +3931,7 @@ body.chats-screen {
 .nft-listing-header h2 {
   margin: 0;
   font-size: 19px;
-  font-weight: 650;
+  font-weight: 700;
 }
 
 .nft-listing-close {
@@ -4708,6 +4720,48 @@ body.chats-screen {
 .wallet-transaction-copy strong { font-weight: 600; }
 .wallet-transaction-copy time { color: #92949a; font-size: 13px; line-height: 1.2; }
 
+h1,
+h2,
+h3,
+h4,
+h5,
+h6 {
+  font-family: "Manrope", sans-serif;
+  font-weight: 700;
+}
+
+.resource-panel-header h2,
+.wallet-header h1 {
+  font-weight: 700;
+}
+
+.market-card-price-value,
+.wallet-balance-usd,
+.nft-modal-price,
+.nft-listing-price-field input {
+  font-family: "Inter", sans-serif;
+  font-weight: 600;
+}
+
+.wallet-card-network {
+  font-family: "Inter", sans-serif;
+  font-weight: 400;
+}
+
+.nft-modal-heading h2 {
+  font-weight: 600;
+}
+
+.nft-modal-metadata dd {
+  font-family: "Inter", sans-serif;
+  font-weight: 400;
+}
+
+.wallet-currency {
+  font-family: "Inter", sans-serif;
+  font-weight: 500;
+}
+
 .wallet-transaction-amount {
   display: inline-flex;
   flex: 0 0 auto;
@@ -4715,6 +4769,8 @@ body.chats-screen {
   gap: 5px;
   color: #202127;
   font-size: 15px;
+  font-family: "Inter", sans-serif;
+  font-weight: 600;
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
 }

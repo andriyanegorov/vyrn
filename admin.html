@@ -6,12 +6,11 @@
   <title>Администрирование | VYRN</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@600&display=swap" rel="stylesheet">
-  <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="style.css?v=profile-status-all-20261019">
-  <link rel="stylesheet" href="admin.css?v=admin-panel-number-media-20261018">
+  <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Inter:wght@400;500;600;700&family=Manrope:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css?v=fonts-manrope-inter-20261021">
+  <link rel="stylesheet" href="admin.css?v=fragment-catalog-sync-20261021">
   <script src="supabase-client-config.js?v=admin-panel-number-media-20261018" defer></script>
-  <script src="admin.js?v=profile-status-all-20261019" defer></script>
+  <script src="admin.js?v=fragment-catalog-sync-20261021" defer></script>
 </head>
 <body class="admin-page">
   <header class="admin-header">
@@ -68,6 +67,10 @@
             <span>Коллекция</span>
             <select class="admin-collection-select" aria-label="Коллекция Fragment"></select>
           </label>
+          <div class="admin-catalog-toolbar">
+            <button class="admin-button admin-sync-catalog-button" type="button">Подгрузить новые NFT из Fragment</button>
+            <p class="admin-status admin-catalog-status" role="status" hidden></p>
+          </div>
           <label class="admin-field admin-number-field">
             <span>Номер подарка</span>
             <input class="admin-gift-number" type="number" min="1" step="1" inputmode="numeric" placeholder="Например, 64">

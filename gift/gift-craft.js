@@ -1,56 +1,59 @@
-/* ================= data ================= */
-const MODELS={
-  Classic:{a:'#b9692f',b:'#e3a36a',c:'#f6d9b0',r:12},
-  Bonecake:{a:'#8a5a3b',b:'#f0c9a0',c:'#ffffff',r:2.4},
-  Berry:{a:'#d63a6a',b:'#ff8fb1',c:'#ffffff',r:8},
-  Choco:{a:'#4b2a1a',b:'#7a4528',c:'#e8b98a',r:9},
-  Lemon:{a:'#f2cf3a',b:'#ffe57a',c:'#ffffff',r:10},
-  Ghost:{a:'#cfd3d8',b:'#9aa0a8',c:'#2b2d31',r:3},
-  Grape:{a:'#7b3fc4',b:'#b07be8',c:'#ffffff',r:6},
-  Burnt:{a:'#2c2c31',b:'#3d3d44',c:'#55555c',r:0}
-};
-const SYMBOLS={Cow:['🐮',20],Pig:['🐷',14],Cat:['🐱',9],Fox:['🦊',6],Frog:['🐸',11],Star:['⭐',4]};
-const BACKDROPS={
-  Emerald:['#4fb64c','#2f8a3a',1.5],Amethyst:['#9b59e0','#6a2fb0',2],Sapphire:['#5b6be0','#3a43b0',2.5],
-  Burgundy:['#b0585f','#7b343c',1.8],Teal:['#2fb3a8','#1b7c78',3],Amber:['#f0a030','#b8661a',3.5],Rose:['#ee6fa0','#b53c6e',2.8]
-};
-const MODEL_NAMES={Classic:'Классический',Bonecake:'Костяной торт',Berry:'Ягодный',Choco:'Шоколадный',Lemon:'Лимонный',Ghost:'Призрачный',Grape:'Виноградный',Burnt:'Сгоревший'};
-const SYMBOL_NAMES={Cow:'Корова',Pig:'Свинья',Cat:'Кошка',Fox:'Лиса',Frog:'Лягушка',Star:'Звезда'};
-const BACKDROP_NAMES={Emerald:'Изумрудный',Amethyst:'Аметистовый',Sapphire:'Сапфировый',Burgundy:'Бордовый',Teal:'Бирюзовый',Amber:'Янтарный',Rose:'Розовый'};
-const keys=o=>Object.keys(o);
+/* ================= inventory data ================= */
 const rnd=(a,b)=>a+Math.random()*(b-a);
 const pickR=a=>a[Math.floor(Math.random()*a.length)];
 const $=s=>document.querySelector(s);
 const fmt=n=>n.toLocaleString('ru-RU');
-
-function cakeSVG(model,flames=true){
-  const p=MODELS[model];
-  return `<svg class="cake" viewBox="0 0 100 100">
-  <ellipse cx="50" cy="84" rx="42" ry="8" fill="#fff" opacity=".95"/>
-  <ellipse cx="50" cy="86" rx="14" ry="2.4" fill="#fff" opacity=".7"/>
-  <rect x="24" y="52" width="52" height="30" rx="9" fill="${p.a}"/>
-  <path d="M24 60c4 6 7 0 11 6s7-2 11 5 7-3 11 4 7-4 11 1 6-3 8-2v-8c0-5-4-8-9-8H33c-5 0-9 3-9 8z" fill="${p.c}" opacity=".85"/>
-  <rect x="33" y="33" width="34" height="21" rx="7" fill="${p.b}"/>
-  <path d="M33 42c4 5 6 0 9 4s6-2 9 3 6-3 9 1 5-2 7 0v-5c0-4-3-6-7-6H40c-4 0-7 2-7 6z" fill="${p.c}" opacity=".8"/>
-  ${[42,50,58].map(x=>`<rect x="${x-1.4}" y="22" width="2.8" height="12" rx="1" fill="#f4e3c4"/>${flames?`<ellipse cx="${x}" cy="19" rx="2.4" ry="3.6" fill="#ffb21e"/><ellipse cx="${x}" cy="19.8" rx="1.1" ry="1.9" fill="#fff3b0"/>`:''}`).join('')}
-  </svg>`;
-}
-
-let serial=1000;
-function newGift(over={}){
-  const m=over.model||pickR(keys(MODELS).filter(k=>k!=='Burnt'));
-  return Object.assign({
-    id:++serial,model:m,symbol:pickR(keys(SYMBOLS)),backdrop:pickR(keys(BACKDROPS)),
-    pct:Math.round(rnd(14,30)),num:Math.floor(rnd(1000,590000))
-  },over);
-}
+const getCraftChance=({attributes={}}={})=>{
+  const value=Number(attributes.fragment_price_stars);
+  if(!Number.isFinite(value)||value<0)return 18;
+  if(value<=100)return 18;
+  if(value<=200)return 20;
+  if(value<300)return 20+(value-200)*.05;
+  return 25;
+};
+const mapNft=item=>{
+  const model=item.nft_models||{},collection=model.nft_collections||{};
+  const id=item.external_id||item.id.slice(0,8);
+  const slug=collection.slug||'';
+  const visualId=item.attributes?.crafting?.visual_external_id||item.external_id;
+  return {
+    itemId:item.id,
+    modelId:model.id||'',
+    id,
+    name:model.name||collection.name||'NFT',
+    previewUrl:slug&&visualId
+      ?`https://nft.fragment.com/gift/${slug}-${visualId}.webp`
+      :model.preview_url||'../assets/placeholder.png',
+    modelSlug:model.slug||'',
+    collectionName:collection.name||'VYRN',
+    collectionSlug:slug,
+    attributes:item.attributes||{},
+    pct:getCraftChance(item),
+    isListed:(item.market_listings||[]).some(listing=>listing.status==='active')
+  };
+};
 function tileEl(g,o={}){
-  const b=BACKDROPS[g.backdrop]||['#555','#333'];
+  if(g.burnt){
+    const burned=emptyFace();
+    burned.classList.add('burnt');
+    return burned;
+  }
   const d=document.createElement('div');d.className='tile';
-  d.style.setProperty('--c1',b[1]);d.style.setProperty('--c2',b[0]);
-  const sym=(SYMBOLS[g.symbol]||['·'])[0];
-  d.innerHTML=`<div class="pat">${(sym+' ').repeat(60)}</div>${cakeSVG(g.model,!g.burnt)}`+
-    (o.badge!==false&&g.pct!=null?`<span class="badge">${g.pct}%</span>`:'')+(o.x?'<span class="x">✕</span>':'')+(o.num?`<span class="num">#${fmt(g.num)}</span>`:'');
+  d.style.setProperty('--c1','#26344a');d.style.setProperty('--c2','#42617e');
+  const image=document.createElement('img');
+  image.src=g.previewUrl||'../assets/placeholder.png';
+  image.alt=`${g.name||'NFT'} #${g.id||''}`;
+  image.style.cssText='position:absolute;inset:0%;width:100%;border-radius:20%;height:100%;object-fit:contain;z-index:1';
+  d.appendChild(image);
+  if(o.badge!==false&&g.pct!=null){
+    const badge=document.createElement('span');badge.className='badge';badge.textContent=`${Number(g.pct.toFixed(1))}%`;d.appendChild(badge);
+  }
+  if(o.x){
+    const remove=document.createElement('span');remove.className='x';remove.textContent='✕';d.appendChild(remove);
+  }
+  if(o.num){
+    const number=document.createElement('span');number.className='num';number.textContent=`#${g.id}`;d.appendChild(number);
+  }
   return d;
 }
 
@@ -60,32 +63,129 @@ function emptyFace(){
   return d;
 }
 /* ================= state ================= */
-let inv=[];for(let i=0;i<12;i++)inv.push(newGift());
+let inv=[];
 let slots=[null,null,null,null];
-let craftNo=0,busy=false;
+let busy=false;
 
 /* ================= inventory ================= */
 function renderGrid(){
   const g=$('#grid');g.innerHTML='';
   inv.forEach(x=>{const t=tileEl(x,{num:true});t.onclick=()=>{openCraft(x)};g.appendChild(t)});
-  $('#cnt').textContent=inv.length+' подарков';
+  $('#cnt').textContent=inv.length+' NFT';
+  if(!inv.length){
+    const empty=document.createElement('div');
+    empty.className='inventory-empty';
+    empty.textContent='В коллекции пока нет NFT для крафта';
+    g.appendChild(empty);
+  }
 }
-$('#addMore').onclick=()=>{for(let i=0;i<5;i++)inv.unshift(newGift());renderGrid();toast('+5 новых подарков')};
 $('#openCraft').onclick=()=>openCraft();
+async function loadInventory(notify=true){
+  try{
+    const {items}=await window.VyrnApi.myNfts();
+    inv=items.map(mapNft).filter(item=>!item.isListed);
+    renderGrid();
+    return true;
+  }catch(error){
+    renderGrid();
+    if(notify)toast(error.message||'Не удалось загрузить NFT');
+    return false;
+  }
+}
+async function refreshFragmentPrice(g){
+  if(g.priceRefreshStarted)return;
+  g.priceRefreshStarted=true;
+  g.priceLoading=true;
+  g.priceError=false;
+  g.priceStatus='Загружаем цену и характеристики с Fragment…';
+  renderCraft();
+  try{
+    const {item}=await window.VyrnApi.refreshNftPrice(g.itemId);
+    g.attributes=item.attributes||{};
+    g.pct=getCraftChance(g);
+    const fragmentPrice=fmt(Number(g.attributes.fragment_price_fragment_stars??g.attributes.fragment_price_stars));
+    g.priceStatus=g.attributes.fragment_price_manual===true
+      ?`Ручная цена: ${fmt(Number(g.attributes.fragment_price_stars))} ★ · Fragment: ${fmt(Number(g.attributes.fragment_price_grams))} / 10 × 80 = ${fragmentPrice} ★`
+      :`${fmt(Number(g.attributes.fragment_price_grams))} GRAM / 10 × 80 = ${fragmentPrice} ★`;
+  }catch(error){
+    g.priceStatus=`Не удалось обновить с Fragment: ${error.message||'ошибка запроса'}`;
+    g.priceError=true;
+  }finally{
+    g.priceLoading=false;
+    if(slots.includes(g))renderCraft();
+  }
+}
 
 /* ================= craft modal ================= */
 function openCraft(g){
   slots=[null,null,null,null];
   if(g)slots[0]=g;
-  craftNo=Math.floor(rnd(400000,499999));
   renderCraft();
+  if(g)refreshFragmentPrice(g);
   $('#bg1').classList.add('on');$('#craftSheet').classList.add('on');
 }
 function closeCraft(){$('#bg1').classList.remove('on');$('#craftSheet').classList.remove('on')}
 $('#closeCraft').onclick=closeCraft;$('#bg1').onclick=closeCraft;
-$('#helpBtn').onclick=()=>toast('Сумма шансов подарков = шанс успеха');
+$('#helpBtn').onclick=()=>toast('Шансы суммируются. 4 подарка с чёрным фоном редкостью до 1% дают 100%.');
 
-function total(){return Math.min(100,slots.reduce((s,g)=>s+(g?g.pct:0),0))}
+const hasRareBlackBackdrop=g=>{
+  const backdrop=g?.attributes?.fragment_traits?.backdrop;
+  const rarity=Number(backdrop?.rarity_percent);
+  return typeof backdrop?.name==='string'
+    &&backdrop.name.toLowerCase().includes('black')
+    &&Number.isFinite(rarity)
+    &&rarity<=1;
+};
+function total(){
+  const selected=slots.filter(Boolean);
+  if(selected.length===4&&selected.every(hasRareBlackBackdrop))return 100;
+  return Math.min(100,selected.reduce((sum,g)=>sum+g.pct,0));
+}
+function renderPriceFields(){
+  const box=$('#priceFields');box.replaceChildren();
+  slots.filter(Boolean).forEach(g=>{
+    const row=document.createElement('div');row.className='price-row';
+    const label=document.createElement('span');label.className='price-label';
+    label.textContent=`${g.name} #${g.id}`;
+    const input=document.createElement('input');input.className='price-input';
+    input.type='number';input.min='0.01';input.max='1000000000000';input.step='0.01';
+    input.value=g.attributes.fragment_price_stars??'';
+    input.disabled=g.priceLoading===true;
+    input.setAttribute('aria-label',`Цена ${g.name} #${g.id} в Stars`);
+    const status=document.createElement('small');status.className=`price-status${g.priceError?' error':''}`;
+    status.textContent=g.priceStatus||'Цена Fragment в Stars — можно изменить вручную.';
+    input.addEventListener('change',async()=>{
+      const next=Number(input.value);
+      const previous=g.attributes.fragment_price_stars;
+      if(!Number.isFinite(next)||next<0.01||next>1_000_000_000_000
+        ||Math.abs(next*100-Math.round(next*100))>0.000001){
+        g.priceStatus='Укажите цену от 0,01 до 1 000 000 000 000 ★, максимум 2 знака после запятой.';
+        g.priceError=true;
+        renderCraft();
+        return;
+      }
+      g.priceLoading=true;g.priceStatus='Сохраняем цену…';g.priceError=false;
+      g.attributes.fragment_price_stars=next;g.pct=getCraftChance(g);
+      renderCraft();
+      try{
+        const {item}=await window.VyrnApi.updateNftPrice(g.itemId,next);
+        g.attributes=item.attributes;
+        g.pct=getCraftChance(g);
+        g.priceStatus='Цена сохранена и будет учитываться в следующих крафтах.';
+      }catch(error){
+        if(previous===undefined)delete g.attributes.fragment_price_stars;
+        else g.attributes.fragment_price_stars=previous;
+        g.pct=getCraftChance(g);
+        g.priceStatus=error.message||'Не удалось сохранить цену.';
+        g.priceError=true;
+      }finally{
+        g.priceLoading=false;
+        renderCraft();
+      }
+    });
+    row.append(label,input,status);box.appendChild(row);
+  });
+}
 function renderCraft(){
   document.querySelectorAll('.slot').forEach((el,i)=>{
     el.innerHTML='';const g=slots[i];
@@ -99,47 +199,48 @@ function renderCraft(){
   });
   const t=total();
   $('#ringC').style.strokeDashoffset=100-t;
-  $('#pcTxt').textContent=t+'%';
-  $('#info').innerHTML=`Добавь до <b>4</b> подарков, чтобы создать<br><b>🎂 торт №${fmt(craftNo)}.</b><br><br>При неудаче все выбранные подарки<br>сгорят.`;
-  // chips
+  $('#pcTxt').textContent=`${Number(t.toFixed(1))}%`;
+  const collection=slots.find(Boolean)?.collectionName;
+  $('#info').textContent=collection
+    ?`Одна коллекция: «${collection}». Цена Fragment считается как GRAM / 10 × 80 ★ и влияет на шанс; её можно изменить. При неудаче NFT сгорят.`
+    :'Выбери NFT из одной коллекции. Цена Fragment: GRAM / 10 × 80 ★; её можно изменить. При неудаче NFT сгорят.';
+  renderPriceFields();
   const sel=slots.filter(Boolean);
-  const bd={},sy={};
-  sel.forEach(g=>{bd[g.backdrop]=(bd[g.backdrop]||0)+g.pct;sy[g.symbol]=(sy[g.symbol]||0)+g.pct});
-  const top=o=>Object.entries(o).sort((a,b)=>b[1]-a[1])[0];
-  const ch=$('#chips');ch.innerHTML='';
-  if(sel.length){
-    const b=top(bd),s=top(sy);
-    [[BACKDROPS[b[0]][0],'',Math.round(b[1]*t/100)],['#e9edf3',SYMBOLS[s[0]][0],Math.round(s[1]*t/100)]].forEach(([c,e,p])=>{
-      const C=2*Math.PI*23;
-      ch.insertAdjacentHTML('beforeend',`<div class="chip"><svg viewBox="0 0 54 54"><circle cx="27" cy="27" r="23" fill="none" stroke="rgba(255,255,255,.12)" stroke-width="3"/><circle cx="27" cy="27" r="23" fill="none" stroke="#fff" stroke-width="3" stroke-linecap="round" stroke-dasharray="${C}" stroke-dashoffset="${C*(1-Math.min(1,p/40))}"/></svg><div class="in" style="--cc:${c}">${e}</div><small>${p}%</small></div>`);
-    });
-  }
+  const ch=$('#chips');ch.replaceChildren();
+  sel.forEach(g=>{
+    const chip=document.createElement('div');chip.className='chip';
+    const ring=document.createElementNS('http://www.w3.org/2000/svg','svg');
+    ring.setAttribute('viewBox','0 0 54 54');
+    ring.innerHTML='<circle cx="27" cy="27" r="23" fill="none" stroke="rgba(255,255,255,.12)" stroke-width="3"/>';
+    const image=document.createElement('img');image.src=g.previewUrl;image.alt='';
+    image.style.cssText='width:100%;height:100%;object-fit:contain;border-radius:50%';
+    const face=document.createElement('div');face.className='in';face.appendChild(image);
+    const chance=document.createElement('small');chance.textContent=`${Number(g.pct.toFixed(1))}%`;
+    chip.append(ring,face,chance);ch.appendChild(chip);
+  });
   const go=$('#goBtn');
-  if(!sel.length){go.className='go off';go.innerHTML='Добавь подарки';}
-  else{go.className='go '+(t>=50?'green':'blue');go.innerHTML=`Создать торт №${fmt(craftNo)}<small>Шанс успеха: ${t}%</small>`}
+  if(!sel.length){go.className='go off';go.innerHTML='Добавь NFT';}
+  else{go.className='go '+(t>=50?'green':'blue');go.innerHTML=`Создать NFT<small>Шанс успеха: ${Number(t.toFixed(1))}%</small>`}
 }
 /* picker */
 let pickIdx=0;
 function openPicker(i){
-  pickIdx=i;const used=new Set(slots.filter(Boolean).map(g=>g.id));
+  pickIdx=i;const used=new Set(slots.filter(Boolean).map(g=>g.itemId));
   const box=$('#pick');box.innerHTML='';
-  const av=inv.filter(g=>!used.has(g.id));
-  if(!av.length)box.innerHTML='<div class="empty">Нет свободных подарков</div>';
-  av.forEach(g=>{const t=tileEl(g,{num:true});t.onclick=()=>{slots[pickIdx]=g;closePicker();renderCraft()};box.appendChild(t)});
+  const collectionSlug=slots.find(Boolean)?.collectionSlug;
+  const av=inv.filter(g=>!used.has(g.itemId)&&(!collectionSlug||g.collectionSlug===collectionSlug));
+  if(!av.length)box.innerHTML=collectionSlug
+    ?'<div class="empty">Нет свободных подарков из этой коллекции</div>'
+    :'<div class="empty">Нет свободных подарков</div>';
+  av.forEach(g=>{const t=tileEl(g,{num:true});t.onclick=()=>{slots[pickIdx]=g;closePicker();renderCraft();refreshFragmentPrice(g)};box.appendChild(t)});
   $('#bg2').classList.add('on');$('#pickSheet').classList.add('on');$('#pickSheet').style.zIndex=14;
 }
 function closePicker(){$('#bg2').classList.remove('on');$('#pickSheet').classList.remove('on');$('#varSheet').classList.remove('on')}
 $('#bg2').onclick=closePicker;
 $('#variants').onclick=()=>{
-  const sel=slots.filter(Boolean);if(!sel.length)return toast('Сначала добавь подарки');
+  const sel=slots.filter(Boolean);if(!sel.length)return toast('Сначала добавь NFT');
   const box=$('#varList');box.innerHTML='';
-  const seen=new Set();
-  for(let k=0;k<9;k++){
-    const g=pickR(sel),m=pickR(sel),s=pickR(sel);
-    const v={model:m.model,backdrop:g.backdrop,symbol:s.symbol,pct:null,num:0};
-    const key=v.model+v.backdrop+v.symbol;if(seen.has(key))continue;seen.add(key);
-    box.appendChild(tileEl(v,{badge:false}));
-  }
+  sel.forEach(g=>box.appendChild(tileEl(g,{badge:false,num:true})));
   $('#bg2').classList.add('on');$('#varSheet').classList.add('on');
 };
 
@@ -152,19 +253,34 @@ $('#goBtn').onclick=startCraft;
 async function startCraft(){
   const sel=slots.filter(Boolean);
   if(!sel.length||busy)return;busy=true;
-  const t=total();
-  const mode=$('#mode').value;
-  let success=mode==='win'?true:mode==='lose'?false:Math.random()*100<t;
-
-  // outcome
-  const wsum=sel.reduce((s,g)=>s+g.pct,0);
-  let r=Math.random()*wsum,win=sel[0];for(const g of sel){if((r-=g.pct)<=0){win=g;break}}
-  const result={id:++serial,model:pickR(sel).model,symbol:pickR(sel).symbol,backdrop:win.backdrop,pct:Math.round(rnd(14,30)),num:craftNo};
+  let outcome;
+  try{
+    outcome=await window.VyrnApi.craftNfts(sel.map(g=>g.itemId));
+  }catch(error){
+    busy=false;
+    const synced=await loadInventory(false);
+    toast(synced
+      ?error.message||'Не удалось выполнить крафт'
+      :`${error.message||'Не удалось выполнить крафт'}. Не удалось обновить коллекцию.`);
+    return;
+  }
+  const success=outcome.success===true;
+  const t=Number(outcome.chance);
+  const result=success&&outcome.item?mapNft(outcome.item):null;
+  if(!Number.isFinite(t)||(success&&!result)){
+    busy=false;
+    const synced=await loadInventory(false);
+    toast(synced
+      ?'Сервер вернул некорректный результат крафта'
+      :'Сервер вернул некорректный результат крафта. Не удалось обновить коллекцию.');
+    return;
+  }
+  const win=result?sel.find(g=>g.modelId===result.modelId)||sel[0]:null;
 
   closeCraft();
   const cr=$('#crafting'),stage=$('#stage');
-  $('#cNum').textContent='Торт №'+fmt(craftNo);
-  $('#cPc').textContent='Шанс успеха: '+t+'%';
+  $('#cNum').textContent=`NFT: ${sel.length}`;
+  $('#cPc').textContent=`Шанс успеха: ${Number(t.toFixed(1))}%`;
   stage.innerHTML='';cr.classList.add('on');
 
   // floating tiles
@@ -183,8 +299,7 @@ async function startCraft(){
   const order=[0,1,2,3,4,5].sort(()=>Math.random()-.5);
   const faceData=Array(6).fill(null);
   sel.forEach((g,i)=>faceData[order[i]]=g);
-  const failBd=['Burgundy','Teal','Amber'];
-  for(let i=0;i<6;i++)if(!faceData[i])faceData[i]={model:'Burnt',burnt:true,symbol:'Cow',backdrop:'Burgundy',pct:null};
+  for(let i=0;i<6;i++)if(!faceData[i])faceData[i]={burnt:true,pct:null};
   let winFace;
   if(success)winFace=order[sel.indexOf(win)];
   else winFace=pickR([0,1,2,3,4,5].filter(i=>faceData[i].burnt));
@@ -196,7 +311,6 @@ async function startCraft(){
   });
   const fillFace=i=>{
     const g=faceData[i];const tl=tileEl(g,{badge:false});
-    if(g.burnt){tl.style.setProperty('--c1','#2a1a1d');tl.style.setProperty('--c2','#4a2b30')}
     tl.classList.add('fill');faces[i].innerHTML='';faces[i].appendChild(tl);
   };
   scene.appendChild(cube);stage.appendChild(scene);
@@ -256,12 +370,12 @@ async function startCraft(){
   await sleep(1100);
 
   // apply result to inventory
-  const ids=new Set(sel.map(g=>g.id));
-  inv=inv.filter(g=>!ids.has(g.id));
+  const ids=new Set(outcome.consumed_ids||sel.map(g=>g.itemId));
+  inv=inv.filter(g=>!ids.has(g.itemId));
   if(success)inv.unshift(result);
   renderGrid();
   cr.classList.remove('on');
-  showResult(success,result);
+  showResult(success,result,t,sel[0]);
   busy=false;
 }
 function burst(sparks){
@@ -277,42 +391,54 @@ function burst(sparks){
 }
 
 /* ================= result ================= */
-function showResult(ok,g){
+function showResult(ok,g,chance,consumedNft){
   const res=$('#result');res.className='';res.innerHTML='';
   if(!ok){
     res.classList.add('on','bad');
     res.innerHTML=`<div class="failbox"></div><button class="ok">Хорошо</button>`;
     const fb=res.querySelector('.failbox');
-    const t=tileEl({model:'Burnt',burnt:true,symbol:'Cow',backdrop:'Burgundy',pct:null},{badge:false});
-    t.style.setProperty('--c1','#2a1a1d');t.style.setProperty('--c2','#4a2b30');
-    fb.appendChild(t);
-    fb.insertAdjacentHTML('beforeend','<h2>Крафт не удался</h2><p>Не повезло: все выбранные подарки сгорели.</p>');
+    if(consumedNft)fb.appendChild(tileEl(consumedNft,{badge:false,num:true}));
+    const title=document.createElement('h2');title.textContent='Крафт не удался';
+    const description=document.createElement('p');description.textContent='Шанс успеха не сработал. Выбранные NFT сгорели.';
+    fb.append(title,description);
     res.querySelector('.ok').onclick=()=>res.classList.remove('on');
     return;
   }
-  const b=BACKDROPS[g.backdrop],sym=SYMBOLS[g.symbol];
-  const rar=m=>m<3?'редкий':m<9?'необычный':'обычный';
-  const bdR=BACKDROPS[g.backdrop][2],mR=MODELS[g.model].r;
-  const val=Math.round(rnd(9000,60000))+Math.round(Math.random()*99)/100;
-  const iss=Math.floor(rnd(300000,599000));
   res.classList.add('on');
   res.innerHTML=`
-  <div class="hero" style="background:linear-gradient(${b[0]},${b[1]})">
+  <div class="hero" style="background:linear-gradient(135deg,#2a8cf0,#193c75)">
     <div class="glow" style="background:radial-gradient(circle at 50% 40%,rgba(255,255,255,.35),transparent 60%)"></div>
-    <div class="gcake">${cakeSVG(g.model)}</div>
-    <h2>Торт</h2><p>Коллекционный подарок №${fmt(g.num)}</p>
+    <div class="gcake"></div>
+    <h2></h2><p></p>
   </div>
-  <div class="acts" style="background:transparent"><div><span>💎</span>перевести</div><div><span>👑</span>надеть</div><div><span>🏷️</span>продать</div></div>
-  <div class="tbl">
-    <div class="row"><b>Владелец</b><span style="color:#2a8cf0">@gift_lab</span></div>
-    <div class="row"><b>Модель</b><span>${MODEL_NAMES[g.model]}<i>${rar(mR)}</i></span></div>
-    <div class="row"><b>Символ</b><span>${SYMBOL_NAMES[g.symbol]} ${sym[0]}<i>${sym[1]}%</i></span></div>
-    <div class="row"><b>Фон</b><span>${BACKDROP_NAMES[g.backdrop]}<i>${bdR}%</i></span></div>
-    <div class="row"><b>Выпущено</b><span>${fmt(iss)} из 599 519</span></div>
-    <div class="row"><b>Стоимость</b><span>~${val.toLocaleString('ru-RU',{minimumFractionDigits:2})} ★<i style="background:#eaf2fd;color:#2a8cf0">подробнее</i></span></div>
-  </div>
-  <div class="vis">Подарок виден в профиле. <a>Скрыть в профиле ›</a></div>
+  <div class="tbl"></div>
   <button class="ok">Хорошо</button>`;
+  const art=res.querySelector('.gcake');
+  const nftTile=tileEl(g,{badge:false});
+  nftTile.style.width='100%';nftTile.style.height='100%';
+  art.appendChild(nftTile);
+  res.querySelector('.hero h2').textContent=g.name;
+  res.querySelector('.hero p').textContent=`${g.collectionName} · NFT #${g.id}`;
+  const value=g.attributes.fragment_price_stars;
+  const rows=[
+    ['Коллекция',g.collectionName],
+    ['Модель',g.name],
+    ['NFT ID',g.id],
+    ['Шанс крафта',`${Number(chance.toFixed(1))}%`],
+    ['Оценка',value!==undefined&&value!==null&&value!==''&&Number.isFinite(Number(value))?`${fmt(Number(value))} ★`:'Не указана'],
+    ['Фон',g.attributes.fragment_traits?.backdrop?.name||'Не указан'],
+    ['Эффект / символ',[
+      g.attributes.fragment_traits?.model?.name,
+      g.attributes.fragment_traits?.symbol?.name
+    ].filter(Boolean).join(' · ')||'Не указан']
+  ];
+  const table=res.querySelector('.tbl');
+  rows.forEach(([label,text])=>{
+    const row=document.createElement('div');row.className='row';
+    const heading=document.createElement('b');heading.textContent=label;
+    const value=document.createElement('span');value.textContent=text;
+    row.append(heading,value);table.appendChild(row);
+  });
   res.querySelector('.ok').onclick=()=>{res.classList.remove('on');stopConf()};
   confetti();
 }
@@ -336,3 +462,4 @@ function stopConf(){cancelAnimationFrame(raf);cx.clearRect(0,0,cv.width,cv.heigh
 
 function toast(t){const e=$('#toast');e.textContent=t;e.classList.add('on');setTimeout(()=>e.classList.remove('on'),1800)}
 renderGrid();
+loadInventory();

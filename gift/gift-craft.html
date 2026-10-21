@@ -3,31 +3,27 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
-<title>Симулятор крафта подарков</title>
-<link rel="stylesheet" href="gift-craft.css">
+<title>Крафт NFT | VYRN</title>
+<link rel="stylesheet" href="gift-craft.css?v=craft-nft-20261021-v2">
 </head>
 <body>
 <div id="app">
   <div class="top">
-    <button class="round" id="addMore" title="Получить подарки">＋</button>
-    <div class="title"><b>@gift_lab 🎂</b><small id="cnt"></small></div>
-    <select class="mode" id="mode">
-      <option value="rand">🎲 Честно</option>
-      <option value="win">✅ Всегда успех</option>
-      <option value="lose">❌ Всегда провал</option>
-    </select>
+    <a class="round" href="../index.html" aria-label="На главную" style="text-decoration:none">‹</a>
+    <div class="title"><b>VYRN</b><small id="cnt"></small></div>
+    <span class="round" aria-hidden="true" style="visibility:hidden">✦</span>
   </div>
   <div class="bar">
-    <button class="pill main" id="openCraft">⚒ Создать подарок</button>
+    <button class="pill main" id="openCraft">⚒ Создать NFT</button>
   </div>
-  <div class="note">Демо-симулятор: подарки нарисованы в коде, ничего настоящего здесь нет. Нажми на подарок, чтобы положить его в крафт.</div>
+  <div class="note">Выбери NFT из своей коллекции. Результат крафта рассчитывается и сохраняется на сервере.</div>
   <div id="grid"></div>
 
   <div class="sheet-bg" id="bg1"></div>
   <div class="sheet craft" id="craftSheet">
     <button class="round" id="closeCraft">✕</button>
     <button class="round help" id="helpBtn">?</button>
-    <h3>Крафт подарка</h3>
+    <h3>Крафт NFT</h3>
     <div class="cwrap">
       <div class="slot s0" data-i="0"></div><div class="slot s1" data-i="1"></div>
       <div class="slot s2" data-i="2"></div><div class="slot s3" data-i="3"></div>
@@ -38,18 +34,19 @@
       </div>
     </div>
     <div class="info" id="info"></div>
+    <div class="price-fields" id="priceFields"></div>
     <div class="chips" id="chips"></div>
-    <button class="variants" id="variants">🍰🍰🍰 Все новые варианты ›</button>
+    <button class="variants" id="variants">Показать выбранные NFT</button>
     <button class="go off" id="goBtn"></button>
   </div>
 
   <div class="sheet" id="pickSheet">
-    <h3>Выбери подарок</h3>
+    <h3>Выбери NFT</h3>
     <div class="pick" id="pick"></div>
   </div>
   <div class="sheet-bg" id="bg2" style="z-index:12"></div>
   <div class="sheet" id="varSheet" style="z-index:14">
-    <h3>Возможные варианты</h3>
+    <h3>Выбранные NFT</h3>
     <div class="pick" id="varList"></div>
   </div>
 
@@ -58,7 +55,7 @@
     <div class="ctext">
       <h2>Создание подарка</h2>
       <p id="cNum"></p>
-      <p class="fail">При неудаче все выбранные подарки сгорят.</p>
+      <p class="fail">При неудаче все выбранные NFT сгорят.</p>
       <div class="pc2" id="cPc"></div>
     </div>
   </div>
@@ -67,6 +64,9 @@
   <div class="toast" id="toast"></div>
 </div>
 
-<script src="gift-craft.js"></script>
+<script src="https://telegram.org/js/telegram-web-app.js"></script>
+<script src="../supabase-client-config.js?v=craft-nft-20261021"></script>
+<script src="../supabase-api.js?v=craft-nft-20261021-v3"></script>
+<script src="gift-craft.js?v=craft-nft-20261021-v2"></script>
 </body>
 </html>

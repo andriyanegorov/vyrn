@@ -29,7 +29,7 @@ body.admin-page {
 .admin-brand {
   color: var(--admin-ink);
   font-size: 15px;
-  font-weight: 800;
+  font-weight: 700;
   letter-spacing: 0;
   text-decoration: none;
 }
@@ -86,7 +86,7 @@ body.admin-page {
   margin: 0;
   font-size: clamp(27px, 4vw, 38px);
   line-height: 1.12;
-  font-weight: 800;
+  font-weight: 700;
 }
 
 .admin-subtitle {
@@ -199,7 +199,7 @@ body.admin-page {
   margin: 0;
   font-size: 17px;
   line-height: 1.25;
-  font-weight: 800;
+  font-weight: 700;
 }
 
 .admin-section-heading p {
@@ -224,7 +224,7 @@ body.admin-page {
   color: #fff;
   font: inherit;
   font-size: 12px;
-  font-weight: 800;
+  font-weight: 600;
   cursor: pointer;
   transition: background 120ms ease, opacity 120ms ease;
 }
@@ -361,7 +361,7 @@ body.admin-page {
   border-radius: 50%;
   background: #e5eee9;
   color: var(--admin-green);
-  font-weight: 800;
+  font-weight: 700;
 }
 
 .admin-player-avatar img {
@@ -387,6 +387,11 @@ body.admin-page {
 .admin-player-nft-count {
   color: var(--admin-muted);
   font-size: 10px;
+}
+
+.admin-player-copy > span {
+  font-family: "Inter", sans-serif;
+  font-weight: 400;
 }
 
 .admin-player-nft-count {
@@ -432,7 +437,7 @@ body.admin-page {
   color: var(--admin-green);
   font: inherit;
   font-size: 11px;
-  font-weight: 800;
+  font-weight: 600;
   cursor: pointer;
 }
 
@@ -440,6 +445,17 @@ body.admin-page {
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(150px, 0.85fr);
   gap: 12px;
+}
+
+.admin-catalog-toolbar {
+  display: flex;
+  grid-column: 1 / -1;
+  align-items: center;
+  gap: 12px;
+}
+
+.admin-catalog-status {
+  margin: 0;
 }
 
 .admin-number-field {
@@ -459,7 +475,7 @@ body.admin-page {
 .admin-custom-collection summary {
   width: fit-content;
   cursor: pointer;
-  font-weight: 800;
+  font-weight: 700;
 }
 
 .admin-custom-fields {

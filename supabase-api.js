@@ -20,11 +20,16 @@
     });
     const result = await response.json().catch(() => ({}));
     if (!response.ok) {
-      if (response.status === 404 && !result.error && !result.message) {
-        throw new Error('Функция telegram-api не найдена в Supabase. Проверьте URL проекта и разверните функцию telegram-api.');
+      const gatewayMessage = String(result.message || result.msg || '');
+      if (response.status === 404 && (
+        result.code === 'NOT_FOUND'
+        || /function.+not found|requested function was not found/i.test(gatewayMessage)
+        || (!result.error && !result.message)
+      )) {
+        throw new Error(`Функция telegram-api не найдена в Supabase-проекте ${config.url.replace(/\/$/, '').split('.').shift().split('//').pop()}. Проверьте выбранный проект и разверните функцию telegram-api.`);
       }
-      const reason = result.reason ? ` [${result.reason}]` : ` [HTTP ${response.status}]`;
-      throw new Error(`${result.error || result.message || `Ошибка сервера (${response.status}).`}${reason}`);
+      const details = result.error || result.message || `Ошибка сервера (${response.status}).`;
+      throw new Error(`${details} [${result.code || result.reason || `HTTP ${response.status}`}]`);
     }
     return result;
   };
@@ -36,6 +41,9 @@
     wallet: () => request('wallet'),
     updateProfile: (profile) => request('update_profile', profile),
     myNfts: () => request('my_nfts'),
+    craftNfts: (nftItemIds) => request('craft_nfts', { nft_item_ids: nftItemIds }),
+    refreshNftPrice: (nftItemId) => request('refresh_nft_price', { nft_item_id: nftItemId }),
+    updateNftPrice: (nftItemId, priceStars) => request('update_nft_price', { nft_item_id: nftItemId, price_stars: priceStars }),
     profileNfts: (profileId) => request('profile_nfts', { profile_id: profileId }),
     createChat: (nickname) => request('create_chat', { nickname }),
     market: (mode = 'all') => request('market', { mode }),
