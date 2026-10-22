@@ -1,0 +1,180 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#0e1621">
+<title>Улучшение NFT | VYRN</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Manrope:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#f5f5f5;--card:#17212b;--line:#dedede;--txt:#161616;--sub:#7d8b99;--acc:#3ca6df;--star:#ffb300;--row-h:18px}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0;min-height:100%;background:var(--bg);color:var(--txt);font:400 16px/1.35 "Manrope",sans-serif}
+body{display:flex;justify-content:center;overscroll-behavior:none}
+button,a{font:inherit}
+.app{width:100%;max-width:440px;min-height:100dvh;padding-bottom:env(safe-area-inset-bottom)}
+#hd{position:sticky;top:0;z-index:5;min-height:56px;padding:0 5vw;display:flex;align-items:center;justify-content:space-between;background:#f5f5f5;transition:box-shadow .25s}
+#hd.sc{box-shadow:0 1px 0 rgba(20,25,32,.12)}
+.brand{color:#111318;font-size:1.5rem;font-weight:700;text-decoration:none}
+.bal{display:flex;align-items:center;gap:6px;padding:6px 10px 6px 6px;border-radius:999px;background:rgba(255,255,255,.78);color:#202127;font-size:15px;line-height:1;text-decoration:none;white-space:nowrap}
+.bal span{font-family:"Inter",sans-serif;font-size:16px;font-weight:600;letter-spacing:-.5px;font-variant-numeric:tabular-nums}
+.bal img,.star-icon{display:block;width:20px;height:20px;object-fit:contain}
+.page-heading{padding:14px 16px 0}
+h1{font-size:22px;margin:0;font-weight:700}
+.chips{display:flex;gap:8px;overflow-x:auto;scrollbar-width:none;margin:12px -16px 0;padding:0 16px 12px}
+.chips::-webkit-scrollbar{display:none}
+.chip{flex:none;border:0;background:#ffffff;color:var(--sub);padding:8px 16px;border-radius:99px;font-size:14px;font-weight:600;font-family:inherit;cursor:pointer;transition:background .25s,color .25s,transform .15s}
+.chip:active{transform:scale(.94)}
+.chip.on{background:#3ca6df;color:#fff}
+#grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;padding:12px 12px calc(104px + env(safe-area-inset-bottom))}
+.card{position: relative;
+    min-width: 0;
+    border: 0;
+    color: inherit;
+    font-family: inherit;
+    background: #3ca6df;
+    border-radius: 20px;
+    /* padding: 8px 6px 10px; */
+    display: flex;
+    /* flex-direction: column; */
+    align-items: center;
+    /* gap: 6px; */
+    cursor: pointer;
+    overflow: hidden;
+    transition: transform .18s cubic-bezier(.3, .7, .4, 1), opacity .5s, translate .5s;}
+.card.reveal{opacity:0;translate:0 14px}
+.card.in{opacity:1;translate:0 0}
+.card:active{transform:scale(.95)}
+.card:disabled{cursor:not-allowed;opacity:.55}
+.card .nft-image{display:block;width:106%;aspect-ratio:1;object-fit:cover;border-radius:10px;background:#101820}
+.card .nm{width:100%;font-size:12px;color:rgba(255,255,255,.84);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.card .num{position:absolute;top:12px;left:10px;font-size:10px;color:#fff;background:#0008;border-radius:99px;padding:2px 6px}
+.card .listed{font-size:10px;color:#ffc06b}
+.empty{grid-column:1/-1;text-align:center;color:var(--sub);padding:60px 20px}
+.error{grid-column:1/-1;text-align:center;color:#ff9b9b;padding:28px 20px}
+.nft-modal{position:fixed;inset:auto 14px 12px;width:min(420px,calc(100vw - 28px));max-width:none;max-height:min(88vh,720px);margin:0 auto;padding:0;overflow:auto;border:0;border-radius:16px;background:#fff;color:#161616;box-shadow:0 20px 60px rgba(0,0,0,.34)}
+.nft-modal::backdrop{background:rgba(0,0,0,.62);-webkit-backdrop-filter:blur(3px);backdrop-filter:blur(3px)}
+.nft-modal[open]{animation:nft-modal-enter 180ms ease-out both}
+@keyframes nft-modal-enter{from{opacity:.8;transform:translateY(100%)}to{opacity:1;transform:translateY(0)}}
+.nft-modal-card{overflow:hidden;border-radius:16px;background:#fff}
+.nft-modal-art{position:relative;isolation:isolate;display:flex;min-height:260px;flex-direction:column;align-items:center;justify-content:center;gap:14px;padding:24px 24px 0;overflow:hidden;background:transparent;color:#fff;text-align:center}
+.nft-modal-art:after{position:absolute;z-index:3;inset:0;background:radial-gradient(ellipse at center,transparent 48%,rgba(0,0,0,.12) 70%,rgba(0,0,0,.48) 100%);-webkit-backdrop-filter:blur(5px);backdrop-filter:blur(5px);-webkit-mask-image:radial-gradient(ellipse at center,transparent 48%,#000 100%);mask-image:radial-gradient(ellipse at center,transparent 48%,#000 100%);content:"";pointer-events:none}
+.nft-modal-backdrop[hidden],.nft-modal-pattern[hidden],.nft-modal-animation[hidden]{display:none}
+.nft-modal-backdrop,.nft-modal-pattern,.nft-modal-animation{position:absolute;inset:0;overflow:hidden;pointer-events:none}
+.nft-modal-backdrop{z-index:0;inset:-4%;opacity:0;transition:opacity 140ms ease-out}
+.nft-modal-pattern{z-index:1}
+.nft-modal-animation{z-index:2;opacity:0;transition:opacity 140ms ease-out}
+.nft-modal-backdrop.is-ready,.nft-modal-animation.is-ready{opacity:1}
+.artwork-layer-slot{position:absolute;inset:0;overflow:hidden}
+.artwork-layer-slot[hidden]{display:none}
+.artwork-layer-slot svg{display:block;width:100%;height:100%}
+.artwork-reel-track{position:absolute;inset:0;display:flex;width:100%;height:100%;overflow:visible;pointer-events:none}
+.artwork-reel-track[hidden]{display:none}
+.artwork-reel-item{position:relative;display:block;flex:0 0 100%;width:100%;height:100%;overflow:hidden}
+.artwork-reel-item svg{display:block;width:100%;height:100%}
+.nft-modal-backdrop-preview,.nft-modal-preview{display:block;width:100%;height:100%;object-fit:cover}
+.nft-modal-close{position:absolute;z-index:5;top:12px;right:12px;display:grid;width:36px;height:36px;place-items:center;border:0;border-radius:50%;background:rgba(255,255,255,.12);color:#fff;cursor:pointer}
+.nft-modal-close svg{width:20px;height:20px;fill:none;stroke:currentColor;stroke-linecap:round;stroke-width:1.8}
+.nft-modal-close:focus-visible,.nft-modal-confirm:focus-visible{outline:2px solid #2481cc;outline-offset:3px}
+.nft-modal-heading{position:relative;z-index:4;align-self:stretch;width:calc(100% + 48px);box-sizing:border-box;margin:auto -24px 0;padding:44px 24px 0}
+.nft-modal-heading:before{position:absolute;z-index:0;inset:0;background:linear-gradient(transparent,rgba(0,0,0,.66));content:"";opacity:0;pointer-events:none;transition:opacity 140ms ease-out}
+.nft-modal-art.is-ready .nft-modal-heading:before{opacity:1}
+.nft-modal-heading h2{position:relative;z-index:1;margin:0;font-size:19px;line-height:1.3;font-weight:600}
+.nft-modal-collection{position:relative;z-index:1;margin:6px 0 0;color:rgba(255,255,255,.68);font-size:14px}
+@media(prefers-reduced-motion:reduce){.nft-modal-art:after{-webkit-backdrop-filter:none;backdrop-filter:none}}
+.nft-modal-details{padding:12px 22px 22px}
+.nft-modal-metadata{margin:0;overflow:hidden;border:1px solid #dedede;border-radius:14px}
+.nft-modal-metadata>.row{display:grid;grid-template-columns:108px minmax(0,1fr)}
+.nft-modal-metadata>.row+.row{border-top:1px solid #dedede}
+.nft-modal-metadata dt,.nft-modal-metadata dd{min-width:0;margin:0;padding:12px 13px;font-size:13px;line-height:1.35;overflow-wrap:anywhere}
+.nft-modal-metadata dt{background:#f1f1f1;font-weight:400}
+.nft-modal-metadata dd{border-left:1px solid #dedede;font-family:"Inter",sans-serif;font-weight:400}
+.win{position:relative;display:flex;align-items:center;gap:8px;overflow:hidden}
+.win .rl{flex:1;min-width:0;overflow:hidden;-webkit-mask-image:linear-gradient(transparent,#000 22%,#000 78%,transparent);mask-image:linear-gradient(transparent,#000 22%,#000 78%,transparent)}
+.rl{will-change:transform}
+.rl>div{height:var(--row-h);display:flex;align-items:center;gap:8px;font-size:14px;font-weight:400;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.rar{flex:0 0 auto;font-size:11px;color:#2481cc;background:rgba(51,144,236,.16);padding:2px 7px;border-radius:99px}
+.hint{margin:12px 0 0;color:#7d8b99;font-size:12px;text-align:center}
+.nft-modal-confirm{display:flex;width:100%;min-height:46px;align-items:center;justify-content:center;gap:7px;margin-top:20px;border:0;border-radius:999px;background:#3ca6df;color:#fff;font:inherit;cursor:pointer}
+.nft-modal-confirm:disabled{opacity:.55;cursor:wait}
+#fx{position:fixed;inset:0;width:100%;height:100%;pointer-events:none;z-index:20}
+.bottom-nav{position:fixed;z-index:9;right:50%;bottom:calc(env(safe-area-inset-bottom,0px) + 14px);display:grid;grid-template-columns:repeat(4,minmax(0,1fr));width:min(460px,calc(100% - 32px));transform:translateX(50%);border:1px solid rgba(255,255,255,.82);border-radius:99px;background:rgba(255,255,255,.58);box-shadow:0 10px 32px rgba(25,35,45,.14),inset 0 1px 0 rgba(255,255,255,.9);-webkit-backdrop-filter:blur(24px) saturate(180%);backdrop-filter:blur(24px) saturate(180%)}
+.nav-indicator{position:absolute;z-index:0;top:4px;bottom:4px;left:7px;width:calc((100% - 16px)/4);border-radius:30px;background:rgba(215,215,215,.72);-webkit-backdrop-filter:blur(14px) saturate(180%);backdrop-filter:blur(14px) saturate(180%);pointer-events:none}
+.nav-button{position:relative;z-index:1;display:flex;min-width:0;min-height:56px;flex-direction:column;align-items:center;justify-content:center;gap:4px;border:0;border-radius:99px;background:transparent;color:#48494b;font:inherit;text-decoration:none;-webkit-tap-highlight-color:transparent}
+.nav-button svg{width:21px;height:21px;fill:none;stroke:currentColor;stroke-linecap:round;stroke-linejoin:round;stroke-width:1.8}
+.nav-button span{overflow:hidden;max-width:100%;font-size:11px;line-height:1.2;text-overflow:ellipsis;white-space:nowrap}
+.nav-button.is-active{color:#2481cc}
+@media(max-width:360px){.bottom-nav{width:calc(100% - 24px)}}
+@media(max-width:360px){#grid{gap:6px;padding-inline:8px}.card .nm{font-size:11px}}
+html.low-performance .nft-modal::backdrop,html.low-performance .bottom-nav,html.low-performance .nav-indicator{-webkit-backdrop-filter:none;backdrop-filter:none}
+html.low-performance .nft-modal-art:after{-webkit-backdrop-filter:none;backdrop-filter:none;-webkit-mask-image:none;mask-image:none}
+@media(prefers-reduced-motion:reduce){*{animation:none!important;transition-duration:.01ms!important}}
+</style>
+</head>
+<body>
+<div class="app">
+  <header id="hd">
+    <a class="brand" href="../index.html" aria-label="VYRN, главная">VYRN</a>
+    <a class="bal" id="bal" href="../wallet.html" aria-label="Баланс звёзд">
+      <img src="../assets/stars.png" alt="" aria-hidden="true"><span>—</span>
+    </a>
+  </header>
+  <div class="page-heading">
+    <div class="chips" id="chips" role="group" aria-label="Фильтр NFT">
+      <button class="chip on" data-filter="all" type="button">Все NFT</button>
+      <button class="chip" data-filter="available" type="button">Можно улучшить <span id="cnt"></span></button>
+    </div>
+  </div>
+  <main id="grid" aria-live="polite"><div class="empty">Загружаем NFT…</div></main>
+</div>
+
+<nav class="bottom-nav" aria-label="Основная навигация">
+  <span class="nav-indicator" aria-hidden="true"></span>
+  <a class="nav-button is-active" href="../index.html" aria-current="page">
+    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m3 10 9-7 9 7M5 9v11h14V9M9 20v-6h6v6" /></svg>
+    <span>Главное</span>
+  </a>
+  <a class="nav-button" href="../market.html">
+    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 10h18l-1.5-6h-15L3 10Zm0 0v10h18V10M8 20v-6h8v6" /></svg>
+    <span>Рынок</span>
+  </a>
+  <a class="nav-button" href="../chats.html">
+    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 11.5a7.5 7.5 0 0 1-7.5 7.5H6l-3 2v-5.5A7.5 7.5 0 1 1 20 11.5Z" /></svg>
+    <span>Чаты</span>
+  </a>
+  <a class="nav-button" href="../profile.html">
+    <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="8" r="4" /><path d="M4 21a8 8 0 0 1 16 0" /></svg>
+    <span>Профиль</span>
+  </a>
+</nav>
+
+<dialog class="nft-modal" id="sh" aria-labelledby="tt">
+  <section class="nft-modal-card">
+    <div class="nft-modal-art" id="hero">
+      <div class="nft-modal-backdrop" id="art-backdrop" aria-hidden="true" hidden></div>
+      <div class="nft-modal-pattern" id="art-pattern" aria-hidden="true" hidden></div>
+      <button class="nft-modal-close" id="modal-close" type="button" aria-label="Закрыть окно">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6 6 12 12M18 6 6 18" /></svg>
+      </button>
+      <div class="nft-modal-animation" id="art-animation" aria-hidden="true" hidden></div>
+      <div class="nft-modal-heading">
+        <h2 id="tt"></h2>
+        <p class="nft-modal-collection" id="st"></p>
+      </div>
+    </div>
+    <div class="nft-modal-details">
+      <dl class="nft-modal-metadata rows" id="rows"></dl>
+      <button class="nft-modal-confirm" id="cta" type="button">Улучшить</button>
+      <p class="hint" id="hint">NFT сохранится в коллекции. При успехе обновятся модель и traits.</p>
+    </div>
+  </section>
+</dialog>
+<script src="https://telegram.org/js/telegram-web-app.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/lottie-web/5.12.2/lottie.min.js"></script>
+<script src="../supabase-client-config.js?v=upgrade-live-20261022"></script>
+<script src="../supabase-api.js?v=upgrade-live-20261022"></script>
+<script src="upgrade.js?v=upgrade-horizontal-roulette-20261023"></script>
+</body>
+</html>

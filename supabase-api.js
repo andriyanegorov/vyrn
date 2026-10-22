@@ -61,6 +61,8 @@
     wallet: () => request('wallet'),
     updateProfile: (profile) => request('update_profile', profile),
     myNfts: () => request('my_nfts'),
+    upgradeNft: (nftItemId) => request('upgrade_nft', { nft_item_id: nftItemId }),
+    upgradeRoulettePool: () => request('upgrade_roulette_pool'),
     craftNfts: (nftItemIds) => request('craft_nfts', { nft_item_ids: nftItemIds }),
     refreshNftPrice: (nftItemId) => request('refresh_nft_price', { nft_item_id: nftItemId }),
     updateNftPrice: (nftItemId, priceStars) => request('update_nft_price', { nft_item_id: nftItemId, price_stars: priceStars }),

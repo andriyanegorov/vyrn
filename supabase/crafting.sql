@@ -85,11 +85,13 @@ end;
 $$;
 
 drop function if exists public.craft_nfts(uuid, uuid[]);
+drop function if exists public.craft_nfts(uuid, uuid[], text);
 
 create or replace function public.craft_nfts(
   p_profile_id uuid,
   p_nft_item_ids uuid[],
-  p_output_visual_external_id text
+  p_output_visual_external_id text,
+  p_output_fragment_data jsonb
 )
 returns jsonb
 language plpgsql
@@ -105,11 +107,12 @@ declare
   v_collection_slug text;
   v_collection_name text;
   v_base_external_id text;
-  v_base_attributes jsonb;
   v_source_external_id text;
   v_result_model_id uuid;
   v_output_traits jsonb;
   v_result_attributes jsonb;
+  v_input_price_sum numeric;
+  v_priced_input_count integer;
   v_black_rare_guarantee boolean;
   v_result_item_id uuid;
   v_result_item jsonb;
@@ -159,8 +162,8 @@ begin
     raise exception 'Remove NFTs from the market before crafting';
   end if;
 
-  select models.collection_id, collections.slug, collections.name, items.external_id, items.attributes
-  into v_collection_id, v_collection_slug, v_collection_name, v_base_external_id, v_base_attributes
+  select models.collection_id, collections.slug, collections.name, items.external_id
+  into v_collection_id, v_collection_slug, v_collection_name, v_base_external_id
   from public.nft_items as items
   join public.nft_models as models on models.id = items.model_id
   join public.nft_collections as collections on collections.id = models.collection_id
@@ -184,11 +187,51 @@ begin
     raise exception 'The result must use a different Fragment gift from this collection';
   end if;
 
-  v_output_traits := jsonb_strip_nulls(jsonb_build_object(
-    'model', public.crafting_weighted_trait(p_nft_item_ids, 'model'),
-    'backdrop', public.crafting_weighted_trait(p_nft_item_ids, 'backdrop'),
-    'symbol', public.crafting_weighted_trait(p_nft_item_ids, 'symbol')
-  ));
+  if jsonb_typeof(p_output_fragment_data) is distinct from 'object'
+    or jsonb_typeof(p_output_fragment_data -> 'traits') is distinct from 'object' then
+    raise exception 'Fragment output price or traits are invalid';
+  end if;
+
+  if jsonb_typeof(p_output_fragment_data -> 'grams') is distinct from 'number' then
+    raise exception 'Fragment output price or traits are invalid';
+  end if;
+  if (p_output_fragment_data ->> 'grams')::numeric <= 0 then
+    raise exception 'Fragment output price or traits are invalid';
+  end if;
+
+  if jsonb_typeof(p_output_fragment_data -> 'stars') is distinct from 'number' then
+    raise exception 'Fragment output price or traits are invalid';
+  end if;
+  if (p_output_fragment_data ->> 'stars')::numeric <= 0 then
+    raise exception 'Fragment output price or traits are invalid';
+  end if;
+
+  v_output_traits := p_output_fragment_data -> 'traits';
+
+  select sum(prices.price_stars), count(prices.price_stars)::integer
+  into v_input_price_sum, v_priced_input_count
+  from (
+    select case
+      when items.attributes ->> 'fragment_price_stars' ~ '^[0-9]+(\.[0-9]+)?$'
+        then case
+          when (items.attributes ->> 'fragment_price_stars')::numeric > 0
+          then (items.attributes ->> 'fragment_price_stars')::numeric
+          else null
+        end
+      when items.attributes ->> 'fragment_price_fragment_stars' ~ '^[0-9]+(\.[0-9]+)?$'
+        then case
+          when (items.attributes ->> 'fragment_price_fragment_stars')::numeric > 0
+          then (items.attributes ->> 'fragment_price_fragment_stars')::numeric
+          else null
+        end
+      else null
+    end as price_stars
+    from public.nft_items as items
+    where items.id = any(p_nft_item_ids)
+  ) as prices;
+  if v_priced_input_count <> item_count then
+    raise exception 'Every selected NFT must have a valid price before crafting';
+  end if;
 
   select least(100::numeric, sum(public.crafting_chance(items.attributes)))
   into v_chance
@@ -223,11 +266,14 @@ begin
     returning id into v_result_model_id;
 
     v_result_attributes := jsonb_strip_nulls(jsonb_build_object(
-      'fragment_price_stars', v_base_attributes -> 'fragment_price_stars',
-      'fragment_price_grams', v_base_attributes -> 'fragment_price_grams',
-      'fragment_price_fragment_stars', v_base_attributes -> 'fragment_price_fragment_stars',
-      'fragment_price_manual', v_base_attributes -> 'fragment_price_manual'
+      'fragment_price_stars', case
+        when v_priced_input_count = item_count then to_jsonb(v_input_price_sum)
+        else null
+      end,
+      'fragment_price_grams', p_output_fragment_data -> 'grams',
+      'fragment_price_fragment_stars', p_output_fragment_data -> 'stars'
     )) || jsonb_build_object(
+      'fragment_price_crafted_total', v_priced_input_count = item_count,
       'fragment_traits', v_output_traits,
       'crafting', jsonb_build_object(
         'crafted_at', now(),
@@ -293,9 +339,9 @@ $$;
 
 revoke all on function public.crafting_chance(jsonb) from public, anon, authenticated;
 revoke all on function public.crafting_weighted_trait(uuid[], text) from public, anon, authenticated;
-revoke all on function public.craft_nfts(uuid, uuid[], text) from public, anon, authenticated;
+revoke all on function public.craft_nfts(uuid, uuid[], text, jsonb) from public, anon, authenticated;
 grant execute on function public.crafting_chance(jsonb) to service_role;
 grant execute on function public.crafting_weighted_trait(uuid[], text) to service_role;
-grant execute on function public.craft_nfts(uuid, uuid[], text) to service_role;
+grant execute on function public.craft_nfts(uuid, uuid[], text, jsonb) to service_role;
 
 notify pgrst, 'reload schema';

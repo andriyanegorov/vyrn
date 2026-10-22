@@ -3,6 +3,13 @@ const rnd=(a,b)=>a+Math.random()*(b-a);
 const pickR=a=>a[Math.floor(Math.random()*a.length)];
 const $=s=>document.querySelector(s);
 const fmt=n=>n.toLocaleString('ru-RU');
+const createStarsIcon=()=>{
+  const icon=document.createElement('img');
+  icon.className='stars-inline-icon';
+  icon.src='../assets/stars.png';
+  icon.alt='звёзд';
+  return icon;
+};
 const getCraftChance=({attributes={}}={})=>{
   const value=Number(attributes.fragment_price_stars);
   if(!Number.isFinite(value)||value<0)return 18;
@@ -24,6 +31,9 @@ const mapNft=item=>{
     previewUrl:slug&&visualId
       ?`https://nft.fragment.com/gift/${slug}-${visualId}.webp`
       :model.preview_url||'../assets/placeholder.png',
+    animationUrl:model.animation_url||(slug&&visualId
+      ?`https://nft.fragment.com/gift/${slug}-${visualId}.tgs`
+      :''),
     modelSlug:model.slug||'',
     collectionName:collection.name||'VYRN',
     collectionSlug:slug,
@@ -110,20 +120,14 @@ async function refreshFragmentPrice(g){
   if(g.priceRefreshStarted)return;
   g.priceRefreshStarted=true;
   g.priceLoading=true;
-  g.priceError=false;
-  g.priceStatus='Загружаем цену и характеристики с Fragment…';
   renderCraft();
   try{
     const {item}=await window.VyrnApi.refreshNftPrice(g.itemId);
     g.attributes=item.attributes||{};
     g.pct=getCraftChance(g);
-    const fragmentPrice=fmt(Number(g.attributes.fragment_price_fragment_stars??g.attributes.fragment_price_stars));
-    g.priceStatus=g.attributes.fragment_price_manual===true
-      ?`Ручная цена: ${fmt(Number(g.attributes.fragment_price_stars))} ★ · Fragment: ${fmt(Number(g.attributes.fragment_price_grams))} / 10 × 80 = ${fragmentPrice} ★`
-      :`${fmt(Number(g.attributes.fragment_price_grams))} GRAM / 10 × 80 = ${fragmentPrice} ★`;
   }catch(error){
-    g.priceStatus=`Не удалось обновить с Fragment: ${error.message||'ошибка запроса'}`;
-    g.priceError=true;
+    g.priceErrorMessage=error.message||'Не удалось загрузить цену Fragment.';
+    if(slots.includes(g))toast(g.priceErrorMessage);
   }finally{
     g.priceLoading=false;
     if(slots.includes(g))renderCraft();
@@ -155,50 +159,6 @@ function total(){
   if(selected.length===4&&selected.every(hasRareBlackBackdrop))return 100;
   return Math.min(100,selected.reduce((sum,g)=>sum+g.pct,0));
 }
-function renderPriceFields(){
-  const box=$('#priceFields');box.replaceChildren();
-  slots.filter(Boolean).forEach(g=>{
-    const label=document.createElement('span');label.className='price-label';
-    label.textContent=`${g.name} #${g.id}`;
-    const input=document.createElement('input');input.className='price-input';
-    input.type='number';input.min='0.01';input.max='1000000000000';input.step='0.01';
-    input.value=g.attributes.fragment_price_stars??'';
-    input.disabled=g.priceLoading===true;
-    input.setAttribute('aria-label',`Цена ${g.name} #${g.id} в Stars`);
-    const status=document.createElement('small');status.className=`price-status${g.priceError?' error':''}`;
-    status.textContent=g.priceStatus||'Цена Fragment в Stars — можно изменить вручную.';
-    input.addEventListener('change',async()=>{
-      const next=Number(input.value);
-      const previous=g.attributes.fragment_price_stars;
-      if(!Number.isFinite(next)||next<0.01||next>1_000_000_000_000
-        ||Math.abs(next*100-Math.round(next*100))>0.000001){
-        g.priceStatus='Укажите цену от 0,01 до 1 000 000 000 000 ★, максимум 2 знака после запятой.';
-        g.priceError=true;
-        renderCraft();
-        return;
-      }
-      g.priceLoading=true;g.priceStatus='Сохраняем цену…';g.priceError=false;
-      g.attributes.fragment_price_stars=next;g.pct=getCraftChance(g);
-      renderCraft();
-      try{
-        const {item}=await window.VyrnApi.updateNftPrice(g.itemId,next);
-        g.attributes=item.attributes;
-        g.pct=getCraftChance(g);
-        g.priceStatus='Цена сохранена и будет учитываться в следующих крафтах.';
-      }catch(error){
-        if(previous===undefined)delete g.attributes.fragment_price_stars;
-        else g.attributes.fragment_price_stars=previous;
-        g.pct=getCraftChance(g);
-        g.priceStatus=error.message||'Не удалось сохранить цену.';
-        g.priceError=true;
-      }finally{
-        g.priceLoading=false;
-        renderCraft();
-      }
-    });
-    row.append(label,input,status);box.appendChild(row);
-  });
-}
 function renderCraft(){
   document.querySelectorAll('.slot').forEach((el,i)=>{
     el.innerHTML='';const g=slots[i];
@@ -217,7 +177,6 @@ function renderCraft(){
   $('#info').textContent=collection
     ?`Одна коллекция: «${collection}». При неудаче NFT сгорят.`
     :'Выбери NFT из одной коллекции, её можно изменить. При неудаче NFT сгорят.';
-  renderPriceFields();
   const sel=slots.filter(Boolean);
   const ch=$('#chips');ch.replaceChildren();
   sel.forEach(g=>{
@@ -233,7 +192,7 @@ function renderCraft(){
   });
   const go=$('#goBtn');
   if(!sel.length){go.className='go off';go.innerHTML='Добавь NFT';}
-  else{go.className='go '+(t>=50?'green':'blue');go.innerHTML=`Создать NFT<small>Шанс успеха: ${Number(t.toFixed(1))}%</small>`}
+  else{go.className='go green';go.innerHTML=`Скрафтить NFT<small>Шанс успеха: ${Number(t.toFixed(1))}%</small>`}
 }
 /* picker */
 let pickIdx=0;
@@ -266,6 +225,13 @@ $('#goBtn').onclick=startCraft;
 async function startCraft(){
   const sel=slots.filter(Boolean);
   if(!sel.length||busy)return;busy=true;
+  if(sel.some(g=>g.priceLoading===true||!Number.isFinite(Number(g.attributes.fragment_price_stars))
+    ||Number(g.attributes.fragment_price_stars)<=0)){
+    busy=false;
+    const failedPrice=sel.find(g=>g.priceErrorMessage);
+    toast(failedPrice?.priceErrorMessage||'Дождись загрузки цены Fragment для выбранных NFT');
+    return;
+  }
   let outcome;
   try{
     outcome=await window.VyrnApi.craftNfts(sel.map(g=>g.itemId));
@@ -292,7 +258,6 @@ async function startCraft(){
 
   closeCraft();
   const cr=$('#crafting'),stage=$('#stage');
-  $('#cNum').textContent=`NFT: ${sel.length}`;
   $('#cPc').textContent=`Шанс успеха: ${Number(t.toFixed(1))}%`;
   stage.innerHTML='';cr.classList.add('on');
 
@@ -388,7 +353,8 @@ async function startCraft(){
   if(success)inv.unshift(result);
   renderGrid();
   cr.classList.remove('on');
-  showResult(success,result,t,sel[0]);
+  const inputTotal=sel.reduce((sum,g)=>sum+Number(g.attributes.fragment_price_stars),0);
+  showResult(success,result,t,sel[0],inputTotal,sel.length);
   busy=false;
 }
 function burst(sparks){
@@ -404,7 +370,7 @@ function burst(sparks){
 }
 
 /* ================= result ================= */
-function showResult(ok,g,chance,consumedNft){
+function showResult(ok,g,chance,consumedNft,inputTotal,inputCount){
   const res=$('#result');res.className='';res.innerHTML='';
   if(!ok){
     res.classList.add('on','bad');
@@ -412,48 +378,126 @@ function showResult(ok,g,chance,consumedNft){
     const fb=res.querySelector('.failbox');
     if(consumedNft)fb.appendChild(tileEl(consumedNft,{badge:false,num:true}));
     const title=document.createElement('h2');title.textContent='Крафт не удался';
-    const description=document.createElement('p');description.textContent='Шанс успеха не сработал. Выбранные NFT сгорели.';
+    const description=document.createElement('p');
+    description.append(
+      document.createTextNode(`Шанс успеха не сработал. Сгорели все ${inputCount} NFT на сумму ${fmt(inputTotal)} `),
+      createStarsIcon(),
+      document.createTextNode('.')
+    );
     fb.append(title,description);
     res.querySelector('.ok').onclick=()=>res.classList.remove('on');
     return;
   }
   res.classList.add('on');
   res.innerHTML=`
-  <div class="hero" style="background:linear-gradient(135deg,#2a8cf0,#193c75)">
-    <div class="glow" style="background:radial-gradient(circle at 50% 40%,rgba(255,255,255,.35),transparent 60%)"></div>
-    <div class="gcake"></div>
-    <h2></h2><p></p>
-  </div>
-  <div class="tbl"></div>
-  <button class="ok">Хорошо</button>`;
-  const art=res.querySelector('.gcake');
-  const nftTile=tileEl(g,{badge:false});
-  nftTile.style.width='100%';nftTile.style.height='100%';
-  art.appendChild(nftTile);
-  res.querySelector('.hero h2').textContent=g.name;
-  res.querySelector('.hero p').textContent=`${g.collectionName} · NFT #${g.id}`;
+  <section class="craft-result-modal" role="dialog" aria-modal="true" aria-label="Скрафтченный NFT">
+    <div class="nft-modal-art">
+      <div class="nft-modal-backdrop" aria-hidden="true"></div>
+      <button class="nft-modal-close" type="button" aria-label="Закрыть окно">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6 6 12 12M18 6 6 18" /></svg>
+      </button>
+      <div class="nft-modal-animation" aria-hidden="true"></div>
+      <div class="nft-modal-heading">
+        <h2></h2><p class="nft-modal-collection"></p>
+      </div>
+    </div>
+    <div class="nft-modal-details">
+      <dl class="nft-modal-metadata"></dl>
+      <button class="nft-modal-confirm" type="button">OK</button>
+    </div>
+  </section>`;
+  const modal=res.querySelector('.craft-result-modal');
+  const art=res.querySelector('.nft-modal-art');
+  const animation=res.querySelector('.nft-modal-animation');
+  const backdrop=res.querySelector('.nft-modal-backdrop');
+  res.querySelector('.nft-modal-heading h2').textContent=`${g.name} #${g.id}`;
+  res.querySelector('.nft-modal-collection').textContent=`Коллекция ${g.collectionName}`;
   const value=g.attributes.fragment_price_stars;
   const rows=[
     ['Коллекция',g.collectionName],
-    ['Модель',g.name],
-    ['NFT ID',g.id],
-    ['Шанс крафта',`${Number(chance.toFixed(1))}%`],
-    ['Оценка',value!==undefined&&value!==null&&value!==''&&Number.isFinite(Number(value))?`${fmt(Number(value))} ★`:'Не указана'],
+    [g.attributes.fragment_price_crafted_total===true?'Цена (сумма входных NFT)':'Ценность (FRAGMENT)',value!==undefined&&value!==null&&value!==''&&Number.isFinite(Number(value))?fmt(Number(value)):'Не указана',value!==undefined&&value!==null&&value!==''&&Number.isFinite(Number(value))],
     ['Фон',g.attributes.fragment_traits?.backdrop?.name||'Не указан'],
     ['Эффект / символ',[
       g.attributes.fragment_traits?.model?.name,
       g.attributes.fragment_traits?.symbol?.name
     ].filter(Boolean).join(' · ')||'Не указан']
   ];
-  const table=res.querySelector('.tbl');
-  rows.forEach(([label,text])=>{
-    const row=document.createElement('div');row.className='row';
-    const heading=document.createElement('b');heading.textContent=label;
-    const value=document.createElement('span');value.textContent=text;
-    row.append(heading,value);table.appendChild(row);
+  const table=res.querySelector('.nft-modal-metadata');
+  rows.forEach(([label,text,hasStars])=>{
+    const row=document.createElement('div');
+    const heading=document.createElement('dt');heading.textContent=label;
+    const entry=document.createElement('dd');entry.textContent=text;
+    if(hasStars)entry.append(' ',createStarsIcon());
+    row.append(heading,entry);table.appendChild(row);
   });
-  res.querySelector('.ok').onclick=()=>{res.classList.remove('on');stopConf()};
+  const closeResult=()=>{
+    res.classList.remove('on');
+    resultAnimations.forEach(instance=>instance.destroy());
+    resultAnimations=[];
+    stopConf();
+  };
+  res.querySelector('.nft-modal-close').onclick=closeResult;
+  res.querySelector('.nft-modal-confirm').onclick=closeResult;
+  const resultPreview=()=>{
+    const image=document.createElement('img');
+    image.className='nft-modal-preview';
+    image.src=g.previewUrl||'../assets/placeholder.png';
+    image.alt=`${g.name} #${g.id}`;
+    animation.replaceChildren(image);
+    animation.classList.add('is-ready');
+    const backdropImage=image.cloneNode();
+    backdropImage.className='nft-modal-backdrop-preview';
+    backdrop.replaceChildren(backdropImage);
+    backdrop.classList.add('is-ready');
+    art.classList.add('is-ready');
+  };
+  loadCraftResultAnimation(g,animation,backdrop,art,modal,resultPreview);
   confetti();
+}
+
+let resultAnimations=[];
+async function loadCraftResultAnimation(g,animation,backdrop,art,modal,onFallback){
+  try{
+    if(!window.lottie||typeof DecompressionStream==='undefined'||!g.animationUrl)throw new Error('NFT animation is unavailable');
+    const response=await fetch(g.animationUrl,{cache:'no-store'});
+    if(!response.ok)throw new Error(`NFT animation request failed: ${response.status}`);
+    const source=await new Response(response.body.pipeThrough(new DecompressionStream('gzip'))).json();
+    if(!modal.isConnected||!$('#result').classList.contains('on'))return;
+    const giftData=structuredClone(source);
+    const giftLayer=giftData.layers.find(layer=>layer.nm==='Gift');
+    if(!giftLayer)throw new Error('Gift animation layer is missing');
+    const scaleData=giftLayer.ks?.s?.k;
+    const shrinkScale=values=>{
+      if(Array.isArray(values)&&values.length>=2){values[0]*=.7;values[1]*=.7}
+    };
+    if(Array.isArray(scaleData)){
+      if(typeof scaleData[0]==='number')shrinkScale(scaleData);
+      else scaleData.forEach(keyframe=>{shrinkScale(keyframe.s);shrinkScale(keyframe.e)});
+    }
+    giftData.layers=[giftLayer];
+    const backdropData=structuredClone(source);
+    backdropData.layers=backdropData.layers.filter(layer=>layer.nm!=='Gift');
+    if(!backdropData.layers.length)throw new Error('Gift backdrop animation is missing');
+    const backdropAnimation=window.lottie.loadAnimation({
+      container:backdrop,renderer:'svg',loop:false,autoplay:false,animationData:backdropData
+    });
+    const giftAnimation=window.lottie.loadAnimation({
+      container:animation,renderer:'svg',loop:false,autoplay:true,animationData:giftData
+    });
+    resultAnimations=[backdropAnimation,giftAnimation];
+    backdropAnimation.addEventListener('DOMLoaded',()=>{
+      backdrop.querySelector('svg')?.setAttribute('preserveAspectRatio','xMidYMid slice');
+      backdropAnimation.goToAndStop(0,true);
+      backdrop.classList.add('is-ready');
+    });
+    giftAnimation.addEventListener('DOMLoaded',()=>{
+      animation.querySelector('svg')?.setAttribute('preserveAspectRatio','xMidYMid slice');
+      animation.classList.add('is-ready');
+      art.classList.add('is-ready');
+    });
+  }catch{
+    if(modal.isConnected&&$('#result').classList.contains('on'))onFallback();
+  }
 }
 
 /* confetti */
