@@ -777,6 +777,11 @@ if (collectionPreviewGrid) {
 	} else {
 		renderCollectionPreview(nftCollection);
 	}
+	window.addEventListener('vyrn:cache-refresh', (event) => {
+		if (event.detail?.action === 'my_nfts') {
+			renderCollectionPreview((event.detail.result.items || []).map(mapOwnedNft));
+		}
+	});
 }
 
 const marketGrid = document.querySelector('.market-grid');
@@ -986,11 +991,11 @@ if (marketGrid) {
 	if (!canUseSupabaseAccount()) hydrateMarketTraits(marketCards);
 
 	let marketRequestId = 0;
-	const renderMarketList = async () => {
+	const renderMarketList = async (refreshedResult = null) => {
 		if (canUseSupabaseAccount()) {
 			const requestId = ++marketRequestId;
 			try {
-				const result = await window.VyrnApi.market(marketMode);
+				const result = refreshedResult || await window.VyrnApi.market(marketMode);
 				if (requestId !== marketRequestId) return;
 				const remoteCards = result.items.map((entry) => {
 					const nft = entry.nft_items || {};
@@ -1155,6 +1160,11 @@ if (marketGrid) {
 		marketEmpty.hidden = visibleCards.length > 0;
 	};
 
+	window.addEventListener('vyrn:cache-refresh', (event) => {
+		if (event.detail?.action === 'market' && event.detail.payload.mode === marketMode) {
+			renderMarketList(event.detail.result);
+		}
+	});
 	marketCollectionFilter.addEventListener('change', renderMarketList);
 	marketSort.addEventListener('change', renderMarketList);
 	marketFilterButton.addEventListener('click', () => {
@@ -1345,17 +1355,21 @@ if (nftGrid) {
 
 	window.addEventListener('scroll', updateVisibleNftCards, { passive: true });
 	window.addEventListener('resize', updateVisibleNftCards);
+	const renderOwnedNfts = (items) => {
+		nftGrid.replaceChildren();
+		cards = items.map((item) => renderNftCard(mapOwnedNft(item)));
+		filterProfileNftCards();
+		updateVisibleNftCards();
+	};
 	if (canLoadPlayerData()) {
-		window.VyrnApi.myNfts().then(({ items }) => {
-			nftGrid.replaceChildren();
-			cards = items.map((item) => renderNftCard(mapOwnedNft(item)));
-			filterProfileNftCards();
-			updateVisibleNftCards();
-		}).catch(() => {
+		window.VyrnApi.myNfts().then(({ items }) => renderOwnedNfts(items)).catch(() => {
 			nftGrid.replaceChildren();
 			cards = [];
 		});
 	}
+	window.addEventListener('vyrn:cache-refresh', (event) => {
+		if (event.detail?.action === 'my_nfts') renderOwnedNfts(event.detail.result.items || []);
+	});
 	updateVisibleNftCards();
 }
 
@@ -1499,6 +1513,22 @@ window.openVyrnPlayerProfile = async (profileOrId) => {
 		}
 	}
 };
+
+window.addEventListener('vyrn:cache-refresh', (event) => {
+	const detail = event.detail;
+	if (detail?.action !== 'profile_nfts'
+		|| detail.payload.profile_id !== sharedPlayerProfileData?.id
+		|| !playerProfileDialog.open) return;
+	const result = detail.result;
+	const profile = result.profile
+		? {
+			...sharedPlayerProfileData,
+			...result.profile,
+			status: getProfileStatus(result.profile) || result.status || getProfileStatus(sharedPlayerProfileData)
+		}
+		: { ...sharedPlayerProfileData, status: result.status || getProfileStatus(sharedPlayerProfileData) };
+	renderSharedPlayerProfile(profile, result.items || []);
+});
 
 playerProfileDialog.querySelector('.player-profile-back').addEventListener('click', () => playerProfileDialog.close());
 playerProfileDialog.addEventListener('click', (event) => {
@@ -2292,11 +2322,11 @@ if (chatRows.length && conversationDialog) {
 			unreadBadge.setAttribute('aria-label', `${unreadCount} непрочитанных сообщений`);
 		}
 	};
-	const refreshChatList = async () => {
+	const refreshChatList = async (refreshedResult = null) => {
 		if (document.hidden || !window.VyrnApi || !chatsPage || conversationDialog?.open || chatListRefreshInFlight) return;
 		chatListRefreshInFlight = true;
 		try {
-			const result = await window.VyrnApi.chats();
+			const result = refreshedResult || await window.VyrnApi.chats();
 			result.chats.filter((member) => member.chats?.chat_type === 'direct' && member.peer).forEach((member) => {
 				const row = addRemoteChatRow(member.chat_id, member.peer, member);
 				updateChatRowSummary(row, member);
@@ -2307,6 +2337,9 @@ if (chatRows.length && conversationDialog) {
 			chatListRefreshInFlight = false;
 		}
 	};
+	window.addEventListener('vyrn:cache-refresh', (event) => {
+		if (event.detail?.action === 'chats') refreshChatList(event.detail.result);
+	});
 	if (favoritesPreview && favoriteMessages.length) {
 		favoritesPreview.textContent = favoriteMessages.at(-1).text;
 	}
