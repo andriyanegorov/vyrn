@@ -1,0 +1,85 @@
+# VYRN
+
+## Подключение Supabase
+
+В проект добавлены SQL-схема, Edge Function для Telegram-авторизации и клиентский API-адаптер. Telegram-запросы выполняются через `telegram-api` после проверки подписи `initData`. Обычный браузер может напрямую читать только разрешённые RLS-политикой публичные поля demo-профиля `telegram_id = 0`.
+
+1. Создайте проект Supabase и откройте **SQL Editor**.
+2. Выполните целиком `supabase/schema.sql` один раз.
+3. Установите Supabase CLI, выполните `supabase login`, затем свяжите этот каталог с проектом командой `supabase link --project-ref <PROJECT_REF>`.
+4. В настройках Telegram Mini App задайте HTTPS URL сайта. Для локального открытия HTML авторизация Telegram не работает.
+5. Добавьте токен бота как секрет Edge Function, не помещая его в клиентский JavaScript:
+
+	```powershell
+	supabase secrets set TELEGRAM_BOT_TOKEN="<BOT_TOKEN>"
+	```
+
+	Supabase автоматически предоставляет Edge Function переменные `SUPABASE_URL` и `SUPABASE_SERVICE_ROLE_KEY`. Для self-hosted среды, где service role key не предоставляется автоматически, задайте секрет `VYRN_SUPABASE_SERVICE_ROLE_KEY`. Ни один из этих ключей не добавляйте в клиентский JavaScript.
+6. Разверните функцию из корня проекта:
+
+	```powershell
+	supabase functions deploy telegram-api --project-ref orcstihnyxrtgmvcbfiq --no-verify-jwt
+	```
+
+	Функция отключает проверку Supabase JWT на шлюзе, потому что вход подтверждается подписью Telegram `initData` внутри функции. Telegram bot token и service role key никогда не отправляются в браузер.
+7. Укажите URL проекта и публичный `anon` key в `supabase-client-config.js`. В браузере разрешено хранить только публичный anon key; не вставляйте сюда service role key.
+
+### Обычный браузер: просмотр профиля
+
+В `supabase-client-config.js` включён `browserDemo: true`. В этом режиме клиент напрямую читает SQL views `browser_demo_profile` и `browser_demo_nfts`; последнее возвращает только NFT, которыми владеет профиль с `telegram_id = 0`. Edge Function для чтения не требуется. Выполните `supabase/browser-demo-read.sql` в Supabase SQL Editor после изменений этого файла. Повторный запуск обновит views и создаст кошельки с балансом `0`, не перезаписывая существующие балансы. Скрипт создаст тестовый профиль, только если его ещё нет. Anon получает доступ только к этим двум views, а исходные таблицы остаются закрытыми. До выполнения SQL REST API будет возвращать ошибку доступа или `404` для view.
+
+Браузерный режим только для чтения профиля; операции с балансом, NFT, рынком и чатами остаются доступны через Telegram и серверную функцию. Не добавляйте общие права на изменение строки demo-профиля: anon key публичен.
+
+Если браузер пишет о CORS preflight, сначала проверьте ответ Edge Function. `404` с текстом `Requested function was not found` означает, что функция не развёрнута в указанном проекте; это не ошибка CORS в браузерном коде. После deploy preflight `OPTIONS` должен возвращать `200` и заголовки `Access-Control-Allow-Origin`, `Access-Control-Allow-Methods` и `Access-Control-Allow-Headers`.
+
+После настройки Telegram-вход создаёт профиль, уникальный nickname формата `player` и шесть цифр, кошельки с нулевым начальным балансом и личный чат «Избранное». Профиль, коллекция NFT, рынок, диалоги и сообщения читаются и изменяются через Edge Function. Цены в `stars` хранят целые звёзды, цены в `ton` и TON-балансы хранятся в нанотонах (`1 TON = 1 000 000 000` единиц).
+
+## Важное для запуска
+
+Каталог моделей NFT сам по себе не подтверждает владение. Чтобы у игрока появились реальные экземпляры, доверенный серверный импорт должен добавить строки в `nft_items` и назначить `owner_profile_id`; браузер не может выпускать NFT или назначать их себе. Рыночная покупка требует положительного баланса. Пополнение через Telegram Stars описано ниже; баланс меняется только после серверного подтверждения успешного платежа от Telegram.
+
+## Пополнение через Telegram Stars
+
+Курс пополнения: **1 VYRN Star = 1 Telegram Star (XTR)**. Оплата доступна только внутри Telegram Mini App; обычный браузер не может создать счёт или зачислить баланс.
+
+1. В Supabase SQL Editor выполните `supabase/star-topups.sql` после `supabase/schema.sql`. Миграция создаёт таблицу платёжных намерений и ограниченные `service_role` RPC для проверки и однократного зачисления.
+2. Убедитесь, что Edge Function secret `TELEGRAM_BOT_TOKEN` задан, как описано выше. Создайте секрет webhook и задайте его для функции. В PowerShell:
+
+	```powershell
+	$webhookSecret = [guid]::NewGuid().ToString('N') + [guid]::NewGuid().ToString('N')
+	supabase secrets set TELEGRAM_WEBHOOK_SECRET="$webhookSecret" --project-ref orcstihnyxrtgmvcbfiq
+	```
+
+3. Разверните обновлённую Edge Function:
+
+	```powershell
+	supabase functions deploy telegram-api --project-ref orcstihnyxrtgmvcbfiq --no-verify-jwt
+	```
+
+4. Зарегистрируйте webhook Telegram на `https://orcstihnyxrtgmvcbfiq.supabase.co/functions/v1/telegram-api`, передав тот же `secret_token` и обновления `message` и `pre_checkout_query`. Например, вызовите Bot API `setWebhook` из защищённой административной среды с JSON:
+
+	```json
+	{
+	  "url": "https://orcstihnyxrtgmvcbfiq.supabase.co/functions/v1/telegram-api",
+	  "secret_token": "<тот же TELEGRAM_WEBHOOK_SECRET>",
+	  "allowed_updates": ["message", "pre_checkout_query"]
+	}
+	```
+
+	Запрос отправляется методом `POST` на `https://api.telegram.org/bot<BOT_TOKEN>/setWebhook`. Не публикуйте URL с токеном бота и не добавляйте токен или webhook secret в файлы проекта. Если у бота уже настроен webhook для другого сервиса, `setWebhook` заменит его: сначала объедините обработчики или подготовьте отдельного бота.
+5. Размещайте сайт по HTTPS и запускайте его как Telegram Mini App. Проверьте пробное пополнение: Telegram Stars спишутся при оплате, а VYRN Stars появятся после получения и проверки успешного webhook. Повторная доставка webhook не дублирует зачисление; в историю кошелька добавляется операция `telegram_stars_topup`.
+
+Webhook проверяет `TELEGRAM_WEBHOOK_SECRET`, а перед выставлением счёта сервер проверяет подпись Telegram `initData`. Успешное зачисление дополнительно сверяет Telegram user ID, payload, XTR-сумму и уникальный charge ID. Никогда не начисляйте баланс по callback из браузера — он используется только для отображения статуса оплаты.
+
+Капсулы, улучшения NFT, ежедневные задания и рейтинг на главной пока остаются макетными: для них нужны конкретные правила выпадения, стоимость операций, награды и формула рейтинга. Текущий серверный контур намеренно не начисляет случайные NFT или валюту.
+
+## Админ-панель выдачи NFT
+
+1. В Supabase SQL Editor выполните `supabase/admin-panel.sql` после основной схемы. После обновления SQL этого файла выполните его повторно, чтобы обновить функции админ-панели в Supabase.
+2. В `supabase/admin-set-password.sql` замените строку `REPLACE_WITH_A_LONG_RANDOM_ADMIN_PASSWORD` на уникальный пароль длиной от 20 символов и выполните этот SQL. Сам пароль не вставляйте в HTML/JS и не коммитьте этот SQL с заполненным паролем.
+3. Опубликуйте `admin.html`, `admin.css` и `admin.js` вместе с остальными файлами на GitHub Pages и откройте `/admin.html`.
+4. Введите пароль, найдите игрока по nickname, username, имени или Telegram ID. Выберите коллекцию из списка либо укажите slug/название вручную, введите номер и проверьте предпросмотр и ссылку Fragment.
+
+Цена выдачи загружается со страницы Fragment через Edge Function `fragment-price`: цена в GRAM делится на 10 и умножается на 80 Stars. В админ-панели её можно изменить вручную перед выдачей. Разверните функцию командой `supabase functions deploy fragment-price --project-ref <PROJECT_REF> --no-verify-jwt`.
+
+Выдача создаёт/обновляет тестовое владение в таблицах VYRN и записывает передачу; она не передаёт реальный Telegram-подарок. Список панели включает все 120 коллекций, опубликованных в Fragment на момент последнего обновления кода. У Fragment нет используемого здесь официального открытого API поиска/выдачи: поиск по номеру формирует preview URL, а коллекцию, появившуюся позже, можно указать вручную по slug и проверить ссылкой на Fragment. Статус существования/владения номером Fragment нужно сверять на самом Fragment. Пароль проверяется в PostgreSQL через bcrypt, RPC-параметр передаётся по HTTPS и не сохраняется в браузере. Ограничьте доступ к ссылке панели и используйте длинный уникальный пароль.

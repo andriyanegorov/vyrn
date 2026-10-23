@@ -9,6 +9,25 @@ const json = (body: unknown, status = 200) => new Response(JSON.stringify(body),
   headers: { ...corsHeaders, 'Content-Type': 'application/json' },
 });
 
+const secureEquals = (first: string, second: string) => {
+  if (first.length !== second.length) return false;
+  let difference = 0;
+  for (let index = 0; index < first.length; index++) {
+    difference |= first.charCodeAt(index) ^ second.charCodeAt(index);
+  }
+  return difference === 0;
+};
+
+const telegramApiRequest = async (botToken: string, method: string, payload: Record<string, unknown>) => {
+  const response = await fetch(`https://api.telegram.org/bot${botToken}/${method}`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+  });
+  const result = await response.json().catch(() => null);
+  return { ok: response.ok && result?.ok === true, result, status: response.status };
+};
+
 const hex = (buffer: ArrayBuffer) => [...new Uint8Array(buffer)]
   .map((byte) => byte.toString(16).padStart(2, '0')).join('');
 
@@ -121,11 +140,86 @@ Deno.serve(async (request) => {
     return json({ error: 'Supabase SDK could not be loaded' }, 500);
   }
 
+  const supabase = createClient(supabaseUrl, serviceRoleKey, {
+    auth: { autoRefreshToken: false, persistSession: false },
+  });
+
   let input: Record<string, unknown>;
   try {
     input = await request.json();
   } catch {
     return json({ error: 'Invalid JSON' }, 400);
+  }
+  const preCheckoutQuery = input.pre_checkout_query as {
+    id?: unknown;
+    from?: { id?: unknown };
+    currency?: unknown;
+    total_amount?: unknown;
+    invoice_payload?: unknown;
+  } | undefined;
+  const successfulPaymentMessage = (input.message as {
+    from?: { id?: unknown };
+    successful_payment?: {
+      currency?: unknown;
+      total_amount?: unknown;
+      invoice_payload?: unknown;
+      telegram_payment_charge_id?: unknown;
+    };
+  } | undefined);
+  const successfulPayment = successfulPaymentMessage?.successful_payment;
+  const isTelegramWebhook = Number.isSafeInteger(input.update_id);
+  if (isTelegramWebhook) {
+    const webhookSecret = Deno.env.get('TELEGRAM_WEBHOOK_SECRET')?.trim();
+    const receivedSecret = request.headers.get('x-telegram-bot-api-secret-token') || '';
+    if (!webhookSecret || !secureEquals(receivedSecret, webhookSecret)) {
+      return json({ error: 'Unauthorized Telegram webhook' }, 401);
+    }
+    if (!botToken) return json({ error: 'Telegram bot is not configured' }, 500);
+
+    if (preCheckoutQuery) {
+      const validQuery = typeof preCheckoutQuery.id === 'string'
+        && Number.isSafeInteger(preCheckoutQuery.from?.id)
+        && Number.isSafeInteger(preCheckoutQuery.total_amount)
+        && typeof preCheckoutQuery.invoice_payload === 'string'
+        && typeof preCheckoutQuery.currency === 'string';
+      let orderIsValid = false;
+      if (validQuery) {
+        const validation = await supabase.rpc('validate_telegram_star_topup', {
+          p_invoice_payload: preCheckoutQuery.invoice_payload as string,
+          p_telegram_user_id: preCheckoutQuery.from!.id as number,
+          p_telegram_stars_amount: preCheckoutQuery.total_amount as number,
+          p_currency: preCheckoutQuery.currency as string,
+        });
+        orderIsValid = !validation.error && validation.data === true;
+      }
+      const answer = await telegramApiRequest(botToken, 'answerPreCheckoutQuery', {
+        pre_checkout_query_id: preCheckoutQuery.id,
+        ok: orderIsValid,
+        ...(!orderIsValid ? { error_message: 'Не удалось проверить заказ. Создайте новый счёт и попробуйте ещё раз.' } : {}),
+      });
+      return answer.ok
+        ? json({ ok: true })
+        : json({ error: 'Could not answer Telegram pre-checkout query', status: answer.status }, 502);
+    }
+
+    if (successfulPayment && successfulPaymentMessage?.from) {
+      const validPayment = Number.isSafeInteger(successfulPaymentMessage.from.id)
+        && Number.isSafeInteger(successfulPayment.total_amount)
+        && typeof successfulPayment.invoice_payload === 'string'
+        && typeof successfulPayment.currency === 'string'
+        && typeof successfulPayment.telegram_payment_charge_id === 'string';
+      if (!validPayment) return json({ error: 'Invalid successful payment update' }, 400);
+      const completion = await supabase.rpc('complete_telegram_star_topup', {
+        p_invoice_payload: successfulPayment.invoice_payload as string,
+        p_telegram_user_id: successfulPaymentMessage.from.id as number,
+        p_telegram_stars_amount: successfulPayment.total_amount as number,
+        p_currency: successfulPayment.currency as string,
+        p_telegram_payment_charge_id: successfulPayment.telegram_payment_charge_id as string,
+      });
+      if (completion.error) return json({ error: 'Could not credit Telegram Stars payment' }, 500);
+      return json({ ok: true });
+    }
+    return json({ ok: true });
   }
   const browserDemoRequested = typeof input.initData !== 'string' && input.browserDemo === true;
   const isBrowserDemo = browserDemoRequested;
@@ -136,9 +230,6 @@ Deno.serve(async (request) => {
     if (!telegramUser) return json({ error: 'Telegram user data is missing' }, 401);
   }
 
-  const supabase = createClient(supabaseUrl, serviceRoleKey, {
-    auth: { autoRefreshToken: false, persistSession: false },
-  });
   const telegramId = isBrowserDemo ? '0' : String(telegramUser!.id);
   const telegramUsername = !isBrowserDemo && typeof telegramUser!.username === 'string' ? telegramUser!.username as string : null;
   const avatarUrl = !isBrowserDemo && typeof telegramUser!.photo_url === 'string' ? telegramUser!.photo_url as string : null;
@@ -226,6 +317,46 @@ Deno.serve(async (request) => {
   };
 
   const action = input.action;
+  if (action === 'create_star_invoice') {
+    if (isBrowserDemo || typeof input.initData !== 'string' || !botToken) {
+      return json({ error: 'Open VYRN inside Telegram to buy Stars' }, 401);
+    }
+    const verified = await verifyTelegramInitData(input.initData, botToken);
+    if (!verified.user || String(verified.user.id) !== String(profile.telegram_id)) {
+      return json({ error: 'Telegram authorization could not be verified. Reopen the Mini App and try again.' }, 401);
+    }
+    const amount = input.amount;
+    if (!Number.isSafeInteger(amount) || Number(amount) < 1 || Number(amount) > 100000) {
+      return json({ error: 'Star amount must be a whole number from 1 to 100,000' }, 400);
+    }
+    const invoicePayload = `vyrn-stars:${crypto.randomUUID()}`;
+    const topup = await supabase.from('telegram_star_topups').insert({
+      profile_id: profile.id,
+      telegram_user_id: verified.user.id,
+      vyrn_stars_amount: amount,
+      telegram_stars_amount: amount,
+      invoice_payload: invoicePayload,
+    }).select('id').single();
+    if (topup.error) return json({ error: 'Could not create a pending top-up order' }, 500);
+
+    const invoice = await telegramApiRequest(botToken, 'createInvoiceLink', {
+      title: 'Пополнение VYRN',
+      description: `Пополнение баланса на ${amount} Stars`,
+      payload: invoicePayload,
+      provider_token: '',
+      currency: 'XTR',
+      prices: [{ label: `${amount} VYRN Stars`, amount }],
+    });
+    if (!invoice.ok || typeof invoice.result?.result !== 'string') {
+      const failedOrder = await supabase.from('telegram_star_topups')
+        .update({ status: 'failed' }).eq('id', topup.data.id);
+      if (failedOrder.error) {
+        return json({ error: 'Telegram invoice creation failed and the pending order could not be closed' }, 500);
+      }
+      return json({ error: invoice.result?.description || 'Telegram could not create the payment invoice' }, 502);
+    }
+    return json({ invoice_url: invoice.result.result });
+  }
   if (action === 'me' || !action) {
     const { data: wallets, error: walletError } = await supabase.from('wallets').select('currency,balance').eq('profile_id', profile.id);
     if (walletError) return json({ error: walletError.message }, 500);

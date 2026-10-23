@@ -110,6 +110,14 @@ if (document.body.classList.contains('wallet-screen')) {
 	const walletCurrencyOptionsContainer = document.querySelector('#wallet-currency-options');
 	const walletCurrencyOptions = [...document.querySelectorAll('.wallet-currency-option')];
 	const walletCurrencyCurrent = document.querySelector('.wallet-menu-current');
+	const walletTopupDialog = document.querySelector('#wallet-topup-dialog');
+	const walletTopupOpenButton = document.querySelector('[data-wallet-topup-open]');
+	const walletTopupCloseButtons = [...document.querySelectorAll('[data-wallet-topup-close]')];
+	const walletTopupAmountInput = document.querySelector('#wallet-topup-custom');
+	const walletTopupPackages = [...document.querySelectorAll('[data-wallet-topup-amount]')];
+	const walletTopupForm = document.querySelector('[data-wallet-topup-form]');
+	const walletTopupMoreButton = document.querySelector('[data-wallet-topup-more]');
+	const walletTopupBalance = document.querySelector('[data-wallet-topup-balance]');
 	const readWalletInteger = (value) => {
 		try {
 			return BigInt(value ?? 0);
@@ -120,12 +128,107 @@ if (document.body.classList.contains('wallet-screen')) {
 	const formatWalletInteger = (value) => value.toLocaleString('ru-RU');
 	let walletBalances = new Map();
 	let activeWalletCurrency = 'stars';
+	const setTopupPaymentStatus = (message) => {
+		walletToast.textContent = message;
+		walletToast.hidden = false;
+	};
+	const startTelegramStarPayment = async (amount) => {
+		if (!Number.isSafeInteger(amount) || amount < 1 || amount > 100000) {
+			setTopupPaymentStatus('Укажите целое количество от 1 до 100 000 Stars.');
+			return;
+		}
+		if (!telegramWebApp?.initData || typeof telegramWebApp.openInvoice !== 'function') {
+			setTopupPaymentStatus('Для оплаты откройте VYRN внутри Telegram.');
+			return;
+		}
+		if (!window.VyrnApi?.isConfigured) {
+			setTopupPaymentStatus('Платежный сервер не настроен. Попробуйте позже.');
+			return;
+		}
+		const paymentControls = [...walletTopupPackages, walletTopupAmountInput, walletTopupForm.querySelector('[type="submit"]')];
+		paymentControls.forEach((control) => { control.disabled = true; });
+		try {
+			const result = await window.VyrnApi.createStarInvoice(amount);
+			if (typeof result.invoice_url !== 'string' || !result.invoice_url) {
+				throw new Error('Сервер не вернул ссылку на оплату.');
+			}
+			const status = await new Promise((resolve, reject) => {
+				try {
+					telegramWebApp.openInvoice(result.invoice_url, resolve);
+				} catch (error) {
+					reject(error);
+				}
+			});
+			if (status === 'paid') {
+				setTopupPaymentStatus('Telegram подтвердил оплату. Проверяем зачисление Stars…');
+				window.setTimeout(() => {
+					loadWallet().catch((error) => {
+						console.error('Не удалось обновить кошелёк после оплаты:', error);
+						setTopupPaymentStatus('Оплата принята. Не удалось обновить баланс автоматически — перезагрузите страницу.');
+					});
+				}, 1500);
+			} else if (status === 'pending') {
+				setTopupPaymentStatus('Платёж обрабатывается. Баланс обновится после подтверждения Telegram.');
+			} else if (status === 'cancelled') {
+				setTopupPaymentStatus('Оплата отменена.');
+			} else {
+				setTopupPaymentStatus('Telegram не подтвердил оплату. Баланс не изменён.');
+			}
+		} catch (error) {
+			setTopupPaymentStatus(error.message || 'Не удалось создать счёт на оплату.');
+		} finally {
+			paymentControls.forEach((control) => { control.disabled = false; });
+		}
+	};
 	const closeWalletMenu = () => {
 		walletMoreButton.setAttribute('aria-expanded', 'false');
 		walletCurrencyToggle.setAttribute('aria-expanded', 'false');
 		walletCurrencyOptionsContainer.hidden = true;
 		walletMenu.hidden = true;
 	};
+
+	walletTopupOpenButton.addEventListener('click', () => {
+		closeWalletMenu();
+		walletTopupBalance.textContent = walletBalances.has('stars')
+			? formatWalletInteger(readWalletInteger(walletBalances.get('stars')))
+			: '—';
+		walletTopupBalance.parentElement.setAttribute('aria-label', `Баланс: ${walletTopupBalance.textContent} звёзд`);
+		walletTopupDialog.scrollTop = 0;
+		walletTopupMoreButton.setAttribute('aria-expanded', 'false');
+		walletTopupMoreButton.querySelector('span').textContent = 'Показать другие варианты';
+		walletTopupForm.hidden = true;
+		walletTopupAmountInput.value = '';
+		walletTopupAmountInput.setCustomValidity('');
+		walletTopupDialog.showModal();
+	});
+	walletTopupCloseButtons.forEach((button) => button.addEventListener('click', () => {
+		walletTopupDialog.close();
+	}));
+	walletTopupPackages.forEach((button) => button.addEventListener('click', () => {
+		startTelegramStarPayment(Number(button.dataset.walletTopupAmount));
+	}));
+	walletTopupAmountInput.addEventListener('input', () => {
+		walletTopupAmountInput.setCustomValidity('');
+	});
+	walletTopupMoreButton.addEventListener('click', () => {
+		const isExpanded = walletTopupMoreButton.getAttribute('aria-expanded') === 'true';
+		walletTopupMoreButton.setAttribute('aria-expanded', String(!isExpanded));
+		walletTopupForm.hidden = isExpanded;
+		walletTopupMoreButton.querySelector('span').textContent = isExpanded
+			? 'Показать другие варианты'
+			: 'Скрыть дополнительные варианты';
+		if (!isExpanded) walletTopupAmountInput.focus();
+	});
+	walletTopupForm.addEventListener('submit', (event) => {
+		event.preventDefault();
+		if (!walletTopupAmountInput.reportValidity()) return;
+		if (!/^\d+$/.test(walletTopupAmountInput.value)) {
+			walletTopupAmountInput.setCustomValidity('Введите целое количество Stars.');
+			walletTopupAmountInput.reportValidity();
+			return;
+		}
+		startTelegramStarPayment(Number(walletTopupAmountInput.value));
+	});
 
 	const setWalletCurrency = (currency) => {
 		if (!walletBalances.has(currency)) return;
@@ -212,6 +315,8 @@ if (document.body.classList.contains('wallet-screen')) {
 		walletBalances = new Map(wallets.map((wallet) => [wallet.currency, wallet.balance]));
 		if (!walletBalances.has('stars')) walletBalances.set('stars', 0);
 		if (!walletBalances.has('ton')) walletBalances.set('ton', 0);
+		walletTopupBalance.textContent = formatWalletInteger(readWalletInteger(walletBalances.get('stars')));
+		walletTopupBalance.parentElement.setAttribute('aria-label', `Баланс: ${walletTopupBalance.textContent} звёзд`);
 		walletAccount.textContent = result.profile?.username
 			? `@${result.profile.username}`
 			: result.profile?.nickname || '';
@@ -243,6 +348,7 @@ if (document.body.classList.contains('wallet-screen')) {
 	document.addEventListener('keydown', (event) => {
 		if (event.key === 'Escape') {
 			closeWalletMenu();
+			if (walletTopupDialog.open) walletTopupDialog.close();
 		}
 	});
 
@@ -275,10 +381,6 @@ const profileDetailValues = profileContentElement ? [...profileContentElement.qu
 
 if (profileEditButton && profileEditorDialog && profileEditorForm && profileAvatarElement && profileNameElement && profileDetailValues.length >= 2) {
 	const telegramUser = getTelegramUser();
-	if (!telegramUser && window.VyrnApi?.browserDemo) {
-		profileEditButton.disabled = true;
-		profileEditButton.title = 'Браузерный демо-профиль доступен только для просмотра.';
-	}
 	const storedName = profileNameElement.textContent.trim().split(/\s+/);
 	const defaultProfile = {
 		firstName: telegramUser?.first_name || storedName[0] || '',
@@ -381,6 +483,9 @@ if (profileEditButton && profileEditorDialog && profileEditorForm && profileAvat
 				avatar: profile.avatar_url || '',
 				status: profile.status || ''
 			};
+			if (!telegramUser && window.VyrnApi.browserDemo && storedProfile) {
+				profileData = { ...profileData, ...storedProfile };
+			}
 			renderProfile();
 		} catch (error) {
 			profileEditorError.textContent = error.message;
@@ -435,23 +540,38 @@ if (profileEditButton && profileEditorDialog && profileEditorForm && profileAvat
 			avatar: profileData.avatar,
 			status: profileData.status
 		};
-		if (!window.VyrnApi) {
-			profileEditorError.textContent = 'Supabase API не подключён.';
-			profileEditorError.hidden = false;
-			return;
-		}
-		try {
-			const result = await window.VyrnApi.updateProfile({
-				first_name: nextProfile.firstName,
-				last_name: nextProfile.lastName,
-				bio: nextProfile.about,
-				username: username || null,
-				birthday: nextProfile.birthday || null,
-				phone: nextProfile.phone || null
-			});
-			nextProfile.nickname = result.profile.nickname;
-		} catch (error) {
-			profileEditorError.textContent = error.message;
+		if (telegramUser) {
+			if (!window.VyrnApi) {
+				profileEditorError.textContent = 'Supabase API не подключён.';
+				profileEditorError.hidden = false;
+				return;
+			}
+			try {
+				const result = await window.VyrnApi.updateProfile({
+					first_name: nextProfile.firstName,
+					last_name: nextProfile.lastName,
+					bio: nextProfile.about,
+					username: username || null,
+					birthday: nextProfile.birthday || null,
+					phone: nextProfile.phone || null
+				});
+				nextProfile.nickname = result.profile.nickname;
+			} catch (error) {
+				profileEditorError.textContent = error.message;
+				profileEditorError.hidden = false;
+				return;
+			}
+		} else if (window.VyrnApi?.browserDemo) {
+			try {
+				localStorage.setItem('vyrn.profile.editor.v1', JSON.stringify(nextProfile));
+				storedProfile = nextProfile;
+			} catch (error) {
+				profileEditorError.textContent = `Не удалось сохранить профиль в этом браузере: ${error.message}`;
+				profileEditorError.hidden = false;
+				return;
+			}
+		} else {
+			profileEditorError.textContent = 'Откройте профиль через Telegram, чтобы его изменить.';
 			profileEditorError.hidden = false;
 			return;
 		}
@@ -1751,38 +1871,40 @@ const activateNavItem = (item) => {
 	moveIndicator(item, true);
 };
 
-bottomNav.classList.add('is-initializing');
-moveIndicator(activeItem, false);
-requestAnimationFrame(() => {
-	requestAnimationFrame(() => bottomNav.classList.remove('is-initializing'));
-});
-window.addEventListener('resize', () => moveIndicator(activeItem, false));
-
-navButtons.forEach((button) => {
-	button.addEventListener('click', () => {
-		if (button === activeItem) {
-			return;
-		}
-
-		activateNavItem(button);
+if (bottomNav && navIndicator && activeItem) {
+	bottomNav.classList.add('is-initializing');
+	moveIndicator(activeItem, false);
+	requestAnimationFrame(() => {
+		requestAnimationFrame(() => bottomNav.classList.remove('is-initializing'));
 	});
-});
+	window.addEventListener('resize', () => moveIndicator(activeItem, false));
 
-navItems.filter((item) => item.tagName === 'A').forEach((link) => {
-	link.addEventListener('click', (event) => {
-		const destination = new URL(link.href, window.location.href);
-		if (destination.origin !== window.location.origin || destination.pathname === window.location.pathname) {
-			return;
-		}
+	navButtons.forEach((button) => {
+		button.addEventListener('click', () => {
+			if (button === activeItem) {
+				return;
+			}
 
-		event.preventDefault();
-		activateNavItem(link);
-		bottomNav.classList.add('is-route-transitioning');
-
-		const duration = window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 240 : 320;
-		window.setTimeout(() => window.location.assign(destination.href), duration);
+			activateNavItem(button);
+		});
 	});
-});
+
+	navItems.filter((item) => item.tagName === 'A').forEach((link) => {
+		link.addEventListener('click', (event) => {
+			const destination = new URL(link.href, window.location.href);
+			if (destination.origin !== window.location.origin || destination.pathname === window.location.pathname) {
+				return;
+			}
+
+			event.preventDefault();
+			activateNavItem(link);
+			bottomNav.classList.add('is-route-transitioning');
+
+			const duration = window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 240 : 320;
+			window.setTimeout(() => window.location.assign(destination.href), duration);
+		});
+	});
+}
 
 let chatRows = [...document.querySelectorAll('.chat-row')];
 let addRemoteChatRow;
@@ -2010,7 +2132,7 @@ if (chatRows.length && conversationDialog) {
 		giftPrice: message.gift?.price_stars ?? null
 	})));
 	const refreshActiveMessages = async () => {
-		if (!activeServerChatId || activeChatIndex < 0 || !window.VyrnApi || messageRefreshInFlight) return;
+		if (document.hidden || !activeServerChatId || activeChatIndex < 0 || !window.VyrnApi || messageRefreshInFlight) return;
 		const chatId = activeServerChatId;
 		messageRefreshInFlight = true;
 		try {
@@ -2045,7 +2167,7 @@ if (chatRows.length && conversationDialog) {
 	};
 	const startMessageRefresh = () => {
 		clearInterval(messageRefreshTimer);
-		messageRefreshTimer = setInterval(() => refreshActiveMessages().catch(() => {}), 2500);
+		messageRefreshTimer = setInterval(() => refreshActiveMessages().catch(() => {}), 10000);
 	};
 	const favoritesPreview = chatRows[favoritesChatIndex]?.querySelector('.chat-message');
 	let chatListRefreshInFlight = false;
@@ -2073,7 +2195,7 @@ if (chatRows.length && conversationDialog) {
 		}
 	};
 	const refreshChatList = async () => {
-		if (!window.VyrnApi || !chatsPage || conversationDialog?.open || chatListRefreshInFlight) return;
+		if (document.hidden || !window.VyrnApi || !chatsPage || conversationDialog?.open || chatListRefreshInFlight) return;
 		chatListRefreshInFlight = true;
 		try {
 			const result = await window.VyrnApi.chats();
@@ -2119,9 +2241,12 @@ if (chatRows.length && conversationDialog) {
 		}).catch((error) => {
 			console.error('Не удалось загрузить избранные сообщения:', error);
 		});
-		window.setInterval(refreshChatList, 5000);
+		window.setInterval(refreshChatList, 30000);
 		document.addEventListener('visibilitychange', () => {
-			if (!document.hidden) refreshChatList();
+			if (!document.hidden) {
+				refreshChatList();
+				if (activeServerChatId) refreshActiveMessages().catch(() => {});
+			}
 		});
 	}
 

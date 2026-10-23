@@ -11,8 +11,8 @@
   <link rel="stylesheet" href="style.css?v=fonts-manrope-inter-20261021">
   <script src="https://telegram.org/js/telegram-web-app.js"></script>
   <script src="supabase-client-config.js?v=wallet-data-20261019" defer></script>
-  <script src="supabase-api.js?v=wallet-data-20261019" defer></script>
-  <script src="script.js?v=craft-visual-id-20261021" defer></script>
+  <script src="supabase-api.js?v=telegram-stars-topup-20261023b" defer></script>
+  <script src="script.js?v=telegram-stars-topup-20261023b" defer></script>
 </head>
 <body class="wallet-screen">
   <header class="wallet-header">
@@ -60,7 +60,7 @@
       <span class="wallet-account-name" data-wallet-account></span>
     </section>
     <div class="wallet-actions" aria-label="Операции с кошельком">
-      <button class="wallet-action" type="button" disabled title="Пополнение пока недоступно">
+      <button class="wallet-action" type="button" aria-haspopup="dialog" aria-controls="wallet-topup-dialog" data-wallet-topup-open>
         <span>Пополнить</span>
       </button>
       <button class="wallet-action" type="button" disabled title="Вывод пока недоступен">
@@ -71,6 +71,63 @@
       <p class="wallet-empty-state">Загрузка операций...</p>
     </section>
   </main>
+  <dialog class="wallet-topup-dialog" id="wallet-topup-dialog" aria-labelledby="wallet-topup-title">
+    <div class="wallet-topup-shell">
+      <header class="wallet-topup-header">
+        <button class="wallet-topup-close" type="button" aria-label="Закрыть окно пополнения" data-wallet-topup-close>
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6 6 12 12M18 6 6 18" /></svg>
+        </button>
+        <div class="star-balance wallet-topup-balance" aria-label="Баланс: — звёзд">
+          <img src="./assets/stars.png" alt="" aria-hidden="true">
+          <span data-wallet-topup-balance>—</span>
+        </div>
+      </header>
+      <main class="wallet-topup-content">
+        <section class="wallet-topup-hero">
+          <img class="wallet-topup-art" src="./assets/svg/star.svg" alt="" aria-hidden="true">
+          <h2 id="wallet-topup-title">Купить звёзды</h2>
+          <p>Выберите нужное количество звёзд.</p>
+        </section>
+        <section class="wallet-topup-amounts" aria-label="Выбор количества Stars">
+          <div class="wallet-topup-packages">
+            <button class="wallet-topup-package" type="button" data-wallet-topup-amount="100" aria-label="Купить 100 звёзд за 100 Telegram Stars">
+              <span class="wallet-topup-package-name"><img src="./assets/stars.png" alt=""><span>100 звёзд</span></span><span class="wallet-topup-price">100 XTR</span>
+            </button>
+            <button class="wallet-topup-package" type="button" data-wallet-topup-amount="250" aria-label="Купить 250 звёзд за 250 Telegram Stars">
+              <span class="wallet-topup-package-name"><img src="./assets/stars.png" alt=""><span>250 звёзд</span></span><span class="wallet-topup-price">250 XTR</span>
+            </button>
+            <button class="wallet-topup-package" type="button" data-wallet-topup-amount="500" aria-label="Купить 500 звёзд за 500 Telegram Stars">
+              <span class="wallet-topup-package-name"><img src="./assets/stars.png" alt=""><span>500 звёзд</span></span><span class="wallet-topup-price">500 XTR</span>
+            </button>
+            <button class="wallet-topup-package" type="button" data-wallet-topup-amount="1000" aria-label="Купить 1 000 звёзд за 1 000 Telegram Stars">
+              <span class="wallet-topup-package-name"><img src="./assets/stars.png" alt=""><span>1 000 звёзд</span></span><span class="wallet-topup-price">1 000 XTR</span>
+            </button>
+            <button class="wallet-topup-package" type="button" data-wallet-topup-amount="2500" aria-label="Купить 2 500 звёзд за 2 500 Telegram Stars">
+              <span class="wallet-topup-package-name"><img src="./assets/stars.png" alt=""><span>2 500 звёзд</span></span><span class="wallet-topup-price">2 500 XTR</span>
+            </button>
+            <button class="wallet-topup-package" type="button" data-wallet-topup-amount="10000" aria-label="Купить 10 000 звёзд за 10 000 Telegram Stars">
+              <span class="wallet-topup-package-name"><img src="./assets/stars.png" alt=""><span>10 000 звёзд</span></span><span class="wallet-topup-price">10 000 XTR</span>
+            </button>
+            <button class="wallet-topup-package" type="button" data-wallet-topup-amount="35000" aria-label="Купить 35 000 звёзд за 35 000 Telegram Stars">
+              <span class="wallet-topup-package-name"><img src="./assets/stars.png" alt=""><span>35 000 звёзд</span></span><span class="wallet-topup-price">35 000 XTR</span>
+            </button>
+          </div>
+          <button class="wallet-topup-more" type="button" aria-expanded="false" aria-controls="wallet-topup-form" data-wallet-topup-more>
+            <span>Показать другие варианты</span>
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6 9 6 6 6-6" /></svg>
+          </button>
+          <form class="wallet-topup-form" id="wallet-topup-form" data-wallet-topup-form hidden>
+            <label class="wallet-topup-custom-label" for="wallet-topup-custom">Своё количество</label>
+            <div class="wallet-topup-input-wrap">
+              <input id="wallet-topup-custom" name="amount" type="number" min="1" max="100000" step="1" inputmode="numeric" placeholder="Введите число" required>
+              <img src="./assets/stars.png" alt="">
+            </div>
+            <button class="wallet-topup-done" type="submit">Оплатить</button>
+          </form>
+        </section>
+      </main>
+    </div>
+  </dialog>
   <div class="wallet-toast" role="status" aria-live="polite" hidden></div>
 </body>
 </html>

@@ -59,6 +59,7 @@
     },
     me: () => request('me'),
     wallet: () => request('wallet'),
+    createStarInvoice: (amount) => request('create_star_invoice', { amount }),
     updateProfile: (profile) => request('update_profile', profile),
     myNfts: () => request('my_nfts'),
     upgradeNft: (nftItemId) => request('upgrade_nft', { nft_item_id: nftItemId }),
