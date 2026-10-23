@@ -2572,6 +2572,15 @@ body.chats-screen {
   z-index: 9;
 }
 
+.conversation-screen > :not(.message-action-scrim):not(.message-action-copy):not(.message-action-menu) {
+  filter: blur(0) brightness(1);
+  transition: filter 300ms ease;
+}
+
+.conversation-screen.is-message-action-open > :not(.message-action-scrim):not(.message-action-copy):not(.message-action-menu) {
+  filter: blur(5px) brightness(0.75);
+}
+
 .conversation-screen > .message-action-copy {
   position: fixed;
   z-index: 9;
@@ -2579,14 +2588,23 @@ body.chats-screen {
   margin: 0;
   pointer-events: none;
   opacity: 1;
-  transform: none;
-  animation: none;
+  transform: scale(0.96) translateY(4px);
+  transform-origin: right bottom;
+  transition:
+    opacity 320ms cubic-bezier(0.2, 0.75, 0.25, 1),
+    transform 320ms cubic-bezier(0.2, 0.75, 0.25, 1);
+}
+
+.conversation-screen > .message-action-copy.is-raised {
+  opacity: 1;
+  transform: scale(1.06) translateY(-5px);
 }
 
 .message-action-copy .conversation-bubble {
   opacity: 1;
   transform: none;
   animation: none;
+  box-shadow: 0 12px 26px rgba(15, 20, 28, 0.24);
 }
 
 .conversation-bubble {
@@ -2818,10 +2836,23 @@ body.chats-screen {
   height: 100%;
   padding: 0;
   border: 0;
-  background: rgba(16, 22, 29, 0.24);
-  -webkit-backdrop-filter: blur(5px) brightness(0.7);
-  backdrop-filter: blur(5px) brightness(0.7);
+  background: rgba(16, 22, 29, 0);
+  opacity: 0;
+  -webkit-backdrop-filter: blur(0px);
+  backdrop-filter: blur(0px);
   cursor: default;
+  transition:
+    opacity 300ms ease,
+    background-color 300ms ease,
+    -webkit-backdrop-filter 300ms ease,
+    backdrop-filter 300ms ease;
+}
+
+.message-action-scrim.is-active {
+  background: rgba(16, 22, 29, 0.25);
+  opacity: 1;
+  -webkit-backdrop-filter: blur(5px) brightness(0.75);
+  backdrop-filter: blur(5px) brightness(0.75);
 }
 
 .message-action-scrim[hidden],
@@ -2840,10 +2871,10 @@ body.chats-screen {
   border-radius: 13px;
   background: rgba(255, 255, 255, 0.96);
   color: #202127;
+  box-shadow: 0 10px 30px rgba(15, 20, 28, 0.2);
   -webkit-backdrop-filter: blur(14px) saturate(125%);
   backdrop-filter: blur(14px) saturate(125%);
   transform-origin: top center;
-  animation: message-menu-enter 150ms ease-out both;
 }
 
 .message-delete-action {
@@ -2879,19 +2910,18 @@ body.chats-screen {
   stroke-width: 1.8;
 }
 
-@keyframes message-menu-enter {
-  from {
-    opacity: 0;
-    transform: translateY(-5px) scale(0.96);
-  }
-
-  to {
-    opacity: 1;
-    transform: translateY(0) scale(1);
-  }
-}
-
 @media (prefers-reduced-motion: reduce) {
+  .conversation-screen > :not(.message-action-scrim):not(.message-action-copy),
+  .conversation-screen > .message-action-copy,
+  .message-action-menu {
+    transition-duration: 1ms;
+    animation-duration: 1ms;
+  }
+
+  .message-action-scrim {
+    transition-duration: 1ms;
+  }
+
   .conversation-message.is-appearing .conversation-bubble {
     animation-duration: 180ms;
   }

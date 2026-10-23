@@ -1149,7 +1149,7 @@ Deno.serve(async (request) => {
     try {
       const notification = await telegramApiRequest(botToken, 'sendMessage', {
         chat_id: recipientTelegramId,
-        text: `Пользователь с ником «${profile.nickname}» написал вам в личные сообщения.\n\nЗайдите в VYRN, чтобы прочитать сообщение и ответить.`,
+        text: `Пользователь ${profile.first_name} направил вам личное сообщение. Чтобы ознакомиться с ним и ответить, пожалуйста, войдите в свой аккаунт на платформе VYRN. 📨`,
         reply_markup: {
           inline_keyboard: [[{
             text: 'Открыть чат',
@@ -1172,9 +1172,18 @@ Deno.serve(async (request) => {
 
   if (action === 'delete_message') {
     if (typeof input.message_id !== 'string') return json({ error: 'Message ID is required' }, 400);
-    const savedChatId = savedChat.data;
+    const message = await supabase.from('messages').select('id,chat_id')
+      .eq('id', input.message_id).eq('sender_profile_id', profile.id)
+      .eq('kind', 'text').is('deleted_at', null).maybeSingle();
+    if (message.error) return json({ error: message.error.message }, 500);
+    if (!message.data) return json({ error: 'Message not found' }, 404);
+    const membership = await supabase.from('chat_members').select('chat_id')
+      .eq('chat_id', message.data.chat_id).eq('profile_id', profile.id).maybeSingle();
+    if (membership.error) return json({ error: membership.error.message }, 500);
+    if (!membership.data) return json({ error: 'Message not found' }, 404);
     const result = await supabase.from('messages').update({ deleted_at: new Date().toISOString() })
-      .eq('id', input.message_id).eq('chat_id', savedChatId).eq('sender_profile_id', profile.id)
+      .eq('id', message.data.id).eq('chat_id', message.data.chat_id).eq('sender_profile_id', profile.id)
+      .eq('kind', 'text')
       .is('deleted_at', null).select('id').maybeSingle();
     return result.error ? json({ error: result.error.message }, 500) : result.data ? json({ ok: true }) : json({ error: 'Message not found' }, 404);
   }

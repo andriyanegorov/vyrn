@@ -2733,6 +2733,9 @@ if (chatRows.length && conversationDialog) {
 	let activeMessageBubble;
 	let activeMessageRow;
 	let activeMessageClone;
+	let activeMessageAnimation;
+	let activeMessageMenuAnimation;
+	let activeDeleteActionAnimation;
 	let messageRefreshTimer;
 	let messageRefreshInFlight = false;
 	let selectedGiftItem;
@@ -2764,7 +2767,8 @@ if (chatRows.length && conversationDialog) {
 		giftPrice: message.gift?.price_stars ?? null
 	})));
 	const refreshActiveMessages = async () => {
-		if (document.hidden || !activeServerChatId || activeChatIndex < 0 || !window.VyrnApi || messageRefreshInFlight) return;
+		if (document.hidden || !activeServerChatId || activeChatIndex < 0 || !window.VyrnApi
+			|| messageRefreshInFlight || !messageActionMenu.hidden) return;
 		const chatId = activeServerChatId;
 		messageRefreshInFlight = true;
 		if (conversationMessageList.dataset.loaded !== 'true') setBlockSkeleton(conversationMessageList, true);
@@ -2775,6 +2779,7 @@ if (chatRows.length && conversationDialog) {
 				switchedChat = true;
 				return;
 			}
+			if (!messageActionMenu.hidden) return;
 			conversationMessageList.dataset.loaded = 'true';
 			setBlockSkeleton(conversationMessageList, false);
 			const serverMessages = formatRemoteMessages(result.messages);
@@ -2931,15 +2936,9 @@ if (chatRows.length && conversationDialog) {
 			const bubble = message.gift ? null : document.createElement('div');
 			if (bubble) bubble.className = 'conversation-bubble';
 			if (message.outgoing && bubble) {
-				let holdTimer;
-				let startPoint;
-				let longPressTriggered = false;
-				const cancelHold = () => {
-					clearTimeout(holdTimer);
-					holdTimer = undefined;
-				};
 				const requestDelete = () => {
-					if (activeChatIndex !== favoritesChatIndex || !messageActionMenu.hidden) {
+					const canDelete = activeChatIndex === favoritesChatIndex || Boolean(activeServerChatId);
+					if (!canDelete || !messageActionMenu.hidden) {
 						return;
 					}
 					pendingDeleteIndex = index;
@@ -2963,6 +2962,21 @@ if (chatRows.length && conversationDialog) {
 					clonedBubble.style.removeProperty('--message-origin-x');
 					clonedBubble.style.removeProperty('--message-origin-y');
 					conversationScreen.append(activeMessageClone);
+					getComputedStyle(messageActionScrim).opacity;
+					conversationScreen.classList.add('is-message-action-open');
+					messageActionScrim.classList.add('is-active');
+					if (typeof activeMessageClone.animate === 'function') {
+						activeMessageAnimation = activeMessageClone.animate([
+							{ opacity: 0.9, transform: 'scale(0.96) translateY(4px)' },
+							{ opacity: 1, transform: 'scale(1.06) translateY(-5px)' }
+						], {
+							duration: 320,
+							easing: 'cubic-bezier(0.2, 0.75, 0.25, 1)',
+							fill: 'forwards'
+						});
+					} else {
+						requestAnimationFrame(() => activeMessageClone?.classList.add('is-raised'));
+					}
 					const menuBounds = messageActionMenu.getBoundingClientRect();
 					const horizontalPadding = 12;
 					const alignedLeft = bounds.right - menuBounds.width;
@@ -2973,38 +2987,35 @@ if (chatRows.length && conversationDialog) {
 						: Math.max(horizontalPadding, bounds.top - menuBounds.height - 8);
 					messageActionMenu.style.left = `${left}px`;
 					messageActionMenu.style.top = `${top}px`;
+					activeMessageMenuAnimation?.cancel();
+					activeMessageMenuAnimation = messageActionMenu.animate([
+						{ opacity: 0, transform: 'translateY(-6px) scale(0.94)' },
+						{ opacity: 1, transform: 'translateY(0) scale(1)' }
+					], {
+						duration: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 180 : 300,
+						easing: 'cubic-bezier(0.2, 0.75, 0.25, 1)',
+						fill: 'both'
+					});
+					activeDeleteActionAnimation?.cancel();
+					activeDeleteActionAnimation = messageDeleteAction.animate([
+						{ opacity: 0, transform: 'translateY(6px) scale(0.96)' },
+						{ opacity: 1, transform: 'translateY(0) scale(1)' }
+					], {
+						duration: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 180 : 300,
+						easing: 'cubic-bezier(0.2, 0.75, 0.25, 1)',
+						fill: 'both'
+					});
 					messageDeleteAction.focus();
 				};
-				bubble.addEventListener('pointerdown', (event) => {
-					if (activeChatIndex !== favoritesChatIndex || event.button !== 0) {
-						return;
-					}
-					startPoint = { x: event.clientX, y: event.clientY };
-					longPressTriggered = false;
-					holdTimer = setTimeout(() => {
-						longPressTriggered = true;
-						requestDelete();
-					}, 500);
-				});
-				bubble.addEventListener('pointermove', (event) => {
-					if (startPoint && (Math.abs(event.clientX - startPoint.x) > 12 || Math.abs(event.clientY - startPoint.y) > 12)) {
-						cancelHold();
-					}
-				});
-				bubble.addEventListener('pointerup', cancelHold);
-				bubble.addEventListener('pointercancel', cancelHold);
-				bubble.addEventListener('pointerleave', cancelHold);
-				bubble.addEventListener('contextmenu', (event) => {
+				bubble.addEventListener('click', (event) => {
+					if (event.button !== 0) return;
 					event.preventDefault();
-					longPressTriggered = true;
+					event.stopPropagation();
 					requestDelete();
 				});
-				row.addEventListener('click', (event) => {
-					if (longPressTriggered) {
-						event.preventDefault();
-						event.stopPropagation();
-						longPressTriggered = false;
-					}
+				bubble.addEventListener('contextmenu', (event) => {
+					event.preventDefault();
+					requestDelete();
 				});
 				row.addEventListener('keydown', (event) => {
 					if ((event.shiftKey && event.key === 'F10') || event.key === 'ContextMenu') {
@@ -3649,9 +3660,19 @@ if (chatRows.length && conversationDialog) {
 	conversationSend.addEventListener('click', sendFavoriteMessage);
 	const closeMessageActionMenu = (restoreFocus = false) => {
 		messageActionScrim.hidden = true;
+		messageActionScrim.classList.remove('is-active');
+		conversationScreen.classList.remove('is-message-action-open');
 		messageActionMenu.hidden = true;
+		messageDeleteAction.disabled = false;
+		activeMessageMenuAnimation?.cancel();
+		activeMessageMenuAnimation = undefined;
+		activeDeleteActionAnimation?.cancel();
+		activeDeleteActionAnimation = undefined;
 		activeMessageRow?.classList.remove('is-action-target');
 		activeMessageBubble?.style.removeProperty('visibility');
+		activeMessageAnimation?.cancel();
+		activeMessageAnimation = undefined;
+		activeMessageClone?.classList.remove('is-raised');
 		activeMessageClone?.remove();
 		if (restoreFocus) {
 			activeMessageRow?.focus();
@@ -3663,13 +3684,19 @@ if (chatRows.length && conversationDialog) {
 	};
 	messageActionScrim.addEventListener('click', () => closeMessageActionMenu(true));
 	messageDeleteAction.addEventListener('click', async () => {
-		if (pendingDeleteIndex < 0 || activeChatIndex !== favoritesChatIndex) {
+		if (messageDeleteAction.disabled) return;
+		const threadIndex = activeChatIndex;
+		const thread = conversationThreads[threadIndex];
+		const chatId = activeServerChatId;
+		if (pendingDeleteIndex < 0 || !thread || (threadIndex !== favoritesChatIndex && !chatId)) {
 			closeMessageActionMenu();
 			return;
 		}
 
-		const message = conversationThreads[favoritesChatIndex][pendingDeleteIndex];
-		if (remoteSavedChatId && message.id) {
+		const message = thread[pendingDeleteIndex];
+		const messageIndex = pendingDeleteIndex;
+		messageDeleteAction.disabled = true;
+		if (chatId && message.id) {
 			try {
 				await window.VyrnApi.deleteMessage(message.id);
 			} catch (error) {
@@ -3677,15 +3704,29 @@ if (chatRows.length && conversationDialog) {
 				window.alert(error.message);
 				return;
 			}
+		} else if (chatId) {
+			closeMessageActionMenu();
+			window.alert('Дождитесь отправки сообщения, прежде чем удалять его.');
+			return;
 		} else {
 			try {
-				localStorage.setItem(favoritesStorageKey, JSON.stringify(conversationThreads[favoritesChatIndex].filter((_, index) => index !== pendingDeleteIndex)));
+				localStorage.setItem(favoritesStorageKey, JSON.stringify(thread.filter((_, index) => index !== messageIndex)));
 			} catch {
 			}
 		}
-		conversationThreads[favoritesChatIndex].splice(pendingDeleteIndex, 1);
-		if (favoritesPreview) {
-			favoritesPreview.textContent = conversationThreads[favoritesChatIndex].at(-1)?.text || 'Ваши сохранённые сообщения';
+		thread.splice(messageIndex, 1);
+		if (threadIndex === favoritesChatIndex && favoritesPreview) {
+			favoritesPreview.textContent = thread.at(-1)?.text || 'Ваши сохранённые сообщения';
+		}
+		if (chatId) {
+			const chatRow = chatRows.find((row) => row.dataset.chatId === chatId);
+			const latestMessage = thread.at(-1);
+			if (chatRow) {
+				const preview = chatRow.querySelector('.chat-message');
+				if (preview) preview.textContent = latestMessage?.text || 'Открыть переписку';
+				chatRow.dataset.lastMessageAt = latestMessage?.createdAt || '';
+				sortChatRows();
+			}
 		}
 		closeMessageActionMenu();
 		renderConversationMessages();
