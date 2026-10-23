@@ -1090,7 +1090,84 @@ Deno.serve(async (request) => {
     const membership = await supabase.from('chat_members').select('chat_id').eq('chat_id', input.chat_id).eq('profile_id', profile.id).maybeSingle();
     if (!membership.data) return json({ error: 'Chat not found' }, 404);
     const result = await supabase.from('messages').insert({ chat_id: input.chat_id, sender_profile_id: profile.id, body: input.body.trim() }).select('*').single();
-    return result.error ? json({ error: result.error.message }, 500) : json({ message: result.data });
+    if (result.error) return json({ error: result.error.message }, 500);
+
+    const recipient = await supabase.from('chat_members')
+      .select('profiles!inner(telegram_id)')
+      .eq('chat_id', input.chat_id)
+      .neq('profile_id', profile.id)
+      .maybeSingle();
+    if (recipient.error) {
+      console.warn('Could not find the recipient for a Telegram chat notification:', recipient.error.message);
+      return json({ message: result.data, notification_sent: false });
+    }
+
+    const recipientTelegramId = Number(recipient.data?.profiles?.telegram_id);
+    if (!recipient.data || !Number.isSafeInteger(recipientTelegramId) || recipientTelegramId <= 0) {
+      return json({ message: result.data });
+    }
+    if (!botToken) {
+      console.warn('Telegram chat notification skipped: TELEGRAM_BOT_TOKEN is not configured');
+      return json({ message: result.data, notification_sent: false });
+    }
+
+    const configuredWebAppUrl = Deno.env.get('VYRN_WEB_APP_URL')?.trim();
+    if (!configuredWebAppUrl) {
+      console.warn('Telegram chat notification skipped: VYRN_WEB_APP_URL is not configured');
+      return json({
+        message: result.data,
+        notification_sent: false,
+        notification_reason: 'web_app_url_not_configured',
+      });
+    }
+
+    let webAppUrl: URL;
+    try {
+      webAppUrl = new URL(configuredWebAppUrl);
+    } catch {
+      console.warn('Telegram chat notification skipped: VYRN_WEB_APP_URL is invalid');
+      return json({
+        message: result.data,
+        notification_sent: false,
+        notification_reason: 'web_app_url_invalid',
+      });
+    }
+    if (webAppUrl.protocol !== 'https:') {
+      console.warn('Telegram chat notification skipped: VYRN_WEB_APP_URL must use HTTPS');
+      return json({
+        message: result.data,
+        notification_sent: false,
+        notification_reason: 'web_app_url_invalid',
+      });
+    }
+    if (!webAppUrl.pathname.endsWith('/chats.html')) {
+      const basePath = webAppUrl.pathname.replace(/\/+$/, '').replace(/\/index\.html$/i, '');
+      webAppUrl.pathname = `${basePath}/chats.html`;
+    }
+    webAppUrl.searchParams.set('chat_id', input.chat_id);
+
+    try {
+      const notification = await telegramApiRequest(botToken, 'sendMessage', {
+        chat_id: recipientTelegramId,
+        text: `Пользователь с ником «${profile.nickname}» написал вам в личные сообщения.\n\nЗайдите в VYRN, чтобы прочитать сообщение и ответить.`,
+        reply_markup: {
+          inline_keyboard: [[{
+            text: 'Открыть чат',
+            web_app: { url: webAppUrl.toString() },
+          }]],
+        },
+      });
+      if (!notification.ok) {
+        console.warn('Telegram chat notification could not be delivered:', {
+          status: notification.status,
+          description: notification.result?.description,
+        });
+      }
+      return json({ message: result.data, notification_sent: notification.ok });
+    } catch (error) {
+      console.warn('Telegram chat notification request failed:', error);
+      return json({ message: result.data, notification_sent: false });
+    }
   }
 
   if (action === 'delete_message') {

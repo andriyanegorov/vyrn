@@ -29,17 +29,15 @@ h1{font-size:22px;margin:0;font-weight:700}
 .chip:active{transform:scale(.94)}
 .chip.on{background:#3ca6df;color:#fff}
 #grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;padding:12px 12px calc(104px + env(safe-area-inset-bottom))}
-.skeleton-card{aspect-ratio:1;border-radius:20px;background:linear-gradient(100deg,#e9edf2 25%,#fff 43%,#e9edf2 62%);background-size:220% 100%;animation:upgrade-skeleton-shimmer 1.35s ease-in-out infinite}
+.skeleton-card{aspect-ratio:1;border-radius:20px;background:linear-gradient(100deg,#e9edf2,#f7f8fa 48%,#e9edf2)}
 .section-skeleton-block{position:relative;isolation:isolate}
 .section-skeleton-block>*{visibility:hidden!important}
-.section-skeleton-block::after{position:absolute;z-index:10;inset:0;border-radius:inherit;background:linear-gradient(100deg,#e9edf2 25%,#fff 43%,#e9edf2 62%);background-size:220% 100%;animation:upgrade-skeleton-shimmer 1.35s ease-in-out infinite;content:"";pointer-events:none}
-@keyframes upgrade-skeleton-shimmer{to{background-position-x:-220%}}
-@keyframes route-pending-shimmer{to{background-position-x:-220%}}
+.section-skeleton-block::after{position:absolute;z-index:10;inset:0;border-radius:inherit;background:linear-gradient(100deg,#e9edf2,#f7f8fa 48%,#e9edf2);content:"";pointer-events:none}
 .route-pending-skeleton{display:grid;min-height:60vh;align-content:start;gap:12px;padding:14px 16px calc(110px + env(safe-area-inset-bottom,0px))}
 .route-pending-active{position:relative}
 .route-pending-active>:not([data-route-pending]){visibility:hidden!important}
 .route-pending-active>[data-route-pending]{position:absolute;z-index:30;inset:0;overflow:auto;background:#f5f5f5}
-.route-pending-skeleton .route-pending-block,.route-pending-skeleton .route-pending-avatar,.route-pending-skeleton .route-pending-card,.route-pending-skeleton .route-pending-lines i{display:block;background:linear-gradient(100deg,#e9edf2 25%,#fff 43%,#e9edf2 62%);background-size:220% 100%;animation:route-pending-shimmer 1.35s ease-in-out infinite}
+.route-pending-skeleton .route-pending-block,.route-pending-skeleton .route-pending-avatar,.route-pending-skeleton .route-pending-card,.route-pending-skeleton .route-pending-lines i{display:block;background:linear-gradient(100deg,#e9edf2,#f7f8fa 48%,#e9edf2)}
 .route-pending-toolbar{height:44px;border-radius:14px}
 .route-pending-tabs{height:42px;border-radius:14px}
 .route-pending-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;background:transparent!important;animation:none!important}
@@ -69,7 +67,6 @@ html[data-route-direction="backward"]::view-transition-new(route-content){animat
 @keyframes route-content-leave-right{to{transform:translate3d(100%,0,0)}}
 @keyframes route-content-enter-right{from{transform:translate3d(100%,0,0)}to{transform:translate3d(0,0,0)}}
 @keyframes route-content-enter-left{from{transform:translate3d(-100%,0,0)}to{transform:translate3d(0,0,0)}}
-@media(prefers-reduced-motion:reduce){.skeleton-card,.section-skeleton-block::after{animation-duration:3s}}
 @media(prefers-reduced-motion:reduce){html[data-route-direction]::view-transition-old(route-content),html[data-route-direction]::view-transition-new(route-content){animation-duration:180ms}}
 .card{position: relative;
     min-width: 0;

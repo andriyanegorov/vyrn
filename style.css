@@ -35,9 +35,7 @@ body {
 }
 
 .vyrn-skeleton {
-  background: linear-gradient(100deg, #e9edf2 25%, #fff 43%, #e9edf2 62%);
-  background-size: 220% 100%;
-  animation: vyrn-skeleton-shimmer 1.35s ease-in-out infinite;
+  background: linear-gradient(100deg, #e9edf2, #f7f8fa 48%, #e9edf2);
 }
 
 .route-pending-skeleton {
@@ -69,9 +67,7 @@ body {
 .route-pending-skeleton .route-pending-card,
 .route-pending-skeleton .route-pending-lines i {
   display: block;
-  background: linear-gradient(100deg, #e9edf2 25%, #fff 43%, #e9edf2 62%);
-  background-size: 220% 100%;
-  animation: vyrn-skeleton-shimmer 1.35s ease-in-out infinite;
+  background: linear-gradient(100deg, #e9edf2, #f7f8fa 48%, #e9edf2);
 }
 
 .route-pending-toolbar { height: 44px; border-radius: 14px; }
@@ -147,15 +143,9 @@ body {
   z-index: 10;
   inset: 0;
   border-radius: inherit;
-  background: linear-gradient(100deg, #e9edf2 25%, #fff 43%, #e9edf2 62%);
-  background-size: 220% 100%;
-  animation: vyrn-skeleton-shimmer 1.35s ease-in-out infinite;
+  background: linear-gradient(100deg, #e9edf2, #f7f8fa 48%, #e9edf2);
   content: "";
   pointer-events: none;
-}
-
-@keyframes vyrn-skeleton-shimmer {
-  to { background-position-x: -220%; }
 }
 
 @keyframes vyrn-content-fade-in {
@@ -180,9 +170,7 @@ body {
   z-index: 2;
   inset: 0;
   border-radius: inherit;
-  background: linear-gradient(100deg, #e9edf2 25%, #fff 43%, #e9edf2 62%);
-  background-size: 220% 100%;
-  animation: vyrn-skeleton-shimmer 1.35s ease-in-out infinite;
+  background: linear-gradient(100deg, #e9edf2, #f7f8fa 48%, #e9edf2);
   content: "";
   pointer-events: none;
 }

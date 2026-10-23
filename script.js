@@ -2861,6 +2861,21 @@ if (chatRows.length && conversationDialog) {
 	if (canUseSupabaseAccount()) {
 		window.VyrnApi.chats().then(async (result) => {
 			remoteProfileId = result.current_profile_id;
+			result.chats.filter((member) => member.chats?.chat_type === 'direct' && member.peer).forEach((member) => {
+				const row = addRemoteChatRow(member.chat_id, member.peer, member);
+				updateChatRowSummary(row, member);
+			});
+			sortChatRows();
+			const deepLinkedChatId = new URLSearchParams(window.location.search).get('chat_id');
+			if (deepLinkedChatId) {
+				const deepLinkedChat = chatRows.find((row) => row.dataset.chatId === deepLinkedChatId);
+				if (deepLinkedChat) {
+					deepLinkedChat.click();
+				} else {
+					console.warn('Не удалось открыть диалог из ссылки: чат не найден среди чатов пользователя.');
+				}
+			}
+
 			const savedChat = result.chats.find((member) => member.chats?.chat_type === 'saved');
 			if (savedChat) {
 				remoteSavedChatId = savedChat.chat_id;
@@ -2877,13 +2892,6 @@ if (chatRows.length && conversationDialog) {
 				}
 				if (activeChatIndex === favoritesChatIndex) renderConversationMessages();
 			}
-			result.chats.filter((member) => member.chats?.chat_type === 'direct').forEach((member) => {
-				if (member.peer) {
-					const row = addRemoteChatRow(member.chat_id, member.peer, member);
-					updateChatRowSummary(row, member);
-				}
-			});
-			sortChatRows();
 		}).catch((error) => {
 			console.error('Не удалось загрузить избранные сообщения:', error);
 		}).finally(() => {
@@ -3603,6 +3611,13 @@ if (chatRows.length && conversationDialog) {
 		if (chatId) {
 			window.VyrnApi.sendMessage(chatId, text).then((result) => {
 				message.id = result.message.id;
+				if (result.notification_sent === false) {
+					const notificationError = result.notification_reason === 'web_app_url_not_configured'
+						|| result.notification_reason === 'web_app_url_invalid'
+						? 'Сообщение отправлено, но уведомление не настроено: задайте корректный HTTPS-секрет VYRN_WEB_APP_URL в Supabase.'
+						: 'Сообщение отправлено, но уведомление в Telegram не доставлено. Попросите собеседника открыть бота VYRN и нажать «Запустить».';
+					window.alert(notificationError);
+				}
 				if (activeServerChatId === chatId) {
 					refreshActiveMessages().catch(() => {});
 				}
