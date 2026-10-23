@@ -7,12 +7,12 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Manrope:wght@400;500;600;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="style.css?v=premium-real-prices-20261023">
+  <link rel="stylesheet" href="style.css?v=banner-gradient-v2">
   <script src="https://telegram.org/js/telegram-web-app.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/lottie-web/5.12.2/lottie.min.js" defer></script>
   <script src="supabase-client-config.js?v=wallet-balance-read-20261018" defer></script>
   <script src="supabase-api.js?v=local-cache-v1" defer></script>
-  <script src="script.js?v=local-cache-v1" defer></script>
+  <script src="script.js?v=banner-gradient-v2" defer></script>
 </head>
 <body>
   <main class="profile-page">
@@ -88,11 +88,47 @@
             <span class="profile-editor-chevron" aria-hidden="true">›</span>
           </label>
         </section>
+        <button class="profile-editor-banner-button" type="button" hidden>
+          <span class="profile-editor-banner-swatch" aria-hidden="true"></span>
+          <span>Изменить цвет баннера</span>
+          <span class="profile-editor-chevron" aria-hidden="true">›</span>
+        </button>
         <button class="profile-editor-premium-button" type="button">
           <img src="./assets/svg/premium.svg" alt="" aria-hidden="true">
           <span>Приобрести VYRN Премиум</span>
         </button>
       </div>
+    </form>
+  </dialog>
+  <dialog class="banner-color-dialog" aria-labelledby="banner-color-title">
+    <form class="banner-color-form">
+      <header class="banner-color-header">
+        <button class="banner-color-cancel" type="button">Отмена</button>
+        <h2 id="banner-color-title">Цвет баннера</h2>
+        <button class="banner-color-save" type="submit">Готово</button>
+      </header>
+      <div class="banner-color-options" role="group" aria-label="Цвета баннера">
+        <button type="button" class="banner-color-option" data-banner-color="#f5f5f5" aria-label="Светло-серый"></button>
+        <button type="button" class="banner-color-option" data-banner-color="#e6f0ff" aria-label="Голубой"></button>
+        <button type="button" class="banner-color-option" data-banner-color="#f3e8ff" aria-label="Сиреневый"></button>
+        <button type="button" class="banner-color-option" data-banner-color="#ffe8ef" aria-label="Розовый"></button>
+        <button type="button" class="banner-color-option" data-banner-color="#e2f8ee" aria-label="Мятный"></button>
+        <button type="button" class="banner-color-option" data-banner-color="#fff2d6" aria-label="Персиковый"></button>
+        <button type="button" class="banner-color-option" data-banner-color="#e6f7fb" aria-label="Бирюзовый"></button>
+        <label class="banner-color-custom">
+          <span>Свой цвет</span>
+          <input name="bannerColor" type="color" value="#f5f5f5" aria-label="Выбрать свой цвет баннера">
+        </label>
+      </div>
+      <label class="banner-gradient-toggle">
+        <input name="bannerGradient" type="checkbox">
+        <span class="banner-gradient-switch" aria-hidden="true"></span>
+        <span>
+          <strong>Градиент сверху вниз</strong>
+          <small>Цвет плавно станет прозрачным у нижнего края</small>
+        </span>
+      </label>
+      <p class="banner-color-error" role="alert" hidden></p>
     </form>
   </dialog>
   <dialog class="premium-dialog" aria-labelledby="premium-dialog-title">

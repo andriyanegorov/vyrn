@@ -375,10 +375,18 @@ const profileAvatarElement = document.querySelector('.profile-page:not(.player-p
 const profileNameElement = document.querySelector('.profile-page:not(.player-profile-page) .profile-name');
 const profileEditorDialog = document.querySelector('.profile-editor-dialog');
 const profileEditorForm = profileEditorDialog?.querySelector('.profile-editor-form');
+const profileSummaryElement = profileContentElement?.querySelector('.profile-summary');
 const profileEditorPhotoImage = profileEditorForm?.querySelector('.profile-editor-avatar-image');
 const profileEditorError = profileEditorForm?.querySelector('.profile-editor-error');
 const profileEditorBirthdayValue = profileEditorForm?.querySelector('.profile-editor-birthday-value');
 const profileEditorPremiumButton = profileEditorForm?.querySelector('.profile-editor-premium-button');
+const profileEditorBannerButton = profileEditorForm?.querySelector('.profile-editor-banner-button');
+const profileEditorBannerSwatch = profileEditorBannerButton?.querySelector('.profile-editor-banner-swatch');
+const bannerColorDialog = document.querySelector('.banner-color-dialog');
+const bannerColorForm = bannerColorDialog?.querySelector('.banner-color-form');
+const bannerColorInput = bannerColorForm?.elements.namedItem('bannerColor');
+const bannerGradientInput = bannerColorForm?.elements.namedItem('bannerGradient');
+const bannerColorError = bannerColorForm?.querySelector('.banner-color-error');
 const premiumDialog = document.querySelector('.premium-dialog');
 const premiumDialogCloseButton = premiumDialog?.querySelector('.premium-dialog-close');
 const premiumDialogSubmitButton = premiumDialog?.querySelector('.premium-dialog-submit');
@@ -398,7 +406,9 @@ if (profileEditButton && profileEditorDialog && profileEditorForm && profileAvat
 		birthday: '',
 		phone: '',
 		avatar: telegramUser?.photo_url || '',
-		status: ''
+		status: '',
+		banner_color: null,
+		premium_until: null
 	};
 	let profileData = defaultProfile;
 	let storedProfile;
@@ -467,11 +477,58 @@ if (profileEditButton && profileEditorDialog && profileEditorForm && profileAvat
 			.replace(/\.$/, '');
 	};
 
+	const canCustomizeBanner = (profile) => {
+		const premiumUntil = Date.parse(profile.premium_until || '');
+		const status = String(profile.status || '').trim().toLowerCase();
+		return (Number.isFinite(premiumUntil) && premiumUntil > Date.now())
+			|| status === 'verified'
+			|| status === 'verfied';
+	};
+	const updateBannerGradientHeight = () => {
+		if (!profileSummaryElement) return;
+		const pageTop = profileContentElement.getBoundingClientRect().top + window.scrollY;
+		const summaryBottom = profileSummaryElement.getBoundingClientRect().bottom + window.scrollY;
+		profileContentElement.closest('.profile-page').style.setProperty(
+			'--profile-banner-height',
+			`${Math.max(1, Math.ceil(summaryBottom - pageTop + profileContentElement.offsetTop))}px`
+		);
+	};
+	const renderBannerColor = () => {
+		const color = /^#[0-9a-f]{6}$/i.test(profileData.banner_color || '') ? profileData.banner_color : '';
+		const useGradient = Boolean(color && profileData.banner_gradient);
+		profileSummaryElement?.classList.toggle('has-custom-banner', Boolean(color));
+		profileContentElement?.closest('.profile-page').classList.toggle('has-full-banner-gradient', useGradient);
+		if (color) {
+			const [red, green, blue] = color.slice(1).match(/.{2}/g).map((channel) => parseInt(channel, 16));
+			const luminance = (0.2126 * red + 0.7152 * green + 0.0722 * blue) / 255;
+			const gradientColor = `rgba(${red}, ${green}, ${blue},`;
+			profileContentElement?.closest('.profile-page').style.setProperty(
+				'--profile-banner-gradient',
+				`linear-gradient(to bottom, ${gradientColor} 1) 0%, ${gradientColor} 0.58) 48%, ${gradientColor} 0) 100%)`
+			);
+			profileSummaryElement.style.setProperty('--profile-banner-color', color);
+			profileSummaryElement.style.setProperty('--profile-banner-text', luminance > 0.58 ? '#17191f' : '#ffffff');
+		} else {
+			profileContentElement?.closest('.profile-page').style.removeProperty('--profile-banner-gradient');
+			profileSummaryElement.style.removeProperty('--profile-banner-color');
+			profileSummaryElement.style.removeProperty('--profile-banner-text');
+		}
+		updateBannerGradientHeight();
+		if (profileEditorBannerButton) {
+			profileEditorBannerButton.hidden = !canCustomizeBanner(profileData);
+			if (profileEditorBannerSwatch) {
+				profileEditorBannerSwatch.style.background = profileData.banner_gradient && color
+					? `linear-gradient(to bottom, ${color}, transparent)`
+					: color || '#f5f5f5';
+			}
+		}
+	};
 	const renderProfile = () => {
 		renderProfileName(profileNameElement, [profileData.firstName, profileData.lastName].filter(Boolean).join(' '), getProfileStatus(profileData));
 		profileDetailValues[0].textContent = profileData.username || (profileData.nickname ? `@${profileData.nickname}` : '');
 		profileDetailValues[1].textContent = profileData.about || '';
 		setAvatarImage(profileAvatarImage, profileData.avatar);
+		renderBannerColor();
 	};
 	const syncProfileFromServer = async () => {
 		if (!window.VyrnApi || (!telegramUser && !window.VyrnApi.browserDemo)) return;
@@ -490,7 +547,9 @@ if (profileEditButton && profileEditorDialog && profileEditorForm && profileAvat
 				phone: profile.phone || '',
 				avatar: profile.avatar_url || '',
 				status: profile.status || '',
-				premium_until: profile.premium_until || null
+				premium_until: profile.premium_until || null,
+				banner_color: profile.banner_color || null,
+				banner_gradient: profile.banner_gradient === true
 			};
 			if (!telegramUser && window.VyrnApi.browserDemo && storedProfile) {
 				profileData = { ...profileData, ...storedProfile };
@@ -518,6 +577,59 @@ if (profileEditButton && profileEditorDialog && profileEditorForm && profileAvat
 
 	renderProfile();
 	syncProfileFromServer();
+	const bannerResizeObserver = new ResizeObserver(updateBannerGradientHeight);
+	bannerResizeObserver.observe(profileSummaryElement);
+	window.addEventListener('resize', updateBannerGradientHeight);
+	if (profileEditorBannerButton && bannerColorDialog && bannerColorForm && bannerColorInput && bannerGradientInput) {
+		const bannerColorOptions = [...bannerColorForm.querySelectorAll('.banner-color-option')];
+		const setSelectedBannerColor = (color) => {
+			bannerColorInput.value = /^#[0-9a-f]{6}$/i.test(color || '') ? color : '#f5f5f5';
+			bannerColorOptions.forEach((option) => {
+				const isSelected = option.dataset.bannerColor.toLowerCase() === bannerColorInput.value.toLowerCase();
+				option.classList.toggle('is-selected', isSelected);
+				option.setAttribute('aria-pressed', String(isSelected));
+			});
+		};
+		profileEditorBannerButton.addEventListener('click', () => {
+			setSelectedBannerColor(profileData.banner_color);
+			bannerGradientInput.checked = profileData.banner_gradient === true;
+			bannerColorError.hidden = true;
+			bannerColorDialog.showModal();
+		});
+		bannerColorOptions.forEach((option) => option.addEventListener('click', () => {
+			setSelectedBannerColor(option.dataset.bannerColor);
+		}));
+		bannerColorInput.addEventListener('input', () => setSelectedBannerColor(bannerColorInput.value));
+		bannerColorForm.querySelector('.banner-color-cancel').addEventListener('click', () => bannerColorDialog.close());
+		bannerColorDialog.addEventListener('click', (event) => {
+			if (event.target === bannerColorDialog) bannerColorDialog.close();
+		});
+		bannerColorForm.addEventListener('submit', async (event) => {
+			event.preventDefault();
+			if (!canCustomizeBanner(profileData)) {
+				bannerColorError.textContent = 'Эта настройка доступна только с активным Premium или подтверждённым профилем.';
+				bannerColorError.hidden = false;
+				return;
+			}
+			bannerColorForm.querySelector('.banner-color-save').disabled = true;
+			bannerColorError.hidden = true;
+			try {
+				const result = await window.VyrnApi.updateProfile({
+					banner_color: bannerColorInput.value,
+					banner_gradient: bannerGradientInput.checked
+				});
+				profileData.banner_color = result.profile.banner_color || null;
+				profileData.banner_gradient = result.profile.banner_gradient === true;
+				renderProfile();
+				bannerColorDialog.close();
+			} catch (error) {
+				bannerColorError.textContent = error.message || 'Не удалось сохранить цвет баннера.';
+				bannerColorError.hidden = false;
+			} finally {
+				bannerColorForm.querySelector('.banner-color-save').disabled = false;
+			}
+		});
+	}
 	if (profileEditorPremiumButton && premiumDialog && premiumDialogStatus && premiumDialogSubmitButton) {
 		const updatePremiumPlan = () => {
 			const selectedPlan = premiumPlanOptions.find((option) => option.checked);
@@ -636,7 +748,10 @@ if (profileEditButton && profileEditorDialog && profileEditorForm && profileAvat
 			birthday: profileEditorForm.elements.namedItem('birthday').value,
 			phone: profileEditorForm.elements.namedItem('phone').value.trim(),
 			avatar: profileData.avatar,
-			status: profileData.status
+			status: profileData.status,
+			premium_until: profileData.premium_until,
+			banner_color: profileData.banner_color,
+			banner_gradient: profileData.banner_gradient
 		};
 		if (telegramUser) {
 			if (!window.VyrnApi) {
@@ -1443,6 +1558,28 @@ const renderSharedPlayerProfile = (profile, items = []) => {
 	const profilePage = playerProfileDialog.querySelector('.player-profile-page');
 	profilePage.dataset.profileId = profile.id || '';
 	profilePage.dataset.accountStatus = getProfileStatus(profile);
+	const bannerColor = /^#[0-9a-f]{6}$/i.test(profile.banner_color || '') ? profile.banner_color : '';
+	const summary = profilePage.querySelector('.profile-summary');
+	const useGradient = Boolean(bannerColor && profile.banner_gradient === true);
+	summary.classList.toggle('has-custom-banner', Boolean(bannerColor));
+	profilePage.classList.toggle('has-full-banner-gradient', useGradient);
+	if (bannerColor) {
+		const [red, green, blue] = bannerColor.slice(1).match(/.{2}/g).map((channel) => parseInt(channel, 16));
+		const luminance = (0.2126 * red + 0.7152 * green + 0.0722 * blue) / 255;
+		const gradientColor = `rgba(${red}, ${green}, ${blue},`;
+		profilePage.style.setProperty(
+			'--profile-banner-gradient',
+			`linear-gradient(to bottom, ${gradientColor} 1) 0%, ${gradientColor} 0.58) 48%, ${gradientColor} 0) 100%)`
+		);
+		summary.style.setProperty('--profile-banner-color', bannerColor);
+		profilePage.style.setProperty('--profile-banner-text', luminance > 0.58 ? '#17191f' : '#ffffff');
+	} else {
+		profilePage.style.removeProperty('--profile-banner-gradient');
+		summary.style.removeProperty('--profile-banner-color');
+		profilePage.style.removeProperty('--profile-banner-text');
+	}
+	const summaryBottom = summary.getBoundingClientRect().bottom + window.scrollY;
+	profilePage.style.setProperty('--profile-banner-height', `${Math.max(1, Math.ceil(summaryBottom))}px`);
 	renderProfileName(sharedPlayerProfileName, displayName, getProfileStatus(profile));
 	sharedPlayerProfileUsername.textContent = profile.username ? `@${profile.username.replace(/^@+/, '')}` : `@${profile.nickname || ''}`;
 	sharedPlayerProfileBio.textContent = profile.bio || '';

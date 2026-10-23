@@ -28,6 +28,8 @@
     last_name text not null default '',
     avatar_url text,
     status text not null default '',
+    banner_color text check (banner_color is null or banner_color ~ '^#[0-9A-Fa-f]{6}$'),
+    banner_gradient boolean not null default false,
     bio text not null default '' check (char_length(bio) <= 160),
     birthday date,
     phone text,
@@ -35,6 +37,17 @@
     updated_at timestamptz not null default now()
   );
   alter table public.profiles add column if not exists status text not null default '';
+  alter table public.profiles add column if not exists banner_color text;
+  alter table public.profiles add column if not exists banner_gradient boolean not null default false;
+  do $$
+  begin
+    alter table public.profiles
+      add constraint profiles_banner_color_check
+      check (banner_color is null or banner_color ~ '^#[0-9A-Fa-f]{6}$');
+  exception
+    when duplicate_object then null;
+  end;
+  $$;
   create unique index if not exists profiles_telegram_username_unique on public.profiles(telegram_username) where telegram_username is not null;
 
   create table if not exists public.wallets (
