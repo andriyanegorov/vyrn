@@ -869,6 +869,97 @@ const mapOwnedNft = (item) => {
 		isListed: (item.market_listings || []).some((listing) => listing.status === 'active')
 	};
 };
+const collectionValueRequests = new WeakMap();
+const getSavedFragmentValue = (item) => {
+	const attributes = item.attributes || {};
+	const value = attributes.fragment_price_fragment_stars
+		?? (attributes.fragment_price_manual === true || attributes.fragment_price_crafted_total === true
+			? null
+			: attributes.fragment_price_stars);
+	const number = Number(value);
+	return Number.isFinite(number) && number > 0 ? number : null;
+};
+const renderProfileCollectionValue = async (container, items) => {
+	if (!container) return;
+	const requestId = (collectionValueRequests.get(container) || 0) + 1;
+	collectionValueRequests.set(container, requestId);
+	const totalElement = container.querySelector('.profile-collection-value-total');
+	const detailElement = container.querySelector('.profile-collection-value-detail');
+	if (!totalElement || !detailElement) return;
+	if (!items.length) {
+		totalElement.textContent = '0';
+		detailElement.textContent = 'В коллекции пока нет NFT';
+		return;
+	}
+
+	const prices = new Map();
+	const requests = [];
+	items.forEach((item, index) => {
+		const model = item.nft_models || {};
+		const collection = model.nft_collections || {};
+		const slug = collection.slug || model.slug || '';
+		const giftNumber = item.attributes?.crafting?.visual_external_id || item.external_id;
+		const savedPrice = getSavedFragmentValue(item);
+		if (savedPrice !== null) prices.set(index, savedPrice);
+		if (/^[a-z0-9]+$/.test(slug) && /^\d{1,12}$/.test(String(giftNumber || ''))) {
+			requests.push({ index, collection_slug: slug, gift_number: String(giftNumber) });
+		}
+	});
+
+	totalElement.textContent = 'Считаем…';
+	detailElement.textContent = `${items.length.toLocaleString('ru-RU')} NFT · оценка по ценам`;
+	const freshPrices = new Set();
+	if (!window.VyrnApi?.fragmentPrices || requests.length === 0) {
+		if (collectionValueRequests.get(container) !== requestId) return;
+		renderTotal();
+		return;
+	}
+
+	for (let offset = 0; offset < requests.length; offset += 40) {
+		try {
+			const batch = requests.slice(offset, offset + 40);
+			const results = await window.VyrnApi.fragmentPrices(batch);
+			const resultByKey = new Map(results.map((result) => [
+				`${result.collection_slug}-${result.gift_number}`,
+				result
+			]));
+			batch.forEach((gift) => {
+				const result = resultByKey.get(`${gift.collection_slug}-${gift.gift_number}`);
+				const stars = Number(result?.stars);
+				if (Number.isFinite(stars) && stars > 0) {
+					prices.set(gift.index, stars);
+					freshPrices.add(gift.index);
+				}
+			});
+		} catch (error) {
+			console.warn('Не удалось оценить часть NFT по Fragment:', error);
+		}
+		if (collectionValueRequests.get(container) !== requestId) return;
+	}
+
+	function renderTotal() {
+		const total = [...prices.values()].reduce((sum, price) => sum + price, 0);
+		totalElement.replaceChildren(document.createTextNode(total.toLocaleString('ru-RU')));
+		const icon = document.createElement('img');
+		icon.src = './assets/stars.png';
+		icon.alt = 'звёзд';
+		icon.setAttribute('aria-hidden', 'true');
+		totalElement.append(' ', icon);
+		const valuedCount = prices.size;
+		const unvaluedCount = items.length - valuedCount;
+		const freshCount = freshPrices.size;
+		if (unvaluedCount > 0) {
+			detailElement.textContent = `Оценено ${valuedCount} из ${items.length} NFT · ${unvaluedCount} без данных`;
+		} else if (freshCount === 0 && valuedCount > 0) {
+			detailElement.textContent = '';
+		} else if (freshCount < items.length) {
+			detailElement.textContent = `Актуальные цены Fragment для ${freshCount} из ${items.length} NFT`;
+		} else {
+			detailElement.textContent = `Оценка всех ${items.length.toLocaleString('ru-RU')} NFT`;
+		}
+	}
+	renderTotal();
+};
 const createNftPreviewImage = (source, title, className) => {
 	const image = document.createElement('img');
 	image.className = className;
@@ -1482,6 +1573,7 @@ if (nftGrid) {
 	const renderOwnedNfts = (items) => {
 		nftGrid.replaceChildren();
 		cards = items.map((item) => renderNftCard(mapOwnedNft(item)));
+		renderProfileCollectionValue(document.querySelector('.profile-page:not(.player-profile-page) .profile-collection-value'), items);
 		filterProfileNftCards();
 		updateVisibleNftCards();
 	};
@@ -1538,6 +1630,13 @@ playerProfileDialog.innerHTML = `
       <section class="profile-details" aria-label="Информация профиля">
         <div class="profile-detail"><h2 class="profile-detail-label">Имя пользователя</h2><p class="profile-detail-value player-profile-username"></p></div>
         <div class="profile-detail"><h2 class="profile-detail-label">О себе</h2><p class="profile-detail-value player-profile-bio"></p></div>
+      </section>
+      <section class="profile-collection-value" aria-label="Ценность коллекции" aria-live="polite">
+        <div>
+          <span class="profile-collection-value-label">Ценность коллекции</span>
+          <strong class="profile-collection-value-total">Считаем…</strong>
+        </div>
+        <p class="profile-collection-value-detail">Оценка по ценам</p>
       </section>
       <section class="profile-nft-grid player-profile-nft-grid" aria-label="NFT игрока"></section>
     </div>
@@ -1603,6 +1702,10 @@ const renderSharedPlayerProfile = (profile, items = []) => {
 		card.append(createNftPreviewImage(card.dataset.nftPreview, title, 'profile-nft-preview'));
 		sharedPlayerProfileNfts.append(card);
 	});
+	renderProfileCollectionValue(
+		playerProfileDialog.querySelector('.profile-collection-value'),
+		items
+	);
 };
 
 window.openVyrnPlayerProfile = async (profileOrId) => {
@@ -2330,6 +2433,7 @@ if (chatRows.length && conversationDialog) {
 	const playerProfileUsername = conversationProfile.querySelector('.player-profile-username');
 	const playerProfileBio = conversationProfile.querySelector('.player-profile-bio');
 	const playerProfileNftGrid = conversationProfile.querySelector('.player-profile-nft-grid');
+	const playerProfileValue = conversationProfile.querySelector('.profile-collection-value');
 	const playerProfiles = [
 		{ username: 'Канал', status: 'официальный канал', headerStatus: 'официальный канал', bio: 'Новости и обновления проекта VYRN', notice: 'Канал доступен только для чтения' },
 		{ username: 'Личное', status: 'только вы', headerStatus: 'Сохранённые сообщения', bio: 'Личное пространство для избранных сообщений.', notice: '', canSend: true }
@@ -2984,6 +3088,7 @@ if (chatRows.length && conversationDialog) {
 			playerProfileUsername.textContent = profile.username;
 			playerProfileBio.textContent = profile.bio;
 			if (playerProfileNftGrid) playerProfileNftGrid.replaceChildren();
+			if (playerProfileValue) renderProfileCollectionValue(playerProfileValue, []);
 			if (profile.profileId && window.VyrnApi) {
 				window.VyrnApi.profileNfts(profile.profileId).then(({ profile: latestProfile, items }) => {
 					if (activeChatIndex !== index || !playerProfileNftGrid) return;
@@ -3001,6 +3106,7 @@ if (chatRows.length && conversationDialog) {
 						const chatName = chatRow.querySelector('.chat-name');
 						if (chatName) renderProfileName(chatName, getProfileDisplayName(latestProfile), latestStatus);
 					}
+					renderProfileCollectionValue(playerProfileValue, items);
 					items.map(mapOwnedNft).forEach((gift) => {
 						const title = `${gift.name} #${gift.id}`;
 						const file = gift.slug ? `${gift.slug}-${gift.id}.tgs` : '';

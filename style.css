@@ -4198,6 +4198,56 @@ body.chats-screen {
   margin: 12px auto 0;
 }
 
+.profile-collection-value {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin: 12px 0 0;
+  padding: 13px 16px;
+  border: 1px solid rgba(255, 255, 255, 0.9);
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.72);
+  color: #17191f;
+  text-align: left;
+  box-shadow: 0 8px 24px rgba(25, 35, 45, 0.06);
+}
+
+.profile-collection-value-label,
+.profile-collection-value-detail {
+  display: block;
+}
+
+.profile-collection-value-label {
+  color: #747780;
+  font-size: 12px;
+}
+
+.profile-collection-value-total {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  margin-top: 2px;
+  font-size: 20px;
+  line-height: 1.25;
+  font-variant-numeric: tabular-nums;
+}
+
+.profile-collection-value-total img {
+  width: 19px;
+  height: 19px;
+  object-fit: contain;
+}
+
+.profile-collection-value-detail {
+  max-width: 46%;
+  margin: 0;
+  color: #898c94;
+  font-size: 11px;
+  line-height: 1.35;
+  text-align: right;
+}
+
 .profile-nft-indicator {
   position: absolute;
   z-index: 0;

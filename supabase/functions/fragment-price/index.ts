@@ -98,7 +98,13 @@ Deno.serve(async (request) => {
     const items = await mapLimit(gifts, 8, async ({ slug, number }) => {
       try {
         const details = await fetchFragmentGift(slug, number);
-        return { collection_slug: slug, gift_number: number, traits: details.traits };
+        return {
+          collection_slug: slug,
+          gift_number: number,
+          grams: details.grams,
+          stars: details.stars,
+          traits: details.traits,
+        };
       } catch (error) {
         return {
           collection_slug: slug,
