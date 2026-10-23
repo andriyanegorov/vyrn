@@ -878,6 +878,8 @@
 
   async function load() {
     grid.setAttribute('aria-busy', 'true');
+    $('#bal').classList.add('section-skeleton-block');
+    $('#chips').classList.add('section-skeleton-block');
     grid.replaceChildren(...Array.from({ length: 9 }, () => {
       const skeleton = document.createElement('div');
       skeleton.className = 'skeleton-card';
@@ -887,6 +889,8 @@
     if (!window.VyrnApi) {
       grid.replaceChildren();
       grid.setAttribute('aria-busy', 'false');
+      $('#bal').classList.remove('section-skeleton-block');
+      $('#chips').classList.remove('section-skeleton-block');
       const error = document.createElement('div');
       error.className = 'error';
       error.textContent = 'Не удалось подключить API. Перезагрузите страницу.';
@@ -898,6 +902,8 @@
         window.VyrnApi.me(),
         window.VyrnApi.myNfts()
       ]);
+      $('#bal').classList.remove('section-skeleton-block');
+      $('#chips').classList.remove('section-skeleton-block');
       setBalance(getStarsBalance(me.wallets));
       if (!Array.isArray(response.items)) {
         throw new Error('Сервер вернул список NFT в неверном формате.');
@@ -907,6 +913,8 @@
     } catch (error) {
       grid.replaceChildren();
       grid.setAttribute('aria-busy', 'false');
+      $('#bal').classList.remove('section-skeleton-block');
+      $('#chips').classList.remove('section-skeleton-block');
       const message = document.createElement('div');
       message.className = 'error';
       message.textContent = error instanceof Error

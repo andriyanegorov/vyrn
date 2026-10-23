@@ -9,8 +9,65 @@ const showSquareSkeletons = (container, count, className = '') => {
 	}));
 	container.setAttribute('aria-busy', 'true');
 };
+const animateLoadedContent = (container) => {
+	container.classList.remove('vyrn-content-enter');
+	requestAnimationFrame(() => {
+		if (container.getAttribute('aria-busy') === 'true') return;
+		container.classList.add('vyrn-content-enter');
+		window.setTimeout(() => container.classList.remove('vyrn-content-enter'), 400);
+	});
+};
 const clearSkeletonState = (container) => {
-	if (container) container.setAttribute('aria-busy', 'false');
+	if (!container) return;
+	const wasBusy = container.getAttribute('aria-busy') === 'true';
+	container.setAttribute('aria-busy', 'false');
+	if (wasBusy) animateLoadedContent(container);
+};
+const setBlockSkeleton = (container, loading) => {
+	if (!container) return;
+	const wasLoading = container.classList.contains('vyrn-skeleton-block');
+	container.classList.toggle('vyrn-skeleton-block', loading);
+	container.setAttribute('aria-busy', String(loading));
+	if (loading) {
+		container.classList.remove('vyrn-content-enter');
+	} else if (wasLoading) {
+		animateLoadedContent(container);
+	}
+};
+const setProfilePageSkeleton = (profilePage, loading) => {
+	if (!profilePage) return;
+	const items = [
+		profilePage.querySelector('.profile-avatar'),
+		profilePage.querySelector('.profile-name'),
+		profilePage.querySelector('.profile-status'),
+		...profilePage.querySelectorAll('.profile-detail'),
+		profilePage.querySelector('.profile-collection-value'),
+		...profilePage.querySelectorAll('.profile-nft-button'),
+		...profilePage.querySelectorAll('.profile-nft-cell')
+	].filter(Boolean);
+	items.forEach((element) => {
+		const wasLoading = element.classList.contains('profile-skeleton-item');
+		element.classList.toggle('profile-skeleton-item', loading);
+		element.setAttribute('aria-busy', String(loading));
+		if (!loading && wasLoading) {
+			element.classList.remove('profile-content-fade-in');
+			void element.offsetWidth;
+			element.classList.add('profile-content-fade-in');
+			window.setTimeout(() => element.classList.remove('profile-content-fade-in'), 400);
+		} else if (loading) {
+			element.classList.remove('profile-content-fade-in');
+		}
+	});
+	const tabs = profilePage.querySelector('.profile-nft-tabs');
+	if (tabs) tabs.classList.toggle('profile-skeleton-tabs', loading);
+	const nftGrid = profilePage.querySelector('.profile-nft-grid');
+	if (loading && nftGrid && !nftGrid.children.length) {
+		showSquareSkeletons(nftGrid, 9, 'profile-nft-skeleton');
+	} else if (nftGrid) {
+		const wasBusy = nftGrid.getAttribute('aria-busy') === 'true';
+		nftGrid.setAttribute('aria-busy', String(loading));
+		if (!loading && wasBusy) animateLoadedContent(nftGrid);
+	}
 };
 const keyboardFocusKeys = new Set(['Tab', 'ArrowDown', 'ArrowUp', 'ArrowLeft', 'ArrowRight', 'Home', 'End', 'PageUp', 'PageDown', 'Enter', ' ']);
 document.addEventListener('pointerdown', () => {
@@ -58,6 +115,21 @@ const canUseSupabaseAccount = () => window.VyrnApi?.isConfigured
 	&& (Boolean(getTelegramUser()) || window.VyrnApi.browserDemo);
 const canLoadPlayerData = () => canUseSupabaseAccount()
 	|| (window.VyrnApi?.isConfigured && window.VyrnApi.browserDemo);
+const profilePageLoadParts = { profile: false, nfts: false, value: false };
+let profilePageLoadStarted = false;
+let profilePageLoadCompleted = false;
+const beginProfilePageLoad = () => {
+	profilePageLoadStarted = true;
+	setProfilePageSkeleton(document.querySelector('.profile-page:not(.player-profile-page)'), true);
+};
+const completeProfilePageLoadPart = (part) => {
+	profilePageLoadParts[part] = true;
+	if (!profilePageLoadStarted || profilePageLoadCompleted
+		|| !Object.values(profilePageLoadParts).every(Boolean)) return;
+	profilePageLoadCompleted = true;
+	setProfilePageSkeleton(document.querySelector('.profile-page:not(.player-profile-page)'), false);
+};
+const isProfilePageLoading = () => profilePageLoadStarted && !profilePageLoadCompleted;
 
 function createProfileStatusBadge(status) {
 	const normalizedStatus = String(status || '').trim().toLowerCase();
@@ -115,14 +187,21 @@ function renderProfileBanner(page, profile) {
 
 const renderWalletBalance = (wallets = []) => {
 	const stars = wallets.find((wallet) => wallet.currency === 'stars');
-	if (!stars) return;
-	document.querySelectorAll('.star-balance').forEach((balanceElement) => {
+	if (!stars) {
+		document.querySelectorAll('.star-balance:not(.wallet-topup-balance)').forEach((balanceElement) => setBlockSkeleton(balanceElement, false));
+		return;
+	}
+	document.querySelectorAll('.star-balance:not(.wallet-topup-balance)').forEach((balanceElement) => {
 		const balanceLabel = balanceElement.querySelector('span');
 		if (!balanceLabel) return;
 		balanceLabel.textContent = Number(stars.balance).toLocaleString('ru-RU');
 		balanceElement.setAttribute('aria-label', `Баланс: ${balanceLabel.textContent} звёзд`);
+		setBlockSkeleton(balanceElement, false);
 	});
 };
+if (canUseSupabaseAccount()) {
+	document.querySelectorAll('.star-balance:not(.wallet-topup-balance)').forEach((balanceElement) => setBlockSkeleton(balanceElement, true));
+}
 
 window.refreshVyrnAccount = async () => {
 	const result = await window.VyrnApi.me();
@@ -133,6 +212,7 @@ window.refreshVyrnAccount = async () => {
 if (!document.body.classList.contains('wallet-screen') && (canUseSupabaseAccount() || (window.VyrnApi?.isConfigured && window.VyrnApi.browserDemo))) {
 	window.VyrnAccountPromise = window.refreshVyrnAccount().catch((error) => {
 		console.error('Не удалось загрузить аккаунт VYRN:', error);
+		document.querySelectorAll('.star-balance:not(.wallet-topup-balance)').forEach((balanceElement) => setBlockSkeleton(balanceElement, false));
 		return null;
 	});
 }
@@ -354,6 +434,12 @@ if (document.body.classList.contains('wallet-screen')) {
 		if (!canUseSupabaseAccount()) throw new Error('Откройте кошелёк через Telegram.');
 		const initialLoad = !walletTransactions.dataset.loaded;
 		if (initialLoad) {
+			[
+				document.querySelector('.wallet-card-balance'),
+				walletOtherBalance,
+				walletAccount
+			].forEach((element) => setBlockSkeleton(element, true));
+			setBlockSkeleton(document.querySelector('.wallet-actions'), true);
 			walletBalanceElement.textContent = '';
 			walletBalanceElement.classList.add('vyrn-skeleton', 'wallet-balance-skeleton');
 			walletTransactions.replaceChildren(...Array.from({ length: 4 }, () => {
@@ -394,6 +480,12 @@ if (document.body.classList.contains('wallet-screen')) {
 		walletTransactions.dataset.loaded = 'true';
 		walletTransactions.classList.remove('is-loading');
 		walletBalanceElement.classList.remove('vyrn-skeleton', 'wallet-balance-skeleton');
+		[
+			document.querySelector('.wallet-card-balance'),
+			walletOtherBalance,
+			walletAccount
+		].forEach((element) => setBlockSkeleton(element, false));
+		setBlockSkeleton(document.querySelector('.wallet-actions'), false);
 	};
 
 	walletMoreButton.addEventListener('click', () => {
@@ -424,6 +516,12 @@ if (document.body.classList.contains('wallet-screen')) {
 
 	loadWallet().catch((error) => {
 		console.error('Не удалось загрузить кошелёк:', error);
+		[
+			document.querySelector('.wallet-card-balance'),
+			walletOtherBalance,
+			walletAccount
+		].forEach((element) => setBlockSkeleton(element, false));
+		setBlockSkeleton(document.querySelector('.wallet-actions'), false);
 		walletBalanceElement.classList.remove('vyrn-skeleton', 'wallet-balance-skeleton');
 		walletBalanceElement.textContent = '—';
 		walletTransactions.replaceChildren();
@@ -467,6 +565,7 @@ const profileDetailValues = profileContentElement ? [...profileContentElement.qu
 
 if (profileEditButton && profileEditorDialog && profileEditorForm && profileAvatarElement && profileNameElement && profileDetailValues.length >= 2) {
 	const telegramUser = getTelegramUser();
+	if (canLoadPlayerData()) beginProfilePageLoad();
 	const storedName = profileNameElement.textContent.trim().split(/\s+/);
 	const defaultProfile = {
 		firstName: telegramUser?.first_name || storedName[0] || '',
@@ -585,6 +684,9 @@ if (profileEditButton && profileEditorDialog && profileEditorForm && profileAvat
 	};
 	const syncProfileFromServer = async () => {
 		if (!window.VyrnApi || (!telegramUser && !window.VyrnApi.browserDemo)) return;
+		if (!isProfilePageLoading()) {
+			setProfilePageSkeleton(profileContentElement.closest('.profile-page'), true);
+		}
 		try {
 			const result = await (window.VyrnAccountPromise || window.refreshVyrnAccount());
 			if (!result) throw new Error('Не удалось загрузить профиль с сервера.');
@@ -610,6 +712,12 @@ if (profileEditButton && profileEditorDialog && profileEditorForm && profileAvat
 			renderProfile();
 		} catch (error) {
 			profileEditorError.textContent = error.message;
+		} finally {
+			if (isProfilePageLoading()) {
+				completeProfilePageLoadPart('profile');
+			} else {
+				setProfilePageSkeleton(profileContentElement.closest('.profile-page'), false);
+			}
 		}
 	};
 
@@ -923,8 +1031,9 @@ const getSavedFragmentValue = (item) => {
 	const number = Number(value);
 	return Number.isFinite(number) && number > 0 ? number : null;
 };
-const renderProfileCollectionValue = async (container, items) => {
+const renderProfileCollectionValue = async (container, items, { manageSkeleton = true } = {}) => {
 	if (!container) return;
+	if (manageSkeleton) setProfilePageSkeleton(container.closest('.profile-page'), true);
 	const requestId = (collectionValueRequests.get(container) || 0) + 1;
 	collectionValueRequests.set(container, requestId);
 	const totalElement = container.querySelector('.profile-collection-value-total');
@@ -933,6 +1042,7 @@ const renderProfileCollectionValue = async (container, items) => {
 	if (!items.length) {
 		totalElement.textContent = '0';
 		detailElement.textContent = 'В коллекции пока нет NFT';
+		if (manageSkeleton) setProfilePageSkeleton(container.closest('.profile-page'), false);
 		return;
 	}
 
@@ -1001,6 +1111,7 @@ const renderProfileCollectionValue = async (container, items) => {
 		} else {
 			detailElement.textContent = `Оценка всех ${items.length.toLocaleString('ru-RU')} NFT`;
 		}
+		if (manageSkeleton) setProfilePageSkeleton(container.closest('.profile-page'), false);
 	}
 	renderTotal();
 };
@@ -1017,6 +1128,7 @@ if (collectionPreviewGrid) {
 	const collectionTotal = collectionPreviewGrid.closest('.collection-panel').querySelector('.collection-total');
 	const renderCollectionPreview = (items) => {
 		clearSkeletonState(collectionPreviewGrid);
+		setBlockSkeleton(collectionPreviewGrid.closest('.collection-panel')?.querySelector('.collection-heading'), false);
 		collectionTotal.textContent = `${items.length.toLocaleString('ru-RU')} NFT`;
 		collectionPreviewGrid.replaceChildren();
 		items.slice(0, 3).forEach((gift) => {
@@ -1031,6 +1143,7 @@ if (collectionPreviewGrid) {
 		});
 	};
 	if (canLoadPlayerData()) {
+		setBlockSkeleton(collectionPreviewGrid.closest('.collection-panel')?.querySelector('.collection-heading'), true);
 		showSquareSkeletons(collectionPreviewGrid, 6, 'collection-preview-skeleton');
 		window.VyrnApi.myNfts()
 			.then(({ items }) => renderCollectionPreview(items.map(mapOwnedNft)))
@@ -1255,6 +1368,8 @@ if (marketGrid) {
 	const renderMarketList = async (refreshedResult = null, retryCount = 0) => {
 		if (canUseSupabaseAccount()) {
 			const requestId = ++marketRequestId;
+			setBlockSkeleton(document.querySelector('.market-tools'), true);
+			setBlockSkeleton(document.querySelector('.market-trade-nav'), true);
 			marketGrid.setAttribute('aria-busy', 'true');
 			marketEmpty.hidden = true;
 			if (!refreshedResult) {
@@ -1399,6 +1514,8 @@ if (marketGrid) {
 				}
 				marketGrid.replaceChildren(...visibleCards);
 				marketGrid.setAttribute('aria-busy', 'false');
+				setBlockSkeleton(document.querySelector('.market-tools'), false);
+				setBlockSkeleton(document.querySelector('.market-trade-nav'), false);
 				marketEmpty.hidden = visibleCards.length > 0;
 				marketEmpty.textContent = marketMode === 'sales'
 					? 'У вас пока нет объявлений о продаже'
@@ -1418,6 +1535,8 @@ if (marketGrid) {
 				console.error('Не удалось загрузить список рынка:', error);
 				marketGrid.replaceChildren();
 				marketGrid.setAttribute('aria-busy', 'false');
+				setBlockSkeleton(document.querySelector('.market-tools'), false);
+				setBlockSkeleton(document.querySelector('.market-trade-nav'), false);
 				marketEmpty.textContent = error.message;
 				marketEmpty.hidden = false;
 				return;
@@ -1652,19 +1771,47 @@ if (nftGrid) {
 	window.addEventListener('scroll', updateVisibleNftCards, { passive: true });
 	window.addEventListener('resize', updateVisibleNftCards);
 	const renderOwnedNfts = (items) => {
+		const coordinatedLoad = isProfilePageLoading();
 		nftGrid.replaceChildren();
-		clearSkeletonState(nftGrid);
+		if (!coordinatedLoad) clearSkeletonState(nftGrid);
 		cards = items.map((item) => renderNftCard(mapOwnedNft(item)));
-		renderProfileCollectionValue(document.querySelector('.profile-page:not(.player-profile-page) .profile-collection-value'), items);
+		const collectionValuePromise = renderProfileCollectionValue(
+			document.querySelector('.profile-page:not(.player-profile-page) .profile-collection-value'),
+			items,
+			{ manageSkeleton: !coordinatedLoad }
+		);
+		if (coordinatedLoad) {
+			setProfilePageSkeleton(document.querySelector('.profile-page:not(.player-profile-page)'), true);
+			completeProfilePageLoadPart('nfts');
+			collectionValuePromise
+				.catch((error) => console.error('Не удалось оценить коллекцию профиля:', error))
+				.finally(() => completeProfilePageLoadPart('value'));
+		}
 		filterProfileNftCards();
 		updateVisibleNftCards();
 	};
 	if (canLoadPlayerData()) {
 		showSquareSkeletons(nftGrid, 9, 'profile-nft-skeleton');
-		window.VyrnApi.myNfts().then(({ items }) => renderOwnedNfts(items)).catch(() => {
+		window.VyrnApi.myNfts().then(({ items }) => renderOwnedNfts(items)).catch((error) => {
 			nftGrid.replaceChildren();
-			clearSkeletonState(nftGrid);
 			cards = [];
+			const errorState = document.createElement('p');
+			errorState.className = 'profile-load-error';
+			errorState.setAttribute('role', 'status');
+			errorState.textContent = 'Не удалось загрузить коллекцию NFT';
+			nftGrid.append(errorState);
+			console.error('Не удалось загрузить коллекцию профиля:', error);
+			if (isProfilePageLoading()) {
+				completeProfilePageLoadPart('nfts');
+				const valueContainer = document.querySelector('.profile-page:not(.player-profile-page) .profile-collection-value');
+				const total = valueContainer?.querySelector('.profile-collection-value-total');
+				const detail = valueContainer?.querySelector('.profile-collection-value-detail');
+				if (total) total.textContent = '—';
+				if (detail) detail.textContent = 'Не удалось загрузить оценку коллекции';
+				completeProfilePageLoadPart('value');
+			} else {
+				clearSkeletonState(nftGrid);
+			}
 		});
 	}
 	window.addEventListener('vyrn:cache-refresh', (event) => {
@@ -1808,6 +1955,7 @@ window.openVyrnPlayerProfile = async (profileOrId) => {
 	if (!cachedProfile && !sharedPlayerProfileNfts.children.length) {
 		showSquareSkeletons(sharedPlayerProfileNfts, 9, 'profile-nft-skeleton');
 	}
+	setProfilePageSkeleton(playerProfileDialog.querySelector('.player-profile-page'), true);
 	if (!playerProfileDialog.open) playerProfileDialog.showModal();
 	requestAnimationFrame(() => {
 		if (playerProfileDialog.open && sharedPlayerProfileData?.id === profileId) {
@@ -1832,6 +1980,7 @@ window.openVyrnPlayerProfile = async (profileOrId) => {
 		if (requestId === sharedPlayerProfileRequestId) {
 			sharedPlayerProfileNfts.replaceChildren();
 			clearSkeletonState(sharedPlayerProfileNfts);
+			setProfilePageSkeleton(playerProfileDialog.querySelector('.player-profile-page'), false);
 			sharedPlayerProfileBio.textContent = error.message || 'Не удалось загрузить профиль';
 		}
 	}
@@ -2342,6 +2491,7 @@ if (bottomNav && navIndicator && activeItem) {
 
 	navItems.filter((item) => item.tagName === 'A').forEach((link) => {
 		link.addEventListener('click', (event) => {
+			if (event.defaultPrevented) return;
 			const destination = new URL(link.href, window.location.href);
 			if (destination.origin !== window.location.origin || destination.pathname === window.location.pathname) {
 				return;
@@ -2387,6 +2537,7 @@ const setChatListLoading = (loading) => {
 	if (!chatList) return;
 	chatSkeletons.forEach((row) => row.remove());
 	if (loading) chatList.append(...chatSkeletons);
+	chatList.classList.toggle('is-loading', loading);
 	chatList.setAttribute('aria-busy', String(loading));
 };
 
@@ -2611,9 +2762,16 @@ if (chatRows.length && conversationDialog) {
 		if (document.hidden || !activeServerChatId || activeChatIndex < 0 || !window.VyrnApi || messageRefreshInFlight) return;
 		const chatId = activeServerChatId;
 		messageRefreshInFlight = true;
+		if (conversationMessageList.dataset.loaded !== 'true') setBlockSkeleton(conversationMessageList, true);
+		let switchedChat = false;
 		try {
 			const result = await window.VyrnApi.messages(chatId);
-			if (chatId !== activeServerChatId || activeChatIndex < 0) return;
+			if (chatId !== activeServerChatId || activeChatIndex < 0) {
+				switchedChat = true;
+				return;
+			}
+			conversationMessageList.dataset.loaded = 'true';
+			setBlockSkeleton(conversationMessageList, false);
 			const serverMessages = formatRemoteMessages(result.messages);
 			const serverMessageIds = new Set(serverMessages.map((message) => message.id));
 			const pendingMessages = (pendingRemoteMessages.get(chatId) || [])
@@ -2637,8 +2795,17 @@ if (chatRows.length && conversationDialog) {
 				favoritesPreview.textContent = nextMessages.at(-1)?.text || 'Ваши сохранённые сообщения';
 			}
 			renderConversationMessages();
+		} catch (error) {
+			if (chatId === activeServerChatId) {
+				conversationMessageList.dataset.loaded = 'false';
+				setBlockSkeleton(conversationMessageList, false);
+			}
+			console.error('Не удалось загрузить сообщения чата:', error);
 		} finally {
 			messageRefreshInFlight = false;
+			if (switchedChat && activeServerChatId && !document.hidden) {
+				window.setTimeout(() => refreshActiveMessages(), 0);
+			}
 		}
 	};
 	const startMessageRefresh = () => {
@@ -3166,6 +3333,8 @@ if (chatRows.length && conversationDialog) {
 		chatRow.addEventListener('click', () => {
 			activeChatIndex = index;
 			activeServerChatId = chatRow.dataset.chatId || (index === favoritesChatIndex ? remoteSavedChatId : undefined);
+			conversationMessageList.dataset.loaded = 'false';
+			setBlockSkeleton(conversationMessageList, Boolean(activeServerChatId));
 			const unreadBadge = chatRow.querySelector('.chat-unread');
 			if (unreadBadge) {
 				unreadBadge.textContent = '';
@@ -3203,17 +3372,18 @@ if (chatRows.length && conversationDialog) {
 			playerProfileStatus.textContent = profile.status;
 			playerProfileUsername.textContent = profile.username;
 			playerProfileBio.textContent = profile.bio;
+			setProfilePageSkeleton(conversationProfile.querySelector('.player-profile-page'), false);
 			if (playerProfileNftGrid) {
 				playerProfileNftGrid.replaceChildren();
 				clearSkeletonState(playerProfileNftGrid);
 			}
 			if (playerProfileValue) renderProfileCollectionValue(playerProfileValue, []);
 			if (profile.profileId && window.VyrnApi) {
+				setProfilePageSkeleton(conversationProfile.querySelector('.player-profile-page'), true);
 				showSquareSkeletons(playerProfileNftGrid, 9, 'profile-nft-skeleton');
-				window.VyrnApi.profileNfts(profile.profileId).then(({ profile: latestProfile, items }) => {
+				window.VyrnApi.profileNfts(profile.profileId).then(async ({ profile: latestProfile, items }) => {
 					if (activeChatIndex !== index || !playerProfileNftGrid) return;
 					playerProfileNftGrid.replaceChildren();
-					clearSkeletonState(playerProfileNftGrid);
 					if (latestProfile) {
 						const latestStatus = getProfileStatus(latestProfile);
 						profile.accountStatus = latestStatus;
@@ -3228,7 +3398,8 @@ if (chatRows.length && conversationDialog) {
 						const chatName = chatRow.querySelector('.chat-name');
 						if (chatName) renderProfileName(chatName, getProfileDisplayName(latestProfile), latestStatus);
 					}
-					renderProfileCollectionValue(playerProfileValue, items);
+					await renderProfileCollectionValue(playerProfileValue, items, { manageSkeleton: false });
+					setProfilePageSkeleton(conversationProfile.querySelector('.player-profile-page'), false);
 					items.map(mapOwnedNft).forEach((gift) => {
 						const title = `${gift.name} #${gift.id}`;
 						const file = gift.slug ? `${gift.slug}-${gift.id}.tgs` : '';
@@ -3254,6 +3425,7 @@ if (chatRows.length && conversationDialog) {
 					if (activeChatIndex !== index || !playerProfileNftGrid) return;
 					playerProfileNftGrid.replaceChildren();
 					clearSkeletonState(playerProfileNftGrid);
+					setProfilePageSkeleton(conversationProfile.querySelector('.player-profile-page'), false);
 					console.error('Не удалось загрузить NFT профиля собеседника:', error);
 				});
 			}

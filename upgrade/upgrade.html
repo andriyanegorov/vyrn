@@ -30,8 +30,44 @@ h1{font-size:22px;margin:0;font-weight:700}
 .chip.on{background:#3ca6df;color:#fff}
 #grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;padding:12px 12px calc(104px + env(safe-area-inset-bottom))}
 .skeleton-card{aspect-ratio:1;border-radius:20px;background:linear-gradient(100deg,#e9edf2 25%,#fff 43%,#e9edf2 62%);background-size:220% 100%;animation:upgrade-skeleton-shimmer 1.35s ease-in-out infinite}
+.section-skeleton-block{position:relative;isolation:isolate}
+.section-skeleton-block>*{visibility:hidden!important}
+.section-skeleton-block::after{position:absolute;z-index:10;inset:0;border-radius:inherit;background:linear-gradient(100deg,#e9edf2 25%,#fff 43%,#e9edf2 62%);background-size:220% 100%;animation:upgrade-skeleton-shimmer 1.35s ease-in-out infinite;content:"";pointer-events:none}
 @keyframes upgrade-skeleton-shimmer{to{background-position-x:-220%}}
-@media(prefers-reduced-motion:reduce){.skeleton-card{animation-duration:3s}}
+@keyframes route-pending-shimmer{to{background-position-x:-220%}}
+.route-pending-skeleton{display:grid;min-height:60vh;align-content:start;gap:12px;padding:14px 16px calc(110px + env(safe-area-inset-bottom,0px))}
+.route-pending-skeleton .route-pending-block,.route-pending-skeleton .route-pending-avatar,.route-pending-skeleton .route-pending-card,.route-pending-skeleton .route-pending-lines i{display:block;background:linear-gradient(100deg,#e9edf2 25%,#fff 43%,#e9edf2 62%);background-size:220% 100%;animation:route-pending-shimmer 1.35s ease-in-out infinite}
+.route-pending-toolbar{height:44px;border-radius:14px}
+.route-pending-tabs{height:42px;border-radius:14px}
+.route-pending-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;background:transparent!important;animation:none!important}
+.route-pending-card{aspect-ratio:1;border-radius:16px}
+.route-pending-profile{display:flex!important;min-height:100px;align-items:center;gap:14px;background:transparent!important;animation:none!important}
+.route-pending-profile .route-pending-avatar,.route-pending-row .route-pending-avatar{flex:none;width:56px;height:56px;border-radius:50%}
+.route-pending-lines{display:grid;flex:1;gap:10px}
+.route-pending-lines i{width:72%;height:13px;border-radius:999px}
+.route-pending-lines i+i{width:46%;height:11px}
+.route-pending-details{height:68px;border-radius:16px}
+.route-pending-value{height:56px;border-radius:16px}
+.route-pending-list{display:grid;gap:10px;background:transparent!important;animation:none!important}
+.route-pending-row{display:flex;min-height:68px;align-items:center;gap:12px;padding:8px 12px;border-radius:16px;background:#fff}
+.route-pending-row .route-pending-avatar{width:48px;height:48px}
+.route-pending-hero{min-height:180px;border-radius:20px}
+@view-transition{navigation:auto}
+#hd{view-transition-name:route-header}
+.bottom-nav{view-transition-name:route-nav}
+.section-route-content,#grid{view-transition-name:route-content}
+::view-transition-old(root),::view-transition-new(root),::view-transition-old(route-header),::view-transition-new(route-header),::view-transition-old(route-nav),::view-transition-new(route-nav){animation:none}
+::view-transition-group(route-header),::view-transition-group(route-nav),::view-transition-group(route-content){animation:none}
+html[data-route-direction="forward"]::view-transition-old(route-content){animation:route-content-leave-left 300ms cubic-bezier(.22,.72,.18,1) both}
+html[data-route-direction="forward"]::view-transition-new(route-content){animation:route-content-enter-right 300ms cubic-bezier(.22,.72,.18,1) both}
+html[data-route-direction="backward"]::view-transition-old(route-content){animation:route-content-leave-right 300ms cubic-bezier(.22,.72,.18,1) both}
+html[data-route-direction="backward"]::view-transition-new(route-content){animation:route-content-enter-left 300ms cubic-bezier(.22,.72,.18,1) both}
+@keyframes route-content-leave-left{to{transform:translate3d(-100%,0,0)}}
+@keyframes route-content-leave-right{to{transform:translate3d(100%,0,0)}}
+@keyframes route-content-enter-right{from{transform:translate3d(100%,0,0)}to{transform:translate3d(0,0,0)}}
+@keyframes route-content-enter-left{from{transform:translate3d(-100%,0,0)}to{transform:translate3d(0,0,0)}}
+@media(prefers-reduced-motion:reduce){.skeleton-card,.section-skeleton-block::after{animation-duration:3s}}
+@media(prefers-reduced-motion:reduce){html[data-route-direction]::view-transition-old(route-content),html[data-route-direction]::view-transition-new(route-content){animation-duration:180ms}}
 .card{position: relative;
     min-width: 0;
     border: 0;
@@ -178,6 +214,7 @@ html.low-performance .nft-modal-art:after{-webkit-backdrop-filter:none;backdrop-
 <script src="https://cdnjs.cloudflare.com/ajax/libs/lottie-web/5.12.2/lottie.min.js"></script>
 <script src="../supabase-client-config.js?v=upgrade-live-20261022"></script>
 <script src="../supabase-api.js?v=market-cache-validation-v2"></script>
-<script src="upgrade.js?v=upgrade-skeleton-shimmer-v1"></script>
+<script src="../nav-transition.js?v=section-swipe-v8"></script>
+<script src="upgrade.js?v=upgrade-skeleton-shimmer-v2"></script>
 </body>
 </html>

@@ -91,23 +91,27 @@ function renderGrid(){
   }
 }
 async function refreshCraftBalance(){
+  const balance=document.querySelector('.star-balance');
+  balance?.classList.add('balance-skeleton');
   try{
     const {wallets=[]}=await window.VyrnApi.me();
     const stars=wallets.find(wallet=>wallet.currency==='stars');
     if(!stars)return;
-    const balance=document.querySelector('.star-balance');
     const label=balance?.querySelector('span');
     if(!balance||!label)return;
     label.textContent=Number(stars.balance).toLocaleString('ru-RU');
     balance.setAttribute('aria-label',`Баланс: ${label.textContent} звёзд`);
   }catch(error){
     console.error('Не удалось загрузить баланс звёзд:',error);
+  }finally{
+    balance?.classList.remove('balance-skeleton');
   }
 }
 $('#openCraft').onclick=()=>openCraft();
 async function loadInventory(notify=true){
   const grid=$('#grid');
   if(notify&&!inventoryLoaded){
+    $('#cnt').classList.add('inventory-count-skeleton');
     grid.setAttribute('aria-busy','true');
     grid.replaceChildren(...Array.from({length:9},()=>{
       const skeleton=document.createElement('div');
@@ -121,9 +125,11 @@ async function loadInventory(notify=true){
     inv=items.map(mapNft).filter(item=>!item.isListed);
     inventoryLoaded=true;
     renderGrid();
+    $('#cnt').classList.remove('inventory-count-skeleton');
     return true;
   }catch(error){
     renderGrid();
+    $('#cnt').classList.remove('inventory-count-skeleton');
     if(notify)toast(error.message||'Не удалось загрузить NFT');
     return false;
   }

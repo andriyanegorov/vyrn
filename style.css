@@ -40,12 +40,227 @@ body {
   animation: vyrn-skeleton-shimmer 1.35s ease-in-out infinite;
 }
 
+.route-pending-skeleton {
+  display: grid;
+  min-height: 60vh;
+  align-content: start;
+  gap: 12px;
+  padding: 14px 16px calc(110px + env(safe-area-inset-bottom, 0px));
+}
+
+.route-pending-skeleton .route-pending-block,
+.route-pending-skeleton .route-pending-avatar,
+.route-pending-skeleton .route-pending-card,
+.route-pending-skeleton .route-pending-lines i {
+  display: block;
+  background: linear-gradient(100deg, #e9edf2 25%, #fff 43%, #e9edf2 62%);
+  background-size: 220% 100%;
+  animation: vyrn-skeleton-shimmer 1.35s ease-in-out infinite;
+}
+
+.route-pending-toolbar { height: 44px; border-radius: 14px; }
+.route-pending-tabs { height: 42px; border-radius: 14px; }
+.route-pending-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+  background: transparent !important;
+  animation: none !important;
+}
+.route-pending-card { aspect-ratio: 1; border-radius: 16px; }
+.route-pending-grid.is-market .route-pending-card { border-radius: 12px; }
+.route-pending-grid.is-profile { gap: 8px; }
+.route-pending-grid.is-profile .route-pending-card { border-radius: 14px; }
+.route-pending-grid.is-home { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.route-pending-grid.is-home .route-pending-card { aspect-ratio: 1.5; }
+.route-pending-grid.is-compact .route-pending-card { border-radius: 18px; }
+.route-pending-profile {
+  display: flex !important;
+  min-height: 112px;
+  align-items: center;
+  gap: 14px;
+  background: transparent !important;
+  animation: none !important;
+}
+.route-pending-profile .route-pending-avatar,
+.route-pending-row .route-pending-avatar {
+  flex: none;
+  width: 58px;
+  height: 58px;
+  border-radius: 50%;
+}
+.route-pending-lines { display: grid; flex: 1; gap: 10px; }
+.route-pending-lines i { width: 72%; height: 13px; border-radius: 999px; }
+.route-pending-lines i + i { width: 46%; height: 11px; }
+.route-pending-details { height: 72px; border-radius: 16px; }
+.route-pending-value { height: 58px; border-radius: 16px; }
+.route-pending-list {
+  display: grid;
+  gap: 10px;
+  background: transparent !important;
+  animation: none !important;
+}
+.route-pending-row {
+  display: flex;
+  min-height: 70px;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 12px;
+  border-radius: 16px;
+  background: #fff;
+}
+.route-pending-row .route-pending-avatar { width: 48px; height: 48px; }
+.route-pending-hero { min-height: 210px; border-radius: 22px; }
+
+.vyrn-skeleton-block {
+  position: relative;
+  isolation: isolate;
+}
+
+.vyrn-skeleton-block > * {
+  visibility: hidden !important;
+  opacity: 0;
+}
+
+.vyrn-content-enter > * {
+  animation: vyrn-content-fade-in 360ms ease-out both;
+}
+
+.vyrn-skeleton-block::after {
+  position: absolute;
+  z-index: 10;
+  inset: 0;
+  border-radius: inherit;
+  background: linear-gradient(100deg, #e9edf2 25%, #fff 43%, #e9edf2 62%);
+  background-size: 220% 100%;
+  animation: vyrn-skeleton-shimmer 1.35s ease-in-out infinite;
+  content: "";
+  pointer-events: none;
+}
+
 @keyframes vyrn-skeleton-shimmer {
   to { background-position-x: -220%; }
 }
 
+@keyframes vyrn-content-fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+.profile-skeleton-item {
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+  color: transparent !important;
+  -webkit-text-fill-color: transparent;
+}
+
+.profile-skeleton-item > * {
+  visibility: hidden !important;
+}
+
+.profile-skeleton-item::after {
+  position: absolute;
+  z-index: 2;
+  inset: 0;
+  border-radius: inherit;
+  background: linear-gradient(100deg, #e9edf2 25%, #fff 43%, #e9edf2 62%);
+  background-size: 220% 100%;
+  animation: vyrn-skeleton-shimmer 1.35s ease-in-out infinite;
+  content: "";
+  pointer-events: none;
+}
+
+.profile-content-fade-in {
+  animation: vyrn-content-fade-in 360ms ease-out both;
+}
+
+@view-transition {
+  navigation: auto;
+}
+
+.site-header,
+#hd,
+.top {
+  view-transition-name: route-header;
+}
+
+.bottom-nav {
+  view-transition-name: route-nav;
+}
+
+.section-route-content,
+body > main,
+body > .app main {
+  view-transition-name: route-content;
+}
+
+.section-route-content-embedded {
+  display: flex;
+  min-height: 0;
+  flex: 1;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+::view-transition-old(root),
+::view-transition-new(root),
+::view-transition-old(route-header),
+::view-transition-new(route-header),
+::view-transition-old(route-nav),
+::view-transition-new(route-nav) {
+  animation: none;
+}
+
+::view-transition-group(route-header),
+::view-transition-group(route-nav),
+::view-transition-group(route-content) {
+  animation: none;
+}
+
+html[data-route-direction="forward"]::view-transition-old(route-content) {
+  animation: route-content-leave-left 300ms cubic-bezier(0.22, 0.72, 0.18, 1) both;
+}
+
+html[data-route-direction="forward"]::view-transition-new(route-content) {
+  animation: route-content-enter-right 300ms cubic-bezier(0.22, 0.72, 0.18, 1) both;
+}
+
+html[data-route-direction="backward"]::view-transition-old(route-content) {
+  animation: route-content-leave-right 300ms cubic-bezier(0.22, 0.72, 0.18, 1) both;
+}
+
+html[data-route-direction="backward"]::view-transition-new(route-content) {
+  animation: route-content-enter-left 300ms cubic-bezier(0.22, 0.72, 0.18, 1) both;
+}
+
+@keyframes route-content-leave-left {
+  to { transform: translate3d(-100%, 0, 0); }
+}
+
+@keyframes route-content-leave-right {
+  to { transform: translate3d(100%, 0, 0); }
+}
+
+@keyframes route-content-enter-right {
+  from { transform: translate3d(100%, 0, 0); }
+  to { transform: translate3d(0, 0, 0); }
+}
+
+@keyframes route-content-enter-left {
+  from { transform: translate3d(-100%, 0, 0); }
+  to { transform: translate3d(0, 0, 0); }
+}
+
 @media (prefers-reduced-motion: reduce) {
-  .vyrn-skeleton { animation-duration: 3s; }
+  .vyrn-skeleton,
+  .vyrn-skeleton-block::after { animation-duration: 3s; }
+  .vyrn-skeleton-block > * { transition-duration: 180ms; }
+  .vyrn-content-enter > * { animation-duration: 180ms; }
+  .profile-skeleton-item::after { animation-duration: 3s; }
+  .profile-content-fade-in { animation-duration: 180ms; }
+  html[data-route-direction]::view-transition-old(route-content),
+  html[data-route-direction]::view-transition-new(route-content) { animation-duration: 180ms; }
 }
 
 button {
@@ -1447,6 +1662,8 @@ body.chats-screen {
   width: min(100%, 720px);
   margin: 0 auto;
 }
+
+.chat-list.is-loading > .chat-row { display: none; }
 
 .chat-skeleton-row {
   display: flex;
@@ -4279,7 +4496,7 @@ body.chats-screen {
   gap: 12px;
   margin: 12px 0 0;
   padding: 13px 16px;
-  border: 1px solid rgba(255, 255, 255, 0.9);
+  border: 1px solid #e3e7ee;
   border-radius: 16px;
   background: rgba(255, 255, 255, 0.72);
   color: #17191f;
@@ -4369,9 +4586,22 @@ body.chats-screen {
   margin-top: 12px;
 }
 
+.profile-load-error {
+  grid-column: 1 / -1;
+  margin: 12px 0;
+  color: #747780;
+  text-align: center;
+}
+
 .profile-nft-skeleton {
   aspect-ratio: 1;
+  border: 1px solid rgba(255, 255, 255, 0.92);
   border-radius: 14px;
+  box-shadow: 0 5px 16px rgba(25, 35, 45, 0.05);
+}
+
+.profile-nft-tabs.profile-skeleton-tabs .profile-nft-indicator {
+  opacity: 0;
 }
 
 .profile-nft-cell {
@@ -5027,7 +5257,9 @@ body.chats-screen {
 }
 
 .profile-name {
-    color: rgb(0 0 0);
+  width: fit-content;
+  max-width: 100%;
+  color: rgb(0 0 0);
   margin: 18px 0 0;
   font-size: 20px;
   line-height: 1.3;
@@ -5035,6 +5267,7 @@ body.chats-screen {
 
 .profile-status {
   display: flex;
+  width: fit-content;
   align-items: center;
   gap: 7px;
   margin: 8px 0 0;
@@ -5044,20 +5277,22 @@ body.chats-screen {
 
 
 .profile-details {
-    margin-top: 30px;
-    padding: 0 10px;
-    border-radius: 18px;
-    background: #fff;
-    color: #000000;
-    text-align: left;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 30px;
+  color: #000000;
+  text-align: left;
 }
 
 .profile-detail {
-  padding: 18px 0;
-}
-
-.profile-detail + .profile-detail {
-  border-top: 1px solid #dedede;
+  box-sizing: border-box;
+  min-height: 76px;
+  padding: 14px 16px;
+  border: 1px solid #e3e7ee;
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.76);
+  box-shadow: 0 6px 18px rgba(25, 35, 45, 0.045);
 }
 
 .profile-detail-label {
