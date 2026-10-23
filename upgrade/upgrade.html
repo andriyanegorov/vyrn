@@ -36,6 +36,9 @@ h1{font-size:22px;margin:0;font-weight:700}
 @keyframes upgrade-skeleton-shimmer{to{background-position-x:-220%}}
 @keyframes route-pending-shimmer{to{background-position-x:-220%}}
 .route-pending-skeleton{display:grid;min-height:60vh;align-content:start;gap:12px;padding:14px 16px calc(110px + env(safe-area-inset-bottom,0px))}
+.route-pending-active{position:relative}
+.route-pending-active>:not([data-route-pending]){visibility:hidden!important}
+.route-pending-active>[data-route-pending]{position:absolute;z-index:30;inset:0;overflow:auto;background:#f5f5f5}
 .route-pending-skeleton .route-pending-block,.route-pending-skeleton .route-pending-avatar,.route-pending-skeleton .route-pending-card,.route-pending-skeleton .route-pending-lines i{display:block;background:linear-gradient(100deg,#e9edf2 25%,#fff 43%,#e9edf2 62%);background-size:220% 100%;animation:route-pending-shimmer 1.35s ease-in-out infinite}
 .route-pending-toolbar{height:44px;border-radius:14px}
 .route-pending-tabs{height:42px;border-radius:14px}
@@ -214,7 +217,7 @@ html.low-performance .nft-modal-art:after{-webkit-backdrop-filter:none;backdrop-
 <script src="https://cdnjs.cloudflare.com/ajax/libs/lottie-web/5.12.2/lottie.min.js"></script>
 <script src="../supabase-client-config.js?v=upgrade-live-20261022"></script>
 <script src="../supabase-api.js?v=market-cache-validation-v2"></script>
-<script src="../nav-transition.js?v=section-swipe-v8"></script>
+<script src="../nav-transition.js?v=section-swipe-v9"></script>
 <script src="upgrade.js?v=upgrade-skeleton-shimmer-v2"></script>
 </body>
 </html>

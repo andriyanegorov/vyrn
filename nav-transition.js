@@ -25,6 +25,7 @@ const createRouteSkeleton = (pathname) => {
 	skeleton.setAttribute('role', 'status');
 	skeleton.setAttribute('aria-label', 'Загрузка раздела');
 	skeleton.setAttribute('aria-busy', 'true');
+	skeleton.setAttribute('data-route-pending', '');
 
 	const addBlock = (className) => {
 		const block = document.createElement('div');
@@ -129,7 +130,10 @@ routeNavigation.filter((item) => item.tagName === 'A').forEach((link) => {
 			console.warn('Не удалось сохранить направление перехода раздела:', error);
 		}
 		document.documentElement.dataset.routeDirection = direction;
-		if (routeContent) routeContent.replaceChildren(createRouteSkeleton(destination.pathname));
+		if (routeContent) {
+			routeContent.append(createRouteSkeleton(destination.pathname));
+			routeContent.classList.add('route-pending-active');
+		}
 		routeNavigation.forEach((item) => {
 			const isActive = item === link;
 			item.classList.toggle('is-active', isActive);

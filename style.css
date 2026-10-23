@@ -48,6 +48,22 @@ body {
   padding: 14px 16px calc(110px + env(safe-area-inset-bottom, 0px));
 }
 
+.route-pending-active {
+  position: relative;
+}
+
+.route-pending-active > :not([data-route-pending]) {
+  visibility: hidden !important;
+}
+
+.route-pending-active > [data-route-pending] {
+  position: absolute;
+  z-index: 30;
+  inset: 0;
+  overflow: auto;
+  background: #f5f5f5;
+}
+
 .route-pending-skeleton .route-pending-block,
 .route-pending-skeleton .route-pending-avatar,
 .route-pending-skeleton .route-pending-card,
