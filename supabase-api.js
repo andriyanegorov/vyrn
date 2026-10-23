@@ -2,6 +2,8 @@
   const config = window.VYRN_SUPABASE_CONFIG || {};
   const CACHE_VERSION = 'v2';
   const CACHE_PREFIX = `vyrn:${CACHE_VERSION}:`;
+  const ACCOUNT_CACHE_PREFIX = `${CACHE_PREFIX}account:`;
+  const ACCOUNT_CACHE_TTL = 5 * 60 * 1000;
   const CACHE_TTL = {
     my_nfts: 120_000,
     profile_nfts: 120_000,
@@ -10,6 +12,7 @@
   };
   const cacheRefreshes = new Map();
   const cacheGenerations = new Map();
+  const accountRequests = new Map();
   const isValidCachedResult = (action, result) =>
     action !== 'market' || Array.isArray(result?.items);
 
@@ -60,6 +63,40 @@
       }
     }
     return null;
+  };
+
+  const getAccountCacheKey = (scope) => `${ACCOUNT_CACHE_PREFIX}${scope}`;
+  const readCachedAccount = () => {
+    const scope = getCacheScope();
+    if (!scope) return null;
+    try {
+      const stored = sessionStorage.getItem(getAccountCacheKey(scope));
+      if (!stored) return null;
+      const cached = JSON.parse(stored);
+      if (typeof cached?.savedAt !== 'number'
+        || Date.now() - cached.savedAt >= ACCOUNT_CACHE_TTL
+        || !cached.result?.profile
+        || !Array.isArray(cached.result.wallets)) {
+        sessionStorage.removeItem(getAccountCacheKey(scope));
+        return null;
+      }
+      return cached.result;
+    } catch (error) {
+      console.warn('Не удалось прочитать кэш аккаунта VYRN:', error);
+      return null;
+    }
+  };
+  const writeCachedAccount = (result) => {
+    const scope = getCacheScope();
+    if (!scope || !result?.profile || !Array.isArray(result.wallets)) return;
+    try {
+      sessionStorage.setItem(getAccountCacheKey(scope), JSON.stringify({
+        savedAt: Date.now(),
+        result: { profile: result.profile, wallets: result.wallets }
+      }));
+    } catch (error) {
+      console.warn('Не удалось сохранить кэш аккаунта VYRN:', error);
+    }
   };
 
   const getCacheKey = (scope, action, payload) =>
@@ -137,7 +174,14 @@
     const scope = getCacheScope();
     if (scope) cacheGenerations.set(scope, (cacheGenerations.get(scope) || 0) + 1);
     const result = await request(action, payload);
-    if (scope) removeUserCache(scope);
+    if (scope) {
+      removeUserCache(scope);
+      try {
+        sessionStorage.removeItem(getAccountCacheKey(scope));
+      } catch (error) {
+        console.warn('Не удалось очистить кэш аккаунта VYRN:', error);
+      }
+    }
     return result;
   };
 
@@ -164,7 +208,25 @@
       }
       return result.items;
     },
-    me: () => request('me'),
+    me: () => {
+      const cached = readCachedAccount();
+      if (cached) return Promise.resolve(cached);
+      const scope = getCacheScope();
+      if (scope && accountRequests.has(scope)) return accountRequests.get(scope);
+      const generation = scope ? cacheGenerations.get(scope) || 0 : 0;
+      const requestPromise = request('me').then((result) => {
+        if (!scope || generation === (cacheGenerations.get(scope) || 0)) {
+          writeCachedAccount(result);
+        }
+        return result;
+      }).finally(() => {
+        if (scope) accountRequests.delete(scope);
+      });
+      if (scope) accountRequests.set(scope, requestPromise);
+      return requestPromise;
+    },
+    cachedAccount: readCachedAccount,
+    updateCachedAccount: writeCachedAccount,
     wallet: () => request('wallet'),
     createStarInvoice: (amount) => request('create_star_invoice', { amount }),
     createPremiumInvoice: (durationMonths) => request('create_premium_invoice', { duration_months: durationMonths }),

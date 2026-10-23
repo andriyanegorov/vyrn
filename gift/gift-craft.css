@@ -47,21 +47,10 @@ body{display:flex;align-items:center;justify-content:center}
 .route-pending-row .route-pending-avatar{width:48px;height:48px}
 .route-pending-hero{min-height:180px;border-radius:20px}
 .section-route-content-embedded{display:flex;min-height:0;flex:1;flex-direction:column;overflow:hidden}
-@view-transition{navigation:auto}
-.top{view-transition-name:route-header}
-.bottom-nav{view-transition-name:route-nav}
-.section-route-content{view-transition-name:route-content}
-::view-transition-old(root),::view-transition-new(root),::view-transition-old(route-header),::view-transition-new(route-header),::view-transition-old(route-nav),::view-transition-new(route-nav){animation:none}
-::view-transition-group(route-header),::view-transition-group(route-nav),::view-transition-group(route-content){animation:none}
-html[data-route-direction="forward"]::view-transition-old(route-content){animation:route-content-leave-left 300ms cubic-bezier(.22,.72,.18,1) both}
-html[data-route-direction="forward"]::view-transition-new(route-content){animation:route-content-enter-right 300ms cubic-bezier(.22,.72,.18,1) both}
-html[data-route-direction="backward"]::view-transition-old(route-content){animation:route-content-leave-right 300ms cubic-bezier(.22,.72,.18,1) both}
-html[data-route-direction="backward"]::view-transition-new(route-content){animation:route-content-enter-left 300ms cubic-bezier(.22,.72,.18,1) both}
-@keyframes route-content-leave-left{to{transform:translate3d(-100%,0,0)}}
-@keyframes route-content-leave-right{to{transform:translate3d(100%,0,0)}}
-@keyframes route-content-enter-right{from{transform:translate3d(100%,0,0)}to{transform:translate3d(0,0,0)}}
-@keyframes route-content-enter-left{from{transform:translate3d(-100%,0,0)}to{transform:translate3d(0,0,0)}}
-@media(prefers-reduced-motion:reduce){html[data-route-direction]::view-transition-old(route-content),html[data-route-direction]::view-transition-new(route-content){animation-duration:180ms}}
+.section-route-content.route-is-leaving{animation:route-content-fade-out 300ms ease-out both}
+html[data-route-enter="true"] .section-route-content{animation:route-content-fade-in 300ms ease-out both}
+@keyframes route-content-fade-out{from{opacity:1}to{opacity:0}}
+@keyframes route-content-fade-in{from{opacity:0}to{opacity:1}}
 .inventory-count-skeleton{position:relative;display:inline-block;min-width:54px;height:13px;color:transparent!important;overflow:hidden}
 .inventory-count-skeleton::after{position:absolute;inset:0;border-radius:999px;background:linear-gradient(100deg,#e9edf2,#f7f8fa 48%,#e9edf2);content:"";pointer-events:none}
 .balance-skeleton{position:relative;overflow:hidden}

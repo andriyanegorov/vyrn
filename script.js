@@ -199,7 +199,11 @@ const renderWalletBalance = (wallets = []) => {
 		setBlockSkeleton(balanceElement, false);
 	});
 };
-if (canUseSupabaseAccount()) {
+const cachedAccount = window.VyrnApi?.cachedAccount?.();
+if (cachedAccount) {
+	window.VyrnAccount = cachedAccount;
+	renderWalletBalance(cachedAccount.wallets);
+} else if (canUseSupabaseAccount()) {
 	document.querySelectorAll('.star-balance:not(.wallet-topup-balance)').forEach((balanceElement) => setBlockSkeleton(balanceElement, true));
 }
 
@@ -465,6 +469,7 @@ if (document.body.classList.contains('wallet-screen')) {
 		}
 		const result = await window.VyrnApi.wallet();
 		const wallets = Array.isArray(result.wallets) ? result.wallets : [];
+		window.VyrnApi.updateCachedAccount?.({ profile: result.profile, wallets });
 		walletBalances = new Map(wallets.map((wallet) => [wallet.currency, wallet.balance]));
 		if (!walletBalances.has('stars')) walletBalances.set('stars', 0);
 		if (!walletBalances.has('ton')) walletBalances.set('ton', 0);

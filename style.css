@@ -179,24 +179,12 @@ body {
   animation: vyrn-content-fade-in 360ms ease-out both;
 }
 
-@view-transition {
-  navigation: auto;
+.section-route-content.route-is-leaving {
+  animation: route-content-fade-out 300ms ease-out both;
 }
 
-.site-header,
-#hd,
-.top {
-  view-transition-name: route-header;
-}
-
-.bottom-nav {
-  view-transition-name: route-nav;
-}
-
-.section-route-content,
-body > main,
-body > .app main {
-  view-transition-name: route-content;
+html[data-route-enter="true"] .section-route-content {
+  animation: route-content-fade-in 300ms ease-out both;
 }
 
 .section-route-content-embedded {
@@ -207,53 +195,14 @@ body > .app main {
   overflow: hidden;
 }
 
-::view-transition-old(root),
-::view-transition-new(root),
-::view-transition-old(route-header),
-::view-transition-new(route-header),
-::view-transition-old(route-nav),
-::view-transition-new(route-nav) {
-  animation: none;
+@keyframes route-content-fade-out {
+  from { opacity: 1; }
+  to { opacity: 0; }
 }
 
-::view-transition-group(route-header),
-::view-transition-group(route-nav),
-::view-transition-group(route-content) {
-  animation: none;
-}
-
-html[data-route-direction="forward"]::view-transition-old(route-content) {
-  animation: route-content-leave-left 300ms cubic-bezier(0.22, 0.72, 0.18, 1) both;
-}
-
-html[data-route-direction="forward"]::view-transition-new(route-content) {
-  animation: route-content-enter-right 300ms cubic-bezier(0.22, 0.72, 0.18, 1) both;
-}
-
-html[data-route-direction="backward"]::view-transition-old(route-content) {
-  animation: route-content-leave-right 300ms cubic-bezier(0.22, 0.72, 0.18, 1) both;
-}
-
-html[data-route-direction="backward"]::view-transition-new(route-content) {
-  animation: route-content-enter-left 300ms cubic-bezier(0.22, 0.72, 0.18, 1) both;
-}
-
-@keyframes route-content-leave-left {
-  to { transform: translate3d(-100%, 0, 0); }
-}
-
-@keyframes route-content-leave-right {
-  to { transform: translate3d(100%, 0, 0); }
-}
-
-@keyframes route-content-enter-right {
-  from { transform: translate3d(100%, 0, 0); }
-  to { transform: translate3d(0, 0, 0); }
-}
-
-@keyframes route-content-enter-left {
-  from { transform: translate3d(-100%, 0, 0); }
-  to { transform: translate3d(0, 0, 0); }
+@keyframes route-content-fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -263,8 +212,6 @@ html[data-route-direction="backward"]::view-transition-new(route-content) {
   .vyrn-content-enter > * { animation-duration: 180ms; }
   .profile-skeleton-item::after { animation-duration: 3s; }
   .profile-content-fade-in { animation-duration: 180ms; }
-  html[data-route-direction]::view-transition-old(route-content),
-  html[data-route-direction]::view-transition-new(route-content) { animation-duration: 180ms; }
 }
 
 button {
