@@ -7,12 +7,12 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Manrope:wght@400;500;600;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="style.css?v=fonts-manrope-inter-20261021">
+  <link rel="stylesheet" href="style.css?v=premium-test-payments-20261023">
   <script src="https://telegram.org/js/telegram-web-app.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/lottie-web/5.12.2/lottie.min.js" defer></script>
   <script src="supabase-client-config.js?v=wallet-balance-read-20261018" defer></script>
-  <script src="supabase-api.js?v=browser-full-api-20261018" defer></script>
-  <script src="script.js?v=craft-visual-id-20261021" defer></script>
+  <script src="supabase-api.js?v=premium-test-payments-20261023" defer></script>
+  <script src="script.js?v=premium-test-payments-20261023" defer></script>
 </head>
 <body>
   <main class="profile-page">
@@ -88,8 +88,73 @@
             <span class="profile-editor-chevron" aria-hidden="true">›</span>
           </label>
         </section>
+        <button class="profile-editor-premium-button" type="button">
+          <img src="./assets/svg/premium.svg" alt="" aria-hidden="true">
+          <span>Приобрести VYRN Премиум</span>
+        </button>
       </div>
     </form>
+  </dialog>
+  <dialog class="premium-dialog" aria-labelledby="premium-dialog-title">
+    <button class="premium-dialog-close" type="button" aria-label="Закрыть">×</button>
+    <div class="premium-dialog-scroll">
+      <div class="premium-dialog-star" aria-hidden="true">
+        <img src="./assets/svg/premium-3d.svg" alt="">
+      </div>
+      <h2 id="premium-dialog-title">VYRN Премиум</h2>
+      <p class="premium-dialog-intro">Откройте больше возможностей и получите доступ к эксклюзивным функциям VYRN Премиум.</p>
+      <fieldset class="premium-plans" aria-label="Выберите срок подписки">
+        <label class="premium-plan is-selected">
+          <input type="radio" name="premium-plan" value="24" data-price="1" checked>
+          <span class="premium-plan-check" aria-hidden="true"></span>
+          <span class="premium-plan-copy">
+            <span class="premium-plan-name">На 24 месяца</span>
+            <span class="premium-plan-detail">Тестовая цена</span>
+          </span>
+          <span class="premium-plan-total">1 <img src="./assets/stars.png" alt=""></span>
+        </label>
+        <label class="premium-plan">
+          <input type="radio" name="premium-plan" value="12" data-price="1">
+          <span class="premium-plan-check" aria-hidden="true"></span>
+          <span class="premium-plan-copy">
+            <span class="premium-plan-name">На год</span>
+            <span class="premium-plan-detail">Тестовая цена</span>
+          </span>
+          <span class="premium-plan-total">1 <img src="./assets/stars.png" alt=""></span>
+        </label>
+        <label class="premium-plan">
+          <input type="radio" name="premium-plan" value="1" data-price="1">
+          <span class="premium-plan-check" aria-hidden="true"></span>
+          <span class="premium-plan-copy">
+            <span class="premium-plan-name">На месяц</span>
+            <span class="premium-plan-detail">Тестовая цена</span>
+          </span>
+          <span class="premium-plan-total">1 <img src="./assets/stars.png" alt=""></span>
+        </label>
+      </fieldset>
+      <ul class="premium-benefits">
+        <li>
+          <span class="premium-benefit-icon is-stories" aria-hidden="true"><img src="./assets/svg/premium.svg" alt=""></span>
+          <span><strong>Бейджик</strong><small>Получайте уникальный бейджик за поддержку.</small></span>
+        </li>
+        <li>
+          <span class="premium-benefit-icon is-stories" aria-hidden="true"><img src="./assets/svg/banner.svg" alt=""></span>
+          <span><strong>Уникальный баннер</strong><small>Возможность смены цвета баннера профиля.</small></span>
+        </li>
+        <li>
+          <span class="premium-benefit-icon is-stories" aria-hidden="true"><img src="./assets/svg/everyday-bonus.svg" alt=""></span>
+          <span><strong>Ежедневный бонус</strong><small>Получайте каждые 24 часа 50 звезд на VYRN Stars.</small></span>
+        </li>
+        <li>
+          <span class="premium-benefit-icon is-stories" aria-hidden="true"><img src="./assets/svg/discount.svg" alt=""></span>
+          <span><strong>Скидка на кейсы</strong><small>Активируется бесконечная скидка в размере 10% на все кейсы.</small></span>
+        </li>
+      </ul>
+    </div>
+    <div class="premium-dialog-footer">
+      <p class="premium-dialog-status" role="status" hidden></p>
+      <button class="premium-dialog-submit" type="button"><span class="premium-dialog-submit-amount">Оплатить 1</span><img src="./assets/stars.png" alt=""></button>
+    </div>
   </dialog>
   <dialog class="nft-modal" aria-labelledby="nft-modal-title">
     <section class="nft-modal-card">

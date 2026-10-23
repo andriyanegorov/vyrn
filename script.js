@@ -60,9 +60,11 @@ function createProfileStatusBadge(status) {
 
 function getProfileStatus(profile) {
 	const validStatuses = new Set(['premium', 'verified', 'verfied']);
+	const premiumUntil = Date.parse(profile?.premium_until || '');
+	if (Number.isFinite(premiumUntil) && premiumUntil > Date.now()) return 'premium';
 	const status = [profile?.accountStatus, profile?.account_status, profile?.status]
 		.map((value) => String(value || '').trim().toLowerCase())
-		.find((value) => validStatuses.has(value));
+		.find((value) => validStatuses.has(value) && !(value === 'premium' && profile?.premium_until));
 	return status || '';
 }
 
@@ -376,6 +378,12 @@ const profileEditorForm = profileEditorDialog?.querySelector('.profile-editor-fo
 const profileEditorPhotoImage = profileEditorForm?.querySelector('.profile-editor-avatar-image');
 const profileEditorError = profileEditorForm?.querySelector('.profile-editor-error');
 const profileEditorBirthdayValue = profileEditorForm?.querySelector('.profile-editor-birthday-value');
+const profileEditorPremiumButton = profileEditorForm?.querySelector('.profile-editor-premium-button');
+const premiumDialog = document.querySelector('.premium-dialog');
+const premiumDialogCloseButton = premiumDialog?.querySelector('.premium-dialog-close');
+const premiumDialogSubmitButton = premiumDialog?.querySelector('.premium-dialog-submit');
+const premiumDialogStatus = premiumDialog?.querySelector('.premium-dialog-status');
+const premiumPlanOptions = premiumDialog ? [...premiumDialog.querySelectorAll('input[name="premium-plan"]')] : [];
 const profileAvatarImage = profileAvatarElement?.querySelector('.profile-avatar-image');
 const profileDetailValues = profileContentElement ? [...profileContentElement.querySelectorAll('.profile-detail-value')] : [];
 
@@ -460,7 +468,7 @@ if (profileEditButton && profileEditorDialog && profileEditorForm && profileAvat
 	};
 
 	const renderProfile = () => {
-		renderProfileName(profileNameElement, [profileData.firstName, profileData.lastName].filter(Boolean).join(' '), profileData.status);
+		renderProfileName(profileNameElement, [profileData.firstName, profileData.lastName].filter(Boolean).join(' '), getProfileStatus(profileData));
 		profileDetailValues[0].textContent = profileData.username || (profileData.nickname ? `@${profileData.nickname}` : '');
 		profileDetailValues[1].textContent = profileData.about || '';
 		setAvatarImage(profileAvatarImage, profileData.avatar);
@@ -481,7 +489,8 @@ if (profileEditButton && profileEditorDialog && profileEditorForm && profileAvat
 				birthday: profile.birthday || '',
 				phone: profile.phone || '',
 				avatar: profile.avatar_url || '',
-				status: profile.status || ''
+				status: profile.status || '',
+				premium_until: profile.premium_until || null
 			};
 			if (!telegramUser && window.VyrnApi.browserDemo && storedProfile) {
 				profileData = { ...profileData, ...storedProfile };
@@ -509,6 +518,94 @@ if (profileEditButton && profileEditorDialog && profileEditorForm && profileAvat
 
 	renderProfile();
 	syncProfileFromServer();
+	if (profileEditorPremiumButton && premiumDialog && premiumDialogStatus && premiumDialogSubmitButton) {
+		const updatePremiumPlan = () => {
+			const selectedPlan = premiumPlanOptions.find((option) => option.checked);
+			if (!selectedPlan) return;
+			premiumDialogSubmitButton.querySelector('.premium-dialog-submit-amount').textContent = 'Оплатить 1';
+			premiumPlanOptions.forEach((option) => {
+				option.closest('.premium-plan')?.classList.toggle('is-selected', option === selectedPlan);
+			});
+		};
+		premiumPlanOptions.forEach((option) => option.addEventListener('change', updatePremiumPlan));
+		updatePremiumPlan();
+		profileEditorPremiumButton.addEventListener('click', () => {
+			premiumDialogStatus.hidden = true;
+			premiumDialog.showModal();
+		});
+		premiumDialogCloseButton?.addEventListener('click', () => premiumDialog.close());
+		premiumDialog.addEventListener('keydown', (event) => {
+			if (event.key === 'Escape') {
+				event.preventDefault();
+				premiumDialog.close();
+			}
+		});
+		premiumDialog.addEventListener('click', (event) => {
+			if (event.target === premiumDialog) premiumDialog.close();
+		});
+		premiumDialogSubmitButton.addEventListener('click', async () => {
+			if (!telegramWebApp?.initData || typeof telegramWebApp.openInvoice !== 'function') {
+				premiumDialogStatus.textContent = 'Для тестовой оплаты откройте VYRN внутри Telegram.';
+				premiumDialogStatus.hidden = false;
+				return;
+			}
+			if (!window.VyrnApi?.isConfigured || typeof window.VyrnApi.createPremiumInvoice !== 'function') {
+				premiumDialogStatus.textContent = 'Сервер оплаты не настроен. Попробуйте позже.';
+				premiumDialogStatus.hidden = false;
+				return;
+			}
+			const selectedPlan = premiumPlanOptions.find((option) => option.checked);
+			if (!selectedPlan) {
+				premiumDialogStatus.textContent = 'Выберите срок подписки.';
+				premiumDialogStatus.hidden = false;
+				return;
+			}
+			premiumDialogSubmitButton.disabled = true;
+			premiumDialogStatus.hidden = true;
+			try {
+				const invoice = await window.VyrnApi.createPremiumInvoice(Number(selectedPlan.value));
+				if (typeof invoice.invoice_url !== 'string' || !invoice.invoice_url) {
+					throw new Error('Сервер не вернул ссылку на оплату.');
+				}
+				const paymentStatus = await new Promise((resolve, reject) => {
+					try {
+						telegramWebApp.openInvoice(invoice.invoice_url, resolve);
+					} catch (error) {
+						reject(error);
+					}
+				});
+				if (paymentStatus === 'paid') {
+					premiumDialogStatus.textContent = 'Оплата подтверждена Telegram. Активируем Premium…';
+					window.setTimeout(async () => {
+						try {
+							const result = await window.refreshVyrnAccount();
+							profileData.premium_until = result.profile.premium_until || null;
+							profileData.status = result.profile.status || '';
+							renderProfile();
+							premiumDialogStatus.textContent = profileData.premium_until
+								? 'VYRN Premium активирован.'
+								: 'Telegram принял оплату. Активация ещё обрабатывается — обновите профиль позже.';
+						} catch (error) {
+							console.error('Не удалось обновить Premium после оплаты:', error);
+							premiumDialogStatus.textContent = 'Оплата принята. Не удалось обновить профиль автоматически — откройте его заново.';
+						}
+					}, 1500);
+				} else if (paymentStatus === 'pending') {
+					premiumDialogStatus.textContent = 'Платёж обрабатывается. Premium активируется после подтверждения Telegram.';
+				} else if (paymentStatus === 'cancelled') {
+					premiumDialogStatus.textContent = 'Оплата отменена.';
+				} else {
+					premiumDialogStatus.textContent = 'Telegram не подтвердил оплату. Premium не активирован.';
+				}
+				premiumDialogStatus.hidden = false;
+			} catch (error) {
+				premiumDialogStatus.textContent = error.message || 'Не удалось создать счёт на оплату.';
+				premiumDialogStatus.hidden = false;
+			} finally {
+				premiumDialogSubmitButton.disabled = false;
+			}
+		});
+	}
 	profileEditButton.addEventListener('click', () => {
 		loadProfileEditor();
 		profileEditorDialog.showModal();

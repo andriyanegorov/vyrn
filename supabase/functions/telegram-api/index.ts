@@ -42,7 +42,7 @@ const matchesTelegramHash = async (params: URLSearchParams, botToken: string, re
     .sort(([first], [second]) => first < second ? -1 : first > second ? 1 : 0)
     .map(([key, value]) => `${key}=${value}`)
     .join('\n');
-  const secretKey = await hmac(new TextEncoder().encode(botToken), 'WebAppData');
+  const secretKey = await hmac(new TextEncoder().encode('WebAppData'), botToken);
   const signingKey = await crypto.subtle.importKey('raw', secretKey, { name: 'HMAC', hash: 'SHA-256' }, false, ['sign']);
   for (const includeSignature of [true, false]) {
     const expectedHash = hex(await crypto.subtle.sign(
@@ -157,6 +157,9 @@ Deno.serve(async (request) => {
     total_amount?: unknown;
     invoice_payload?: unknown;
   } | undefined;
+  const preCheckoutPayload = typeof preCheckoutQuery?.invoice_payload === 'string'
+    ? preCheckoutQuery.invoice_payload
+    : '';
   const successfulPaymentMessage = (input.message as {
     from?: { id?: unknown };
     successful_payment?: {
@@ -167,6 +170,9 @@ Deno.serve(async (request) => {
     };
   } | undefined);
   const successfulPayment = successfulPaymentMessage?.successful_payment;
+  const successfulPaymentPayload = typeof successfulPayment?.invoice_payload === 'string'
+    ? successfulPayment.invoice_payload
+    : '';
   const isTelegramWebhook = Number.isSafeInteger(input.update_id);
   if (isTelegramWebhook) {
     const webhookSecret = Deno.env.get('TELEGRAM_WEBHOOK_SECRET')?.trim();
@@ -184,12 +190,19 @@ Deno.serve(async (request) => {
         && typeof preCheckoutQuery.currency === 'string';
       let orderIsValid = false;
       if (validQuery) {
-        const validation = await supabase.rpc('validate_telegram_star_topup', {
-          p_invoice_payload: preCheckoutQuery.invoice_payload as string,
-          p_telegram_user_id: preCheckoutQuery.from!.id as number,
-          p_telegram_stars_amount: preCheckoutQuery.total_amount as number,
-          p_currency: preCheckoutQuery.currency as string,
-        });
+        const validation = preCheckoutPayload.startsWith('vyrn-premium:')
+          ? await supabase.rpc('validate_telegram_premium_order', {
+            p_invoice_payload: preCheckoutQuery.invoice_payload as string,
+            p_telegram_user_id: preCheckoutQuery.from!.id as number,
+            p_telegram_stars_amount: preCheckoutQuery.total_amount as number,
+            p_currency: preCheckoutQuery.currency as string,
+          })
+          : await supabase.rpc('validate_telegram_star_topup', {
+            p_invoice_payload: preCheckoutQuery.invoice_payload as string,
+            p_telegram_user_id: preCheckoutQuery.from!.id as number,
+            p_telegram_stars_amount: preCheckoutQuery.total_amount as number,
+            p_currency: preCheckoutQuery.currency as string,
+          });
         orderIsValid = !validation.error && validation.data === true;
       }
       const answer = await telegramApiRequest(botToken, 'answerPreCheckoutQuery', {
@@ -209,14 +222,28 @@ Deno.serve(async (request) => {
         && typeof successfulPayment.currency === 'string'
         && typeof successfulPayment.telegram_payment_charge_id === 'string';
       if (!validPayment) return json({ error: 'Invalid successful payment update' }, 400);
-      const completion = await supabase.rpc('complete_telegram_star_topup', {
-        p_invoice_payload: successfulPayment.invoice_payload as string,
-        p_telegram_user_id: successfulPaymentMessage.from.id as number,
-        p_telegram_stars_amount: successfulPayment.total_amount as number,
-        p_currency: successfulPayment.currency as string,
-        p_telegram_payment_charge_id: successfulPayment.telegram_payment_charge_id as string,
-      });
-      if (completion.error) return json({ error: 'Could not credit Telegram Stars payment' }, 500);
+      if (successfulPaymentPayload.startsWith('vyrn-premium:')) {
+        const completion = await supabase.rpc('complete_telegram_premium_order', {
+          p_invoice_payload: successfulPaymentPayload,
+          p_telegram_user_id: successfulPaymentMessage.from.id as number,
+          p_telegram_stars_amount: successfulPayment.total_amount as number,
+          p_currency: successfulPayment.currency as string,
+          p_telegram_payment_charge_id: successfulPayment.telegram_payment_charge_id as string,
+        });
+        if (completion.error) {
+          console.error('Could not activate Telegram Premium payment:', completion.error.message);
+          return json({ error: 'Could not activate Telegram Premium payment' }, 500);
+        }
+      } else {
+        const completion = await supabase.rpc('complete_telegram_star_topup', {
+          p_invoice_payload: successfulPaymentPayload,
+          p_telegram_user_id: successfulPaymentMessage.from.id as number,
+          p_telegram_stars_amount: successfulPayment.total_amount as number,
+          p_currency: successfulPayment.currency as string,
+          p_telegram_payment_charge_id: successfulPayment.telegram_payment_charge_id as string,
+        });
+        if (completion.error) return json({ error: 'Could not credit Telegram Stars payment' }, 500);
+      }
       return json({ ok: true });
     }
     return json({ ok: true });
@@ -317,13 +344,66 @@ Deno.serve(async (request) => {
   };
 
   const action = input.action;
+  if (action === 'create_premium_invoice') {
+    if (isBrowserDemo || typeof input.initData !== 'string' || !botToken) {
+      return json({ error: 'Open VYRN inside Telegram to buy Premium' }, 401);
+    }
+    const verified = await verifyTelegramInitData(input.initData, botToken);
+    if (!verified.user) {
+      console.warn('Premium invoice rejected: Telegram initData verification failed', {
+        reason: verified.reason,
+      });
+      return json({ error: 'Telegram authorization could not be verified. Reopen the Mini App and try again.' }, 401);
+    }
+    if (String(verified.user.id) !== String(profile.telegram_id)) {
+      return json({ error: 'The loaded profile does not match the Telegram account. Reopen the Mini App and try again.' }, 401);
+    }
+    const durationMonths = input.duration_months;
+    if (![1, 12, 24].includes(durationMonths as number)) {
+      return json({ error: 'Choose a valid Premium subscription duration' }, 400);
+    }
+    const invoicePayload = `vyrn-premium:${crypto.randomUUID()}`;
+    const order = await supabase.from('telegram_premium_orders').insert({
+      profile_id: profile.id,
+      telegram_user_id: verified.user.id,
+      duration_months: durationMonths,
+      telegram_stars_amount: 1,
+      invoice_payload: invoicePayload,
+    }).select('id').single();
+    if (order.error) return json({ error: 'Could not create a pending Premium order' }, 500);
+
+    const invoice = await telegramApiRequest(botToken, 'createInvoiceLink', {
+      title: 'VYRN Премиум',
+      description: `Тестовая подписка VYRN Премиум на ${durationMonths} мес.`,
+      payload: invoicePayload,
+      provider_token: '',
+      currency: 'XTR',
+      prices: [{ label: `VYRN Премиум на ${durationMonths} мес.`, amount: 1 }],
+    });
+    if (!invoice.ok || typeof invoice.result?.result !== 'string') {
+      const failedOrder = await supabase.from('telegram_premium_orders')
+        .update({ status: 'failed' }).eq('id', order.data.id);
+      if (failedOrder.error) {
+        return json({ error: 'Telegram invoice creation failed and the pending Premium order could not be closed' }, 500);
+      }
+      return json({ error: invoice.result?.description || 'Telegram could not create the Premium payment invoice' }, 502);
+    }
+    return json({ invoice_url: invoice.result.result });
+  }
   if (action === 'create_star_invoice') {
     if (isBrowserDemo || typeof input.initData !== 'string' || !botToken) {
       return json({ error: 'Open VYRN inside Telegram to buy Stars' }, 401);
     }
     const verified = await verifyTelegramInitData(input.initData, botToken);
-    if (!verified.user || String(verified.user.id) !== String(profile.telegram_id)) {
+    if (!verified.user) {
+      console.warn('Star invoice rejected: Telegram initData verification failed', {
+        reason: verified.reason,
+      });
       return json({ error: 'Telegram authorization could not be verified. Reopen the Mini App and try again.' }, 401);
+    }
+    if (String(verified.user.id) !== String(profile.telegram_id)) {
+      console.warn('Star invoice rejected: Telegram user does not match the loaded profile');
+      return json({ error: 'The loaded profile does not match the Telegram account. Reopen the Mini App and try again.' }, 401);
     }
     const amount = input.amount;
     if (!Number.isSafeInteger(amount) || Number(amount) < 1 || Number(amount) > 100000) {
@@ -808,7 +888,7 @@ Deno.serve(async (request) => {
     const profileId = typeof input.profile_id === 'string' ? input.profile_id : '';
     if (!profileId) return json({ error: 'Profile ID is required' }, 400);
     const profileResult = await supabase.from('profiles')
-      .select('id,nickname,username,first_name,last_name,avatar_url,bio,status')
+      .select('id,nickname,username,first_name,last_name,avatar_url,bio,status,premium_until')
       .eq('id', profileId).maybeSingle();
     if (profileResult.error) return json({ error: profileResult.error.message }, 500);
     if (!profileResult.data) return json({ error: 'Player not found' }, 404);
@@ -825,10 +905,10 @@ Deno.serve(async (request) => {
   if (action === 'create_chat') {
     const nickname = typeof input.nickname === 'string' ? input.nickname.trim().replace(/^@+/, '') : '';
     if (!nickname || nickname.length > 32) return json({ error: 'Enter a valid player nickname' }, 400);
-    let target = await supabase.from('profiles').select('id,nickname,username,first_name,last_name,avatar_url,status').eq('nickname', nickname).maybeSingle();
-    if (!target.data) target = await supabase.from('profiles').select('id,nickname,username,first_name,last_name,avatar_url,status').eq('username', nickname).maybeSingle();
-    if (!target.data) target = await supabase.from('profiles').select('id,nickname,username,first_name,last_name,avatar_url,status').ilike('first_name', `%${nickname}%`).limit(1).maybeSingle();
-    if (!target.data) target = await supabase.from('profiles').select('id,nickname,username,first_name,last_name,avatar_url,status').ilike('last_name', `%${nickname}%`).limit(1).maybeSingle();
+    let target = await supabase.from('profiles').select('id,nickname,username,first_name,last_name,avatar_url,status,premium_until').eq('nickname', nickname).maybeSingle();
+    if (!target.data) target = await supabase.from('profiles').select('id,nickname,username,first_name,last_name,avatar_url,status,premium_until').eq('username', nickname).maybeSingle();
+    if (!target.data) target = await supabase.from('profiles').select('id,nickname,username,first_name,last_name,avatar_url,status,premium_until').ilike('first_name', `%${nickname}%`).limit(1).maybeSingle();
+    if (!target.data) target = await supabase.from('profiles').select('id,nickname,username,first_name,last_name,avatar_url,status,premium_until').ilike('last_name', `%${nickname}%`).limit(1).maybeSingle();
     if (target.error) return json({ error: target.error.message }, 500);
     if (!target.data) return json({ error: 'Player not found' }, 404);
     if (target.data.id === profile.id) return json({ error: 'You cannot start a chat with yourself' }, 400);
@@ -858,7 +938,7 @@ Deno.serve(async (request) => {
     const listings = [];
     for (let offset = 0; ; offset += pageSize) {
       let query = supabase.from('market_listings')
-        .select('id,nft_item_id,seller_profile_id,price,currency,created_at,seller:profiles!market_listings_seller_profile_id_fkey(id,nickname,username,first_name,last_name,avatar_url,bio,status),nft_items(id,external_id,attributes,nft_models(slug,name,preview_url,animation_url,nft_collections(name,slug)))')
+        .select('id,nft_item_id,seller_profile_id,price,currency,created_at,seller:profiles!market_listings_seller_profile_id_fkey(id,nickname,username,first_name,last_name,avatar_url,bio,status,premium_until),nft_items(id,external_id,attributes,nft_models(slug,name,preview_url,animation_url,nft_collections(name,slug)))')
         .eq('status', 'active').order('created_at', { ascending: false })
         .range(offset, offset + pageSize - 1);
       if (input.mode === 'sales') query = query.eq('seller_profile_id', profile.id);
@@ -906,7 +986,7 @@ Deno.serve(async (request) => {
       if (member.chats.chat_type !== 'direct') return member;
       const [peerResult, latestMessage, unreadMessages] = await Promise.all([
         supabase.from('chat_members')
-          .select('profiles!inner(id,nickname,username,first_name,last_name,avatar_url,bio,status)')
+          .select('profiles!inner(id,nickname,username,first_name,last_name,avatar_url,bio,status,premium_until)')
           .eq('chat_id', member.chat_id).neq('profile_id', profile.id).maybeSingle(),
         supabase.from('messages').select('body,created_at,sender_profile_id')
           .eq('chat_id', member.chat_id).is('deleted_at', null).order('created_at', { ascending: false }).limit(1).maybeSingle(),
@@ -935,7 +1015,7 @@ Deno.serve(async (request) => {
     const markedRead = await supabase.from('chat_members').update({ last_read_at: readAt })
       .eq('chat_id', input.chat_id).eq('profile_id', profile.id);
     if (markedRead.error) return json({ error: markedRead.error.message }, 500);
-    const result = await supabase.from('messages').select('id,sender_profile_id,body,kind,created_at,gift_offer_id,profiles!messages_sender_profile_id_fkey(id,nickname,username,first_name,last_name,avatar_url,bio,status),gift_offer:nft_gift_offers!messages_gift_offer_id_fkey(id,nft_item_id,sender_profile_id,recipient_profile_id,price_stars,status,nft_items(external_id,attributes,nft_models(name,slug,preview_url,animation_url,nft_collections(name,slug))))')
+    const result = await supabase.from('messages').select('id,sender_profile_id,body,kind,created_at,gift_offer_id,profiles!messages_sender_profile_id_fkey(id,nickname,username,first_name,last_name,avatar_url,bio,status,premium_until),gift_offer:nft_gift_offers!messages_gift_offer_id_fkey(id,nft_item_id,sender_profile_id,recipient_profile_id,price_stars,status,nft_items(external_id,attributes,nft_models(name,slug,preview_url,animation_url,nft_collections(name,slug))))')
       .eq('chat_id', input.chat_id).is('deleted_at', null).order('created_at', { ascending: true }).limit(200);
     if (result.error) return json({ error: result.error.message }, 500);
     return json({ messages: await attachGiftResponses(result.data) });
@@ -954,7 +1034,7 @@ Deno.serve(async (request) => {
     });
     if (created.error) return json({ error: created.error.message }, 400);
     const message = await supabase.from('messages')
-      .select('id,sender_profile_id,body,kind,created_at,gift_offer_id,profiles!messages_sender_profile_id_fkey(id,nickname,username,first_name,last_name,avatar_url,bio,status),gift_offer:nft_gift_offers!messages_gift_offer_id_fkey(id,nft_item_id,sender_profile_id,recipient_profile_id,price_stars,status,nft_items(external_id,attributes,nft_models(name,slug,preview_url,animation_url,nft_collections(name,slug))))')
+      .select('id,sender_profile_id,body,kind,created_at,gift_offer_id,profiles!messages_sender_profile_id_fkey(id,nickname,username,first_name,last_name,avatar_url,bio,status,premium_until),gift_offer:nft_gift_offers!messages_gift_offer_id_fkey(id,nft_item_id,sender_profile_id,recipient_profile_id,price_stars,status,nft_items(external_id,attributes,nft_models(name,slug,preview_url,animation_url,nft_collections(name,slug))))')
       .eq('id', created.data).single();
     if (message.error) return json({ error: message.error.message }, 500);
     const [enrichedMessage] = await attachGiftResponses([message.data]);
