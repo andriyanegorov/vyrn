@@ -15,6 +15,17 @@ create table if not exists public.telegram_premium_orders (
   premium_until timestamptz
 );
 
+update public.telegram_premium_orders
+set status = 'failed'
+where status = 'pending'
+  and telegram_stars_amount = 1;
+
+alter table public.telegram_premium_orders
+  drop constraint if exists telegram_premium_orders_telegram_stars_amount_check;
+alter table public.telegram_premium_orders
+  add constraint telegram_premium_orders_telegram_stars_amount_check
+  check (telegram_stars_amount between 1 and 1590);
+
 create index if not exists telegram_premium_orders_pending_created_idx
   on public.telegram_premium_orders(created_at)
   where status = 'pending';
@@ -40,6 +51,11 @@ as $$
     where premium_order.invoice_payload = p_invoice_payload
       and premium_order.telegram_user_id = p_telegram_user_id
       and premium_order.telegram_stars_amount = p_telegram_stars_amount
+      and premium_order.telegram_stars_amount = case premium_order.duration_months
+        when 1 then 99
+        when 12 then 890
+        when 24 then 1590
+      end
       and p_currency = 'XTR'
       and premium_order.status = 'pending'
       and premium_order.created_at > now() - interval '24 hours'
@@ -61,6 +77,7 @@ as $$
 declare
   premium_order public.telegram_premium_orders%rowtype;
   activated_until timestamptz;
+  expected_stars_amount bigint;
 begin
   if p_currency is distinct from 'XTR'
     or p_telegram_payment_charge_id is null
@@ -77,6 +94,12 @@ begin
     raise exception 'Premium order not found';
   end if;
 
+  expected_stars_amount := case premium_order.duration_months
+    when 1 then 99
+    when 12 then 890
+    when 24 then 1590
+  end;
+
   if premium_order.status = 'paid' then
     if premium_order.telegram_payment_charge_id = p_telegram_payment_charge_id
       and premium_order.telegram_user_id = p_telegram_user_id
@@ -89,7 +112,7 @@ begin
   if premium_order.status <> 'pending'
     or premium_order.telegram_user_id <> p_telegram_user_id
     or premium_order.telegram_stars_amount <> p_telegram_stars_amount
-    or p_telegram_stars_amount <> 1 then
+    or premium_order.telegram_stars_amount <> expected_stars_amount then
     raise exception 'Telegram Premium payment does not match the pending order';
   end if;
 

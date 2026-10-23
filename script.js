@@ -522,7 +522,8 @@ if (profileEditButton && profileEditorDialog && profileEditorForm && profileAvat
 		const updatePremiumPlan = () => {
 			const selectedPlan = premiumPlanOptions.find((option) => option.checked);
 			if (!selectedPlan) return;
-			premiumDialogSubmitButton.querySelector('.premium-dialog-submit-amount').textContent = 'Оплатить 1';
+			const formattedPrice = new Intl.NumberFormat('ru-RU').format(Number(selectedPlan.dataset.price));
+			premiumDialogSubmitButton.querySelector('.premium-dialog-submit-amount').textContent = `Оформить подписку за ${formattedPrice}`;
 			premiumPlanOptions.forEach((option) => {
 				option.closest('.premium-plan')?.classList.toggle('is-selected', option === selectedPlan);
 			});

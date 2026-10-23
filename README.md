@@ -71,19 +71,19 @@
 
 Webhook проверяет `TELEGRAM_WEBHOOK_SECRET`, а перед выставлением счёта сервер проверяет подпись Telegram `initData`. Успешное зачисление дополнительно сверяет Telegram user ID, payload, XTR-сумму и уникальный charge ID. Никогда не начисляйте баланс по callback из браузера — он используется только для отображения статуса оплаты.
 
-## Тестовая покупка VYRN Premium
+## Покупка VYRN Premium через Telegram Stars
 
-На этапе проверки каждый срок подписки (1, 12 или 24 месяца) временно стоит **1 Telegram Star (XTR)**. После получения `successful_payment` от Telegram сервер активирует Premium на выбранный срок. Callback в Mini App сам по себе не выдаёт Premium.
+Цены подписки: **99 XTR за 1 месяц, 890 XTR за 12 месяцев и 1 590 XTR за 24 месяца**. После получения `successful_payment` от Telegram сервер активирует Premium на выбранный срок. Callback в Mini App сам по себе не выдаёт Premium.
 
-1. В Supabase SQL Editor выполните `supabase/premium-subscriptions.sql` после `supabase/schema.sql`. Если пополнение Stars уже настроено, повторно выполнять `star-topups.sql` не нужно.
-2. Разверните Edge Function с обработчиком счетов и webhook:
+1. В Supabase SQL Editor повторно выполните обновлённый `supabase/premium-subscriptions.sql`, чтобы убрать тестовую цену из ограничений, закрыть старые неоплаченные тестовые счета и включить реальные тарифы. Если миграция ещё не применялась, выполните её после `supabase/schema.sql`. Оплаченную тестовую историю миграция сохраняет.
+2. Разверните обновлённую Edge Function с реальными ценами:
 
 	```powershell
 	npx.cmd supabase@latest functions deploy telegram-api --project-ref orcstihnyxrtgmvcbfiq --no-verify-jwt
 	```
 
 3. Убедитесь, что webhook Telegram уже зарегистрирован с обновлениями `message` и `pre_checkout_query` и тем же `TELEGRAM_WEBHOOK_SECRET`.
-4. Откройте профиль внутри Telegram Mini App, выберите срок и проверьте счёт на **1 XTR**. Реальные цены меняйте только после успешной проверки; серверная цена сейчас ограничена одной звездой независимо от данных клиента.
+4. Опубликуйте обновлённые файлы сайта. Откройте профиль внутри Telegram Mini App, выберите срок и проверьте сумму в счёте. Сервер самостоятельно задаёт цену для каждого срока; значения из клиентского запроса не используются как стоимость.
 
 Оплаченный Premium хранится в `profiles.premium_until`. Повторная доставка одного webhook не продлевает подписку повторно; новый отдельный успешный платёж продлевает текущую подписку от её даты окончания.
 

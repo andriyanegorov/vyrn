@@ -362,23 +362,24 @@ Deno.serve(async (request) => {
     if (![1, 12, 24].includes(durationMonths as number)) {
       return json({ error: 'Choose a valid Premium subscription duration' }, 400);
     }
+    const telegramStarsAmount = durationMonths === 1 ? 99 : durationMonths === 12 ? 890 : 1590;
     const invoicePayload = `vyrn-premium:${crypto.randomUUID()}`;
     const order = await supabase.from('telegram_premium_orders').insert({
       profile_id: profile.id,
       telegram_user_id: verified.user.id,
       duration_months: durationMonths,
-      telegram_stars_amount: 1,
+      telegram_stars_amount: telegramStarsAmount,
       invoice_payload: invoicePayload,
     }).select('id').single();
     if (order.error) return json({ error: 'Could not create a pending Premium order' }, 500);
 
     const invoice = await telegramApiRequest(botToken, 'createInvoiceLink', {
       title: 'VYRN Премиум',
-      description: `Тестовая подписка VYRN Премиум на ${durationMonths} мес.`,
+      description: `Подписка VYRN Премиум на ${durationMonths} мес.`,
       payload: invoicePayload,
       provider_token: '',
       currency: 'XTR',
-      prices: [{ label: `VYRN Премиум на ${durationMonths} мес.`, amount: 1 }],
+      prices: [{ label: `VYRN Премиум на ${durationMonths} мес.`, amount: telegramStarsAmount }],
     });
     if (!invoice.ok || typeof invoice.result?.result !== 'string') {
       const failedOrder = await supabase.from('telegram_premium_orders')
