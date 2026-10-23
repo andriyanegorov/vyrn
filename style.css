@@ -34,6 +34,20 @@ body {
   font-weight: 400;
 }
 
+.vyrn-skeleton {
+  background: linear-gradient(100deg, #e9edf2 25%, #fff 43%, #e9edf2 62%);
+  background-size: 220% 100%;
+  animation: vyrn-skeleton-shimmer 1.35s ease-in-out infinite;
+}
+
+@keyframes vyrn-skeleton-shimmer {
+  to { background-position-x: -220%; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .vyrn-skeleton { animation-duration: 3s; }
+}
+
 button {
   font-family: inherit;
 }
@@ -342,6 +356,11 @@ display: flex;
   border-radius: 12px;
   object-fit: cover;
   background: #f0f2f4;
+}
+
+.collection-preview-skeleton {
+  aspect-ratio: 1;
+  border-radius: 12px;
 }
 
 .daily-quests {
@@ -1428,6 +1447,37 @@ body.chats-screen {
   width: min(100%, 720px);
   margin: 0 auto;
 }
+
+.chat-skeleton-row {
+  display: flex;
+  min-height: 67px;
+  align-items: center;
+  gap: 12px;
+  padding: 7px 10px;
+}
+
+.chat-skeleton-avatar {
+  width: 48px;
+  height: 48px;
+  flex: 0 0 48px;
+  border-radius: 50%;
+}
+
+.chat-skeleton-copy {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 9px;
+}
+
+.chat-skeleton-line {
+  display: block;
+  width: 62%;
+  height: 13px;
+  border-radius: 999px;
+}
+
+.chat-skeleton-line.is-short { width: 38%; height: 10px; }
 
 @media (prefers-reduced-motion: reduce) {
   .chats-search-panel {
@@ -3027,6 +3077,30 @@ body.chats-screen {
   gap: 14px;
 }
 
+.market-skeleton-card { cursor: default; }
+
+.market-skeleton-image {
+  aspect-ratio: 1;
+}
+
+.market-skeleton-content {
+  display: flex;
+  min-height: 66px;
+  flex-direction: column;
+  justify-content: center;
+  gap: 10px;
+  padding: 10px;
+}
+
+.market-skeleton-line {
+  display: block;
+  width: 78%;
+  height: 13px;
+  border-radius: 999px;
+}
+
+.market-skeleton-line.is-short { width: 42%; height: 11px; }
+
 .market-card {
   min-width: 0;
   overflow: hidden;
@@ -4293,6 +4367,11 @@ body.chats-screen {
   grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 7px;
   margin-top: 12px;
+}
+
+.profile-nft-skeleton {
+  aspect-ratio: 1;
+  border-radius: 14px;
 }
 
 .profile-nft-cell {
@@ -5669,6 +5748,54 @@ body.chats-screen {
   border: 1px solid rgba(255, 255, 255, 0.86);
   border-radius: 28px;
   background: #fff;
+}
+
+.wallet-balance-value.wallet-balance-skeleton {
+  display: inline-block;
+  width: 86px;
+  height: 30px;
+  border-radius: 8px;
+  color: transparent;
+  vertical-align: middle;
+}
+
+.wallet-transaction-skeleton {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  min-height: 96px;
+  box-sizing: border-box;
+  padding: 12px 0;
+  border-bottom: 1px solid #e4e5e8;
+}
+
+.wallet-skeleton-avatar {
+  width: 54px;
+  height: 54px;
+  flex: 0 0 54px;
+  border-radius: 50%;
+}
+
+.wallet-skeleton-copy {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 9px;
+}
+
+.wallet-skeleton-line {
+  display: block;
+  width: 58%;
+  height: 13px;
+  border-radius: 999px;
+}
+
+.wallet-skeleton-line.is-short { width: 36%; height: 10px; }
+
+.wallet-skeleton-amount {
+  width: 55px;
+  height: 15px;
+  border-radius: 999px;
 }
 
 .wallet-transaction {

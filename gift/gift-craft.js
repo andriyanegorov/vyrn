@@ -76,10 +76,11 @@ function emptyFace(){
 let inv=[];
 let slots=[null,null,null,null];
 let busy=false;
+let inventoryLoaded=false;
 
 /* ================= inventory ================= */
 function renderGrid(){
-  const g=$('#grid');g.innerHTML='';
+  const g=$('#grid');g.innerHTML='';g.setAttribute('aria-busy','false');
   inv.forEach(x=>{const t=tileEl(x,{num:true});t.onclick=()=>{openCraft(x)};g.appendChild(t)});
   $('#cnt').textContent=inv.length+' NFT';
   if(!inv.length){
@@ -105,9 +106,20 @@ async function refreshCraftBalance(){
 }
 $('#openCraft').onclick=()=>openCraft();
 async function loadInventory(notify=true){
+  const grid=$('#grid');
+  if(notify&&!inventoryLoaded){
+    grid.setAttribute('aria-busy','true');
+    grid.replaceChildren(...Array.from({length:9},()=>{
+      const skeleton=document.createElement('div');
+      skeleton.className='tile inventory-skeleton';
+      skeleton.setAttribute('aria-hidden','true');
+      return skeleton;
+    }));
+  }
   try{
     const {items}=await window.VyrnApi.myNfts();
     inv=items.map(mapNft).filter(item=>!item.isListed);
+    inventoryLoaded=true;
     renderGrid();
     return true;
   }catch(error){
@@ -518,6 +530,5 @@ function confetti(){
 function stopConf(){cancelAnimationFrame(raf);cx.clearRect(0,0,cv.width,cv.height)}
 
 function toast(t){const e=$('#toast');e.textContent=t;e.classList.add('on');setTimeout(()=>e.classList.remove('on'),1800)}
-renderGrid();
 loadInventory();
 refreshCraftBalance();

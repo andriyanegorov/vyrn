@@ -597,6 +597,7 @@
 
   function renderGrid() {
     grid.replaceChildren();
+    grid.setAttribute('aria-busy', 'false');
     const filtered = items.filter((item) => {
       const listed = getView(item).isListed;
       return activeFilter === 'all' || !listed;
@@ -876,8 +877,16 @@
   }
 
   async function load() {
+    grid.setAttribute('aria-busy', 'true');
+    grid.replaceChildren(...Array.from({ length: 9 }, () => {
+      const skeleton = document.createElement('div');
+      skeleton.className = 'skeleton-card';
+      skeleton.setAttribute('aria-hidden', 'true');
+      return skeleton;
+    }));
     if (!window.VyrnApi) {
       grid.replaceChildren();
+      grid.setAttribute('aria-busy', 'false');
       const error = document.createElement('div');
       error.className = 'error';
       error.textContent = 'Не удалось подключить API. Перезагрузите страницу.';
@@ -897,6 +906,7 @@
       renderGrid();
     } catch (error) {
       grid.replaceChildren();
+      grid.setAttribute('aria-busy', 'false');
       const message = document.createElement('div');
       message.className = 'error';
       message.textContent = error instanceof Error

@@ -1,6 +1,6 @@
 (() => {
   const config = window.VYRN_SUPABASE_CONFIG || {};
-  const CACHE_VERSION = 'v1';
+  const CACHE_VERSION = 'v2';
   const CACHE_PREFIX = `vyrn:${CACHE_VERSION}:`;
   const CACHE_TTL = {
     my_nfts: 120_000,
@@ -10,6 +10,8 @@
   };
   const cacheRefreshes = new Map();
   const cacheGenerations = new Map();
+  const isValidCachedResult = (action, result) =>
+    action !== 'market' || Array.isArray(result?.items);
 
   const request = async (action, payload = {}) => {
     if (!config.url || config.url.includes('YOUR_PROJECT_REF') || !config.anonKey || config.anonKey.includes('YOUR_SUPABASE')) {
@@ -86,7 +88,8 @@
       const storedValue = localStorage.getItem(key);
       if (storedValue) {
         cached = JSON.parse(storedValue);
-        if (!cached || typeof cached.savedAt !== 'number' || !('result' in cached)) {
+        if (!cached || typeof cached.savedAt !== 'number' || !('result' in cached)
+          || !isValidCachedResult(action, cached.result)) {
           localStorage.removeItem(key);
           cached = null;
         }
@@ -103,6 +106,9 @@
     const refresh = async () => {
       const generation = cacheGenerations.get(scope) || 0;
       const refreshed = await request(action, payload);
+      if (!isValidCachedResult(action, refreshed)) {
+        throw new Error(refreshed?.error || 'Сервер вернул некорректный список рынка. Попробуйте обновить страницу.');
+      }
       if (generation !== (cacheGenerations.get(scope) || 0)) return refreshed;
       try {
         localStorage.setItem(key, JSON.stringify({ savedAt: Date.now(), result: refreshed }));
