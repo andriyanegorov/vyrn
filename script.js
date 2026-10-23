@@ -74,6 +74,32 @@ function renderProfileName(target, name, status) {
 	if (badge) target.append(badge);
 }
 
+function renderProfileBanner(page, profile) {
+	const summary = page?.querySelector('.profile-summary');
+	if (!summary) return;
+	const color = /^#[0-9a-f]{6}$/i.test(profile?.banner_color || '') ? profile.banner_color : '';
+	const useGradient = Boolean(color && profile.banner_gradient === true);
+	summary.classList.toggle('has-custom-banner', Boolean(color));
+	page.classList.toggle('has-full-banner-gradient', useGradient);
+	if (color) {
+		const [red, green, blue] = color.slice(1).match(/.{2}/g).map((channel) => parseInt(channel, 16));
+		const luminance = (0.2126 * red + 0.7152 * green + 0.0722 * blue) / 255;
+		page.style.setProperty('--profile-banner-gradient',
+			`linear-gradient(to bottom, rgba(${red}, ${green}, ${blue}, 1) 0%, rgba(${red}, ${green}, ${blue}, 0.58) 48%, rgba(${red}, ${green}, ${blue}, 0) 100%)`);
+		page.style.setProperty('--profile-banner-text', luminance > 0.58 ? '#17191f' : '#ffffff');
+		summary.style.setProperty('--profile-banner-color', color);
+		const pageBounds = page.getBoundingClientRect();
+		const summaryBottom = summary.getBoundingClientRect().bottom - pageBounds.top + page.scrollTop;
+		const bannerHeight = summaryBottom > 1 ? summaryBottom : page.closest('dialog') ? 360 : 1;
+		page.style.setProperty('--profile-banner-height', `${Math.ceil(bannerHeight)}px`);
+	} else {
+		page.style.removeProperty('--profile-banner-gradient');
+		page.style.removeProperty('--profile-banner-text');
+		page.style.removeProperty('--profile-banner-height');
+		summary.style.removeProperty('--profile-banner-color');
+	}
+}
+
 const renderWalletBalance = (wallets = []) => {
 	const stars = wallets.find((wallet) => wallet.currency === 'stars');
 	if (!stars) return;
@@ -495,24 +521,7 @@ if (profileEditButton && profileEditorDialog && profileEditorForm && profileAvat
 	};
 	const renderBannerColor = () => {
 		const color = /^#[0-9a-f]{6}$/i.test(profileData.banner_color || '') ? profileData.banner_color : '';
-		const useGradient = Boolean(color && profileData.banner_gradient);
-		profileSummaryElement?.classList.toggle('has-custom-banner', Boolean(color));
-		profileContentElement?.closest('.profile-page').classList.toggle('has-full-banner-gradient', useGradient);
-		if (color) {
-			const [red, green, blue] = color.slice(1).match(/.{2}/g).map((channel) => parseInt(channel, 16));
-			const luminance = (0.2126 * red + 0.7152 * green + 0.0722 * blue) / 255;
-			const gradientColor = `rgba(${red}, ${green}, ${blue},`;
-			profileContentElement?.closest('.profile-page').style.setProperty(
-				'--profile-banner-gradient',
-				`linear-gradient(to bottom, ${gradientColor} 1) 0%, ${gradientColor} 0.58) 48%, ${gradientColor} 0) 100%)`
-			);
-			profileSummaryElement.style.setProperty('--profile-banner-color', color);
-			profileSummaryElement.style.setProperty('--profile-banner-text', luminance > 0.58 ? '#17191f' : '#ffffff');
-		} else {
-			profileContentElement?.closest('.profile-page').style.removeProperty('--profile-banner-gradient');
-			profileSummaryElement.style.removeProperty('--profile-banner-color');
-			profileSummaryElement.style.removeProperty('--profile-banner-text');
-		}
+		renderProfileBanner(profileContentElement.closest('.profile-page'), profileData);
 		updateBannerGradientHeight();
 		if (profileEditorBannerButton) {
 			profileEditorBannerButton.hidden = !canCustomizeBanner(profileData);
@@ -1558,28 +1567,7 @@ const renderSharedPlayerProfile = (profile, items = []) => {
 	const profilePage = playerProfileDialog.querySelector('.player-profile-page');
 	profilePage.dataset.profileId = profile.id || '';
 	profilePage.dataset.accountStatus = getProfileStatus(profile);
-	const bannerColor = /^#[0-9a-f]{6}$/i.test(profile.banner_color || '') ? profile.banner_color : '';
-	const summary = profilePage.querySelector('.profile-summary');
-	const useGradient = Boolean(bannerColor && profile.banner_gradient === true);
-	summary.classList.toggle('has-custom-banner', Boolean(bannerColor));
-	profilePage.classList.toggle('has-full-banner-gradient', useGradient);
-	if (bannerColor) {
-		const [red, green, blue] = bannerColor.slice(1).match(/.{2}/g).map((channel) => parseInt(channel, 16));
-		const luminance = (0.2126 * red + 0.7152 * green + 0.0722 * blue) / 255;
-		const gradientColor = `rgba(${red}, ${green}, ${blue},`;
-		profilePage.style.setProperty(
-			'--profile-banner-gradient',
-			`linear-gradient(to bottom, ${gradientColor} 1) 0%, ${gradientColor} 0.58) 48%, ${gradientColor} 0) 100%)`
-		);
-		summary.style.setProperty('--profile-banner-color', bannerColor);
-		profilePage.style.setProperty('--profile-banner-text', luminance > 0.58 ? '#17191f' : '#ffffff');
-	} else {
-		profilePage.style.removeProperty('--profile-banner-gradient');
-		summary.style.removeProperty('--profile-banner-color');
-		profilePage.style.removeProperty('--profile-banner-text');
-	}
-	const summaryBottom = summary.getBoundingClientRect().bottom + window.scrollY;
-	profilePage.style.setProperty('--profile-banner-height', `${Math.max(1, Math.ceil(summaryBottom))}px`);
+	renderProfileBanner(profilePage, profile);
 	renderProfileName(sharedPlayerProfileName, displayName, getProfileStatus(profile));
 	sharedPlayerProfileUsername.textContent = profile.username ? `@${profile.username.replace(/^@+/, '')}` : `@${profile.nickname || ''}`;
 	sharedPlayerProfileBio.textContent = profile.bio || '';
@@ -1630,6 +1618,11 @@ window.openVyrnPlayerProfile = async (profileOrId) => {
 		renderSharedPlayerProfile(initialProfile, cachedProfile ? [...sharedPlayerProfileNfts.children] : []);
 	}
 	if (!playerProfileDialog.open) playerProfileDialog.showModal();
+	requestAnimationFrame(() => {
+		if (playerProfileDialog.open && sharedPlayerProfileData?.id === profileId) {
+			renderProfileBanner(playerProfileDialog.querySelector('.player-profile-page'), sharedPlayerProfileData);
+		}
+	});
 	try {
 		const result = await window.VyrnApi.profileNfts(profileId);
 		if (requestId !== sharedPlayerProfileRequestId || !playerProfileDialog.open) return;
@@ -2835,6 +2828,14 @@ if (chatRows.length && conversationDialog) {
 	const showConversationProfile = (showProfile) => {
 		conversationScreen.hidden = showProfile;
 		conversationProfile.hidden = !showProfile;
+		if (showProfile) {
+			requestAnimationFrame(() => {
+				const profilePage = conversationProfile.querySelector('.player-profile-page');
+				if (profilePage && activeChatIndex >= 0) {
+					renderProfileBanner(profilePage, playerProfiles[activeChatIndex]);
+				}
+			});
+		}
 	};
 	const openStandalonePlayerProfile = window.openVyrnPlayerProfile;
 	window.openVyrnPlayerProfile = (profileOrId) => {
@@ -2957,6 +2958,7 @@ if (chatRows.length && conversationDialog) {
 			if (profilePage) {
 				profilePage.dataset.profileId = profile.profileId || profile.id || '';
 				profilePage.dataset.accountStatus = getProfileStatus(profile);
+				renderProfileBanner(profilePage, profile);
 			}
 			const channelBadge = chatRow.querySelector('.channel-verified');
 			const avatar = chatRow.querySelector('.chat-avatar').cloneNode(true);
@@ -2990,7 +2992,10 @@ if (chatRows.length && conversationDialog) {
 						profile.accountStatus = latestStatus;
 						profile.status = latestProfile.status;
 						playerProfiles[index] = { ...profile, ...latestProfile, accountStatus: latestStatus };
-						if (profilePage) profilePage.dataset.accountStatus = latestStatus;
+						if (profilePage) {
+							profilePage.dataset.accountStatus = latestStatus;
+							renderProfileBanner(profilePage, playerProfiles[index]);
+						}
 						renderProfileName(conversationPeerName, name, latestStatus);
 						renderProfileName(playerProfileName, name, latestStatus);
 						const chatName = chatRow.querySelector('.chat-name');
