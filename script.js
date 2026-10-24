@@ -2494,22 +2494,6 @@ if (bottomNav && navIndicator && activeItem) {
 		});
 	});
 
-	navItems.filter((item) => item.tagName === 'A').forEach((link) => {
-		link.addEventListener('click', (event) => {
-			if (event.defaultPrevented) return;
-			const destination = new URL(link.href, window.location.href);
-			if (destination.origin !== window.location.origin || destination.pathname === window.location.pathname) {
-				return;
-			}
-
-			event.preventDefault();
-			activateNavItem(link);
-			bottomNav.classList.add('is-route-transitioning');
-
-			const duration = window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 240 : 320;
-			window.setTimeout(() => window.location.assign(destination.href), duration);
-		});
-	});
 }
 
 let chatRows = [...document.querySelectorAll('.chat-row')];

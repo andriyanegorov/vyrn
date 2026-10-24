@@ -457,6 +457,24 @@ Deno.serve(async (request) => {
     return json({ profile, wallets, transactions });
   }
 
+  if (action === 'leaderboard') {
+    if (!isBrowserDemo) {
+      if (typeof input.initData !== 'string' || !botToken) {
+        return json({ error: 'Open VYRN inside Telegram to load the player leaderboard' }, 401);
+      }
+      const verified = await verifyTelegramInitData(input.initData, botToken);
+      if (!verified.user || String(verified.user.id) !== telegramId) {
+        return json({ error: 'Telegram identity could not be verified' }, 401);
+      }
+    }
+    const result = await supabase.rpc('get_player_leaderboard', { p_profile_id: profile.id });
+    if (result.error) {
+      console.error('Could not load the player leaderboard:', result.error.message);
+      return json({ error: 'Could not load the player leaderboard' }, 500);
+    }
+    return json(result.data);
+  }
+
   if (action === 'update_profile') {
     const allowed = ['nickname', 'username', 'first_name', 'last_name', 'bio', 'birthday', 'phone'];
     const changes: Record<string, unknown> = {};

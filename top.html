@@ -1,0 +1,192 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#f5f5f5">
+  <title>Топ игроков | VYRN</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css?v=top-players-v12">
+  <script src="https://telegram.org/js/telegram-web-app.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/lottie-web/5.12.2/lottie.min.js" defer></script>
+  <script src="supabase-client-config.js?v=wallet-balance-read-20261018" defer></script>
+  <script src="supabase-api.js?v=player-leaderboard-v2" defer></script>
+  <script src="nav-transition.js?v=section-fade-v15" defer></script>
+  <script src="script.js?v=route-fade-v1" defer></script>
+</head>
+<body class="top-screen">
+  <header class="site-header">
+    <a class="brand" href="index.html#home" aria-label="VYRN, главная">VYRN</a>
+    <div class="star-balance" aria-label="Баланс: 0 звёзд">
+      <img src="./assets/stars.png" alt="" aria-hidden="true">
+      <span>0</span>
+    </div>
+  </header>
+  <main class="top-page">
+    <section class="top-ranking" aria-labelledby="top-ranking-title">
+      <div class="top-metric-tabs" role="group" aria-label="Показатель рейтинга">
+        <span class="top-metric-indicator" aria-hidden="true"></span>
+        <button class="top-metric-button is-active" type="button" data-top-metric="value" aria-pressed="true">Ценность</button>
+        <button class="top-metric-button" type="button" data-top-metric="stars" aria-pressed="false">VYRN Stars</button>
+      </div>
+
+      <ol class="top-podium" aria-label="Три лучших игрока">
+        <li class="top-podium-item top-podium-second" data-rank="2" hidden style="display:none">
+          <div class="top-player-avatar avatar-lilac" aria-hidden="true">М</div>
+          <span class="top-podium-crown" aria-hidden="true">2</span>
+          <strong class="top-player-name">Мира</strong>
+          <span class="top-player-handle">@mira_v</span>
+          <span class="top-player-score"><img src="./assets/stars.png" alt="" aria-hidden="true"><span data-top-value="8420" data-top-stars="5260">8 420</span></span>
+        </li>
+        <li class="top-podium-item top-podium-first" data-rank="1" hidden style="display:none">
+          <span class="top-podium-crown" aria-hidden="true">1</span>
+          <div class="top-player-avatar avatar-gold" aria-hidden="true">А</div>
+          <strong class="top-player-name">Алекс</strong>
+          <span class="top-player-handle">@alex_nft</span>
+          <span class="top-player-score"><img src="./assets/stars.png" alt="" aria-hidden="true"><span data-top-value="12680" data-top-stars="8940">12 680</span></span>
+        </li>
+        <li class="top-podium-item top-podium-third" data-rank="3" hidden style="display:none">
+          <div class="top-player-avatar avatar-blue" aria-hidden="true">К</div>
+          <span class="top-podium-crown" aria-hidden="true">3</span>
+          <strong class="top-player-name">Кирилл</strong>
+          <span class="top-player-handle">@kir_collects</span>
+          <span class="top-player-score"><img src="./assets/stars.png" alt="" aria-hidden="true"><span data-top-value="6950" data-top-stars="4180">6 950</span></span>
+        </li>
+      </ol>
+
+      <div class="top-list-card">
+        <div class="top-list-heading">
+          <span>Пользователь</span>
+          <span data-top-metric-label>Ценность</span>
+        </div>
+        <ol class="top-player-list" start="4">
+          <li class="top-player-row" hidden style="display:none">
+            <span class="top-player-rank">4</span>
+            <span class="top-player-avatar avatar-pink" aria-hidden="true">Л</span>
+            <span class="top-player-info"><strong>Лина</strong><span>@lina_stars</span></span>
+            <span class="top-player-value"><img src="./assets/stars.png" alt="" aria-hidden="true"><span data-top-value="5380" data-top-stars="3260">5 380</span></span>
+          </li>
+          <li class="top-player-row" hidden style="display:none">
+            <span class="top-player-rank">5</span>
+            <span class="top-player-avatar avatar-mint" aria-hidden="true">Д</span>
+            <span class="top-player-info"><strong>Даня</strong><span>@danya_play</span></span>
+            <span class="top-player-value"><img src="./assets/stars.png" alt="" aria-hidden="true"><span data-top-value="4720" data-top-stars="2810">4 720</span></span>
+          </li>
+          <li class="top-player-row" hidden style="display:none">
+            <span class="top-player-rank">6</span>
+            <span class="top-player-avatar avatar-peach" aria-hidden="true">С</span>
+            <span class="top-player-info"><strong>Саша</strong><span>@sasha_fox</span></span>
+            <span class="top-player-value"><img src="./assets/stars.png" alt="" aria-hidden="true"><span data-top-value="3960" data-top-stars="2230">3 960</span></span>
+          </li>
+          <li class="top-player-row" hidden style="display:none">
+            <span class="top-player-rank">7</span>
+            <span class="top-player-avatar avatar-blue" aria-hidden="true">Н</span>
+            <span class="top-player-info"><strong>Ника</strong><span>@nika_gifts</span></span>
+            <span class="top-player-value"><img src="./assets/stars.png" alt="" aria-hidden="true"><span data-top-value="3410" data-top-stars="1840">3 410</span></span>
+          </li>
+          <li class="top-player-row" hidden style="display:none">
+            <span class="top-player-rank">8</span>
+            <span class="top-player-avatar avatar-lilac" aria-hidden="true">Т</span>
+            <span class="top-player-info"><strong>Тимур</strong><span>@timur_collects</span></span>
+            <span class="top-player-value"><img src="./assets/stars.png" alt="" aria-hidden="true"><span data-top-value="2980" data-top-stars="1560">2 980</span></span>
+          </li>
+          <li class="top-player-row" hidden style="display:none">
+            <span class="top-player-rank">9</span>
+            <span class="top-player-avatar avatar-peach" aria-hidden="true">Е</span>
+            <span class="top-player-info"><strong>Ева</strong><span>@eva_gifts</span></span>
+            <span class="top-player-value"><img src="./assets/stars.png" alt="" aria-hidden="true"><span data-top-value="2760" data-top-stars="1420">2 760</span></span>
+          </li>
+          <li class="top-player-row" hidden style="display:none">
+            <span class="top-player-rank">10</span>
+            <span class="top-player-avatar avatar-mint" aria-hidden="true">М</span>
+            <span class="top-player-info"><strong>Макс</strong><span>@max_stars</span></span>
+            <span class="top-player-value"><img src="./assets/stars.png" alt="" aria-hidden="true"><span data-top-value="2490" data-top-stars="1290">2 490</span></span>
+          </li>
+          <li class="top-player-row" hidden style="display:none">
+            <span class="top-player-rank">11</span>
+            <span class="top-player-avatar avatar-blue" aria-hidden="true">П</span>
+            <span class="top-player-info"><strong>Полина</strong><span>@polly_vyrn</span></span>
+            <span class="top-player-value"><img src="./assets/stars.png" alt="" aria-hidden="true"><span data-top-value="2230" data-top-stars="1160">2 230</span></span>
+          </li>
+          <li class="top-player-row" hidden style="display:none">
+            <span class="top-player-rank">12</span>
+            <span class="top-player-avatar avatar-pink" aria-hidden="true">И</span>
+            <span class="top-player-info"><strong>Илья</strong><span>@ilya_nft</span></span>
+            <span class="top-player-value"><img src="./assets/stars.png" alt="" aria-hidden="true"><span data-top-value="1960" data-top-stars="980">1 960</span></span>
+          </li>
+          <li class="top-player-row" hidden style="display:none">
+            <span class="top-player-rank">13</span>
+            <span class="top-player-avatar avatar-lilac" aria-hidden="true">А</span>
+            <span class="top-player-info"><strong>Арина</strong><span>@arina_owl</span></span>
+            <span class="top-player-value"><img src="./assets/stars.png" alt="" aria-hidden="true"><span data-top-value="1740" data-top-stars="860">1 740</span></span>
+          </li>
+          <li class="top-player-row" hidden style="display:none">
+            <span class="top-player-rank">14</span>
+            <span class="top-player-avatar avatar-mint" aria-hidden="true">Р</span>
+            <span class="top-player-info"><strong>Роман</strong><span>@roman_star</span></span>
+            <span class="top-player-value"><img src="./assets/stars.png" alt="" aria-hidden="true"><span data-top-value="1510" data-top-stars="740">1 510</span></span>
+          </li>
+          <li class="top-player-row">
+            <span class="top-player-rank">15</span>
+            <span class="top-player-avatar avatar-blue" aria-hidden="true">В</span>
+            <span class="top-player-info"><strong>Вика</strong><span>@vika_moon</span></span>
+            <span class="top-player-value"><img src="./assets/stars.png" alt="" aria-hidden="true"><span data-top-value="1290" data-top-stars="620">1 290</span></span>
+          </li>
+          <li class="top-player-row top-self-row" data-top-self-row hidden>
+            <span class="top-player-rank" aria-label="Позиция в рейтинге недоступна">—</span>
+            <span class="top-player-avatar top-self-avatar" aria-hidden="true"><span data-top-avatar-initials></span><img data-top-avatar-image alt="" hidden></span>
+            <span class="top-player-info"><strong data-top-player-name>Загрузка…</strong><span data-top-player-username></span></span>
+            <span class="top-player-value"><img src="./assets/stars.png" alt="" aria-hidden="true"><span data-top-value="0" data-top-stars="0">—</span></span>
+          </li>
+        </ol>
+      </div>
+    </section>
+  </main>
+  <dialog class="nft-modal" aria-labelledby="nft-modal-title">
+    <section class="nft-modal-card">
+      <div class="nft-modal-art">
+        <div class="nft-modal-backdrop" aria-hidden="true" hidden></div>
+        <button class="nft-modal-close" type="button" aria-label="Закрыть окно">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6 6 12 12M18 6 6 18" /></svg>
+        </button>
+        <div class="nft-modal-animation" aria-hidden="true" hidden></div>
+        <div class="nft-modal-heading">
+          <h2 id="nft-modal-title"></h2>
+          <p class="nft-modal-collection">Коллекция VYRN</p>
+        </div>
+      </div>
+      <div class="nft-modal-details">
+        <dl class="nft-modal-metadata">
+          <div><dt>Владелец</dt><dd class="nft-modal-owner"><div class="nft-modal-owner-actions"><button class="nft-modal-owner-link" type="button"><img class="nft-modal-owner-avatar" alt="" hidden><span class="nft-modal-owner-name"></span></button></div></dd></div>
+          <div><dt>Коллекция</dt><dd class="nft-modal-collection-name">VYRN</dd></div>
+          <div><dt>Модель</dt><dd class="nft-modal-model"></dd></div>
+          <div><dt>Стоимость (FRAGMENT)</dt><dd class="nft-modal-price">—</dd></div>
+        </dl>
+        <button class="nft-modal-confirm" type="button">OK</button>
+      </div>
+    </section>
+  </dialog>
+  <nav class="bottom-nav" aria-label="Основная навигация">
+    <span class="nav-indicator" aria-hidden="true"></span>
+    <a class="nav-button" href="index.html#home">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m3 10 9-7 9 7M5 9v11h14V9M9 20v-6h6v6" /></svg>
+      <span>Главное</span>
+    </a>
+    <a class="nav-button" href="market.html">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 10h18l-1.5-6h-15L3 10Zm0 0v10h18V10M8 20v-6h8v6" /></svg>
+      <span>Рынок</span>
+    </a>
+    <a class="nav-button" href="chats.html">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 11.5a7.5 7.5 0 0 1-7.5 7.5H6l-3 2v-5.5A7.5 7.5 0 1 1 20 11.5Z" /></svg>
+      <span>Чаты</span>
+    </a>
+    <a class="nav-button" href="profile.html">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="8" r="4" /><path d="M4 21a8 8 0 0 1 16 0" /></svg>
+      <span>Профиль</span>
+    </a>
+  </nav>
+  <script src="top.js?v=player-leaderboard-v21" defer></script>
+</body>
+</html>

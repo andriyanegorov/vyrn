@@ -228,6 +228,7 @@
     cachedAccount: readCachedAccount,
     updateCachedAccount: writeCachedAccount,
     wallet: () => request('wallet'),
+    leaderboard: () => request('leaderboard'),
     createStarInvoice: (amount) => request('create_star_invoice', { amount }),
     createPremiumInvoice: (durationMonths) => request('create_premium_invoice', { duration_months: durationMonths }),
     updateProfile: (profile) => mutate('update_profile', profile),
