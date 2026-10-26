@@ -169,6 +169,16 @@ xmasstocking|Xmas Stockings
   const taskStatus = document.querySelector('.admin-task-status');
   const taskRefreshButton = document.querySelector('.admin-task-refresh-button');
   const taskSettingsHint = document.querySelector('.admin-task-settings-hint');
+  const promoForm = document.querySelector('.admin-promo-form');
+  const promoRewardType = document.querySelector('.admin-promo-reward-type');
+  const promoRewardValue = document.querySelector('.admin-promo-reward-value');
+  const promoBrowserDemoOnly = document.querySelector('.admin-promo-browser-demo');
+  const promoRewardValueLabel = document.querySelector('.admin-promo-value-label');
+  const promoStatus = document.querySelector('.admin-promo-status');
+  const promoResult = document.querySelector('.admin-promo-result');
+  const promoCodes = document.querySelector('.admin-promo-codes');
+  const promoCopyButton = document.querySelector('.admin-promo-copy-button');
+  const promoDownloadButton = document.querySelector('.admin-promo-download-button');
   let selectedPlayer = null;
   let giftPreviewUrl = '';
   let priceRequestId = 0;
@@ -326,6 +336,32 @@ xmasstocking|Xmas Stockings
       throw new Error('Функция admin-tasks не опубликована в Supabase. Выполните deploy из README.');
     }
     if (!response.ok) throw new Error(data?.error || `Не удалось изменить задания (${response.status}).`);
+    return data;
+  };
+
+  const promoCodeRequest = async (payload) => {
+    if (!config.url || !config.anonKey || config.url.includes('YOUR_PROJECT_REF') || config.anonKey.includes('YOUR_SUPABASE')) {
+      throw new Error('Проверь URL и anon key в supabase-client-config.js.');
+    }
+    let response;
+    try {
+      response = await fetch(`${config.url.replace(/\/$/, '')}/functions/v1/admin-promocodes`, {
+        method: 'POST',
+        headers: {
+          apikey: config.anonKey,
+          Authorization: `Bearer ${config.anonKey}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ ...payload, password: passwordInput.value })
+      });
+    } catch {
+      throw new Error('Edge Function admin-promocodes не опубликована или не отвечает.');
+    }
+    const data = await response.json().catch(() => null);
+    if (response.status === 404) {
+      throw new Error('Функция admin-promocodes не опубликована в Supabase. Выполните deploy из README.');
+    }
+    if (!response.ok) throw new Error(data?.error || `Не удалось создать промокоды (${response.status}).`);
     return data;
   };
 
@@ -493,6 +529,64 @@ xmasstocking|Xmas Stockings
     } finally {
       button.disabled = false;
     }
+  });
+  promoRewardType.addEventListener('change', () => {
+    const isPremium = promoRewardType.value === 'premium';
+    promoRewardValueLabel.textContent = isPremium ? 'Количество месяцев Premium' : 'Количество Stars';
+    promoRewardValue.min = '1';
+    promoRewardValue.max = isPremium ? '12' : '1000000';
+    promoRewardValue.value = isPremium ? '1' : '100';
+  });
+  promoForm.addEventListener('submit', async (event) => {
+    event.preventDefault();
+    if (!passwordInput.value) {
+      showStatus(promoStatus, 'Сначала введите пароль администратора.', true);
+      passwordInput.focus();
+      return;
+    }
+    if (!promoForm.reportValidity()) return;
+    if (!promoResult.hidden && promoCodes.value
+      && !window.confirm('Новая генерация заменит ранее показанные промокоды. Вы уже сохранили предыдущие коды?')) return;
+    const button = promoForm.querySelector('button[type="submit"]');
+    button.disabled = true;
+    showStatus(promoStatus, 'Создаём промокоды…');
+    try {
+      const result = await promoCodeRequest({
+        action: 'generate',
+        reward_type: promoRewardType.value,
+        reward_value: Number(promoRewardValue.value),
+        browser_demo_only: promoBrowserDemoOnly.checked,
+        count: Number(promoForm.querySelector('.admin-promo-count').value)
+      });
+      if (!Array.isArray(result.codes) || result.codes.length !== Number(promoForm.querySelector('.admin-promo-count').value)
+        || result.codes.some((code) => typeof code !== 'string' || !/^VYRN-[A-HJ-NP-Z2-9]{4}(?:-[A-HJ-NP-Z2-9]{4}){3}$/.test(code))) {
+        throw new Error('Сервер вернул некорректный список промокодов.');
+      }
+      promoCodes.value = result.codes.join('\n');
+      promoResult.hidden = false;
+      showStatus(promoStatus, `Создано кодов: ${result.codes.length}. Скопируйте или скачайте их сейчас.`);
+    } catch (error) {
+      showStatus(promoStatus, error.message, true);
+    } finally {
+      button.disabled = false;
+    }
+  });
+  promoCopyButton.addEventListener('click', async () => {
+    try {
+      await navigator.clipboard.writeText(promoCodes.value);
+      showStatus(promoStatus, 'Промокоды скопированы в буфер обмена.');
+    } catch (error) {
+      showStatus(promoStatus, `Не удалось скопировать коды: ${error.message || 'доступ к буферу обмена запрещён.'}`, true);
+    }
+  });
+  promoDownloadButton.addEventListener('click', () => {
+    const file = new Blob([`${promoCodes.value}\n`], { type: 'text/plain;charset=utf-8' });
+    const url = URL.createObjectURL(file);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = 'vyrn-promo-codes.txt';
+    link.click();
+    window.setTimeout(() => URL.revokeObjectURL(url), 1000);
   });
 
   const fragmentCatalogRequest = async (payload) => {

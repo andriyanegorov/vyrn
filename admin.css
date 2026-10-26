@@ -128,12 +128,11 @@ body.admin-page {
 }
 
 .admin-field input,
-.admin-field select {
+.admin-field select,
+.admin-field textarea {
   width: 100%;
   min-width: 0;
-  height: 42px;
   box-sizing: border-box;
-  padding: 0 12px;
   border: 1px solid #d4dadd;
   border-radius: 3px;
   outline: 0;
@@ -143,8 +142,24 @@ body.admin-page {
   font-size: 13px;
 }
 
+.admin-field input,
+.admin-field select {
+  height: 42px;
+  padding: 0 12px;
+}
+
+.admin-field textarea {
+  min-height: 116px;
+  padding: 10px 12px;
+  resize: vertical;
+  font-family: "DM Mono", monospace;
+  font-size: 12px;
+  line-height: 1.7;
+}
+
 .admin-field input:focus,
-.admin-field select:focus {
+.admin-field select:focus,
+.admin-field textarea:focus {
   border-color: #669783;
   box-shadow: 0 0 0 2px rgba(37, 108, 87, 0.12);
 }
@@ -695,6 +710,50 @@ body.admin-page {
   min-height: 40px;
 }
 
+.admin-promo-form {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  align-items: end;
+  gap: 12px;
+}
+
+.admin-promo-demo-option {
+  grid-column: 1 / -1;
+}
+
+.admin-promo-demo-option > span {
+  display: flex;
+  min-height: 42px;
+  align-items: center;
+  gap: 8px;
+  line-height: 1.4;
+}
+
+.admin-field .admin-promo-browser-demo {
+  width: 16px;
+  height: 16px;
+  flex: 0 0 auto;
+  margin: 0;
+  padding: 0;
+  accent-color: #256c57;
+}
+
+.admin-promo-generate-button {
+  grid-column: 1 / -1;
+}
+
+.admin-promo-result {
+  display: grid;
+  gap: 10px;
+  margin-top: 16px;
+}
+
+.admin-promo-result-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
 .admin-task-toolbar {
   display: flex;
   align-items: center;
@@ -770,6 +829,10 @@ body.admin-page {
   .admin-task-count-form {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
+
+  .admin-promo-form {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
 }
 
 @media (max-width: 520px) {
@@ -826,6 +889,10 @@ body.admin-page {
   }
 
   .admin-task-form {
+    grid-template-columns: 1fr;
+  }
+
+  .admin-promo-form {
     grid-template-columns: 1fr;
   }
 

@@ -188,6 +188,7 @@
   window.VyrnApi = {
     isConfigured: Boolean(config.url && !config.url.includes('YOUR_PROJECT_REF') && config.anonKey && !config.anonKey.includes('YOUR_SUPABASE')),
     browserDemo: config.browserDemo === true,
+    botUsername: config.botUsername || '',
     fragmentPrices: async (gifts) => {
       if (!config.url || config.url.includes('YOUR_PROJECT_REF') || !config.anonKey || config.anonKey.includes('YOUR_SUPABASE')) {
         throw new Error('Добавьте URL проекта и anon key в supabase-client-config.js.');
@@ -231,6 +232,8 @@
     leaderboard: () => request('leaderboard'),
     createStarInvoice: (amount) => request('create_star_invoice', { amount }),
     createPremiumInvoice: (durationMonths) => request('create_premium_invoice', { duration_months: durationMonths }),
+    redeemPromoCode: (code) => mutate('redeem_promo_code', { code }),
+    referralInfo: () => request('referral_info'),
     updateProfile: (profile) => mutate('update_profile', profile),
     myNfts: () => cachedRequest('my_nfts'),
     upgradeNft: (nftItemId) => mutate('upgrade_nft', { nft_item_id: nftItemId }),

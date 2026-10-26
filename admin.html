@@ -8,9 +8,9 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Inter:wght@400;500;600;700&family=Manrope:wght@400;500;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="style.css?v=fonts-manrope-inter-20261021">
-  <link rel="stylesheet" href="admin.css?v=daily-tasks-reset-v1">
+  <link rel="stylesheet" href="admin.css?v=promo-codes-browser-demo-v1">
   <script src="supabase-client-config.js?v=admin-panel-number-media-20261018" defer></script>
-  <script src="admin.js?v=daily-tasks-reset-v1" defer></script>
+  <script src="admin.js?v=promo-codes-browser-demo-v1" defer></script>
 </head>
 <body class="admin-page">
   <header class="admin-header">
@@ -230,6 +230,45 @@
       </div>
       <div class="admin-task-list" aria-live="polite">
         <p class="admin-empty-result">Введите пароль администратора и нажмите «Обновить список».</p>
+      </div>
+    </section>
+    <section class="admin-section admin-promo-section" aria-labelledby="promo-heading">
+      <div class="admin-section-heading">
+        <span class="admin-step">06</span>
+        <div><h2 id="promo-heading">Промокоды</h2><p>Генерация кодов на Stars или Premium</p></div>
+      </div>
+      <form class="admin-promo-form">
+        <label class="admin-field">
+          <span>Награда</span>
+          <select class="admin-promo-reward-type">
+            <option value="stars">Stars</option>
+            <option value="premium">Premium</option>
+          </select>
+        </label>
+        <label class="admin-field">
+          <span class="admin-promo-value-label">Количество Stars</span>
+          <input class="admin-promo-reward-value" type="number" min="1" max="1000000" step="1" value="100" required>
+        </label>
+        <label class="admin-field">
+          <span>Количество кодов</span>
+          <input class="admin-promo-count" type="number" min="1" max="500" step="1" value="1" required>
+        </label>
+        <label class="admin-field admin-promo-demo-option">
+          <span><input class="admin-promo-browser-demo" type="checkbox"> Только для браузерного demo-профиля</span>
+        </label>
+        <button class="admin-button admin-promo-generate-button" type="submit">Сгенерировать коды</button>
+      </form>
+      <p class="admin-price-note">Premium указывается в месяцах (1–12), Stars — от 1 до 1 000 000. Каждый код одноразовый. Коды для браузерного demo-профиля доступны всем посетителям сайта и начисляются на общий демо-баланс. Коды показываются только после создания — сохраните или передайте их сразу, повторно просмотреть их нельзя.</p>
+      <p class="admin-status admin-promo-status" role="status" hidden></p>
+      <div class="admin-promo-result" hidden>
+        <label class="admin-field">
+          <span>Сгенерированные коды — сохраните их сейчас</span>
+          <textarea class="admin-promo-codes" rows="6" readonly spellcheck="false"></textarea>
+        </label>
+        <div class="admin-promo-result-actions">
+          <button class="admin-button admin-promo-copy-button" type="button">Скопировать коды</button>
+          <button class="admin-button admin-promo-download-button" type="button">Скачать .txt</button>
+        </div>
       </div>
     </section>
     <section class="admin-section admin-danger-section" aria-labelledby="delete-all-nfts-heading">

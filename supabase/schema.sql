@@ -31,6 +31,7 @@
     banner_color text check (banner_color is null or banner_color ~ '^#[0-9A-Fa-f]{6}$'),
     banner_gradient boolean not null default false,
     premium_until timestamptz,
+    referred_by uuid references public.profiles(id) on delete set null,
     bio text not null default '' check (char_length(bio) <= 160),
     birthday date,
     phone text,
@@ -41,6 +42,7 @@
   alter table public.profiles add column if not exists banner_color text;
   alter table public.profiles add column if not exists banner_gradient boolean not null default false;
   alter table public.profiles add column if not exists premium_until timestamptz;
+  alter table public.profiles add column if not exists referred_by uuid references public.profiles(id) on delete set null;
   do $$
   begin
     alter table public.profiles

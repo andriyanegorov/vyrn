@@ -7,13 +7,13 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Manrope:wght@400;500;600;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="style.css?v=nav-unselected-fade-v1">
+  <link rel="stylesheet" href="style.css?v=profile-referrals-v1">
   <script src="https://telegram.org/js/telegram-web-app.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/lottie-web/5.12.2/lottie.min.js" defer></script>
-  <script src="supabase-client-config.js?v=wallet-balance-read-20261018" defer></script>
-  <script src="supabase-api.js?v=daily-task-api-v1" defer></script>
+  <script src="supabase-client-config.js?v=profile-referrals-v1" defer></script>
+  <script src="supabase-api.js?v=profile-referrals-v1" defer></script>
   <script src="nav-transition.js?v=nav-unselected-fade-v1" defer></script>
-  <script src="script.js?v=daily-task-events-v1" defer></script>
+  <script src="script.js?v=profile-referrals-v1" defer></script>
 </head>
 <body>
   <main class="profile-page">
@@ -101,12 +101,34 @@
           <span>Изменить цвет баннера</span>
           <span class="profile-editor-chevron" aria-hidden="true">›</span>
         </button>
+        <button class="profile-editor-referral-button" type="button">
+          <span class="profile-editor-icon is-referral" aria-hidden="true">
+            <svg viewBox="0 0 24 24"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><path d="m8.7 10.7 6.6-4.4m-6.6 7 6.6 4.4"/></svg>
+          </span>
+          <span class="profile-editor-referral-copy"><strong>Пригласить друга</strong><small>Получите 10 Stars за приглашение</small></span>
+          <span class="profile-editor-chevron" aria-hidden="true">›</span>
+        </button>
         <button class="profile-editor-premium-button" type="button">
           <img src="./assets/svg/premium.svg" alt="" aria-hidden="true">
           <span>Приобрести VYRN Премиум</span>
         </button>
       </div>
     </form>
+  </dialog>
+  <dialog class="referral-dialog" aria-labelledby="referral-dialog-title">
+    <header class="referral-dialog-header">
+      <h2 id="referral-dialog-title">Приглашай друзей</h2>
+      <button class="referral-dialog-close" type="button" aria-label="Закрыть">×</button>
+    </header>
+    <p class="referral-dialog-description">Поделись ссылкой: ты получишь 10 Stars, а друг — 5 Stars после первого входа в VYRN через Telegram.</p>
+    <label class="referral-link-label" for="referral-link">Твоя ссылка-приглашение</label>
+    <input class="referral-link-input" id="referral-link" type="text" readonly>
+    <div class="referral-dialog-actions">
+      <button class="referral-copy-button" type="button" disabled>Скопировать ссылку</button>
+      <button class="referral-share-button" type="button" disabled>Поделиться</button>
+    </div>
+    <p class="referral-dialog-stats" aria-live="polite">Загружаем статистику…</p>
+    <p class="referral-dialog-status" role="status" aria-live="polite" hidden></p>
   </dialog>
   <dialog class="banner-color-dialog" aria-labelledby="banner-color-title">
     <form class="banner-color-form">

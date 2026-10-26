@@ -61,7 +61,10 @@ const matchesTelegramHash = async (params: URLSearchParams, botToken: string, re
   return false;
 };
 
-const verifyTelegramInitData = async (initData: string, botToken: string) => {
+const verifyTelegramInitData = async (
+  initData: string,
+  botToken: string,
+): Promise<{ user: Record<string, unknown> | null; startParam?: string; reason: string | null }> => {
   if (initData.length > 8192) return { user: null, reason: 'initData-too-long' };
   botToken = botToken.trim();
   if (!botToken || !/^\d+:[A-Za-z0-9_-]+$/.test(botToken)) return { user: null, reason: 'bot-token-invalid' };
@@ -85,7 +88,7 @@ const verifyTelegramInitData = async (initData: string, botToken: string) => {
   try {
     const user = JSON.parse(userValue);
     return Number.isSafeInteger(user.id) && user.id > 0
-      ? { user, reason: null }
+      ? { user, startParam: params.get('start_param') || '', reason: null }
       : { user: null, reason: 'telegram-user-invalid' };
   } catch {
     return { user: null, reason: 'user-json-invalid' };
@@ -275,11 +278,37 @@ Deno.serve(async (request) => {
   if (error) return json({ error: error.message }, 500);
 
   if (!profile) {
+    let referredBy: string | null = null;
+    const hasStartParam = !isBrowserDemo
+      && typeof input.initData === 'string'
+      && new URLSearchParams(input.initData).has('start_param');
+    if (hasStartParam) {
+      if (!botToken) return json({ error: 'Реферальные ссылки не настроены на сервере.' }, 503);
+      const verified = await verifyTelegramInitData(input.initData as string, botToken);
+      if (!verified.user || String(verified.user.id) !== telegramId) {
+        return json({ error: 'Не удалось проверить ссылку приглашения. Перезапустите VYRN из Telegram.' }, 401);
+      }
+      const referralCode = verified.startParam || '';
+      if (/^[a-f0-9]{24}$/i.test(referralCode)) {
+        const inviter = await supabase.from('referral_codes')
+          .select('profile_id').eq('code', referralCode.toLowerCase()).maybeSingle();
+        if (inviter.error) {
+          const missingTable = inviter.error.code === 'PGRST205' || inviter.error.code === '42P01';
+          return json({
+            error: missingTable
+              ? 'Реферальная система не установлена. Примените supabase/referrals.sql.'
+              : inviter.error.message,
+          }, missingTable ? 503 : 500);
+        }
+        referredBy = inviter.data?.profile_id || null;
+      }
+    }
     for (let attempt = 0; attempt < 6; attempt++) {
       const inserted = await supabase.from('profiles').insert({
         ...baseProfile,
         nickname: isBrowserDemo ? 'browser000000' : generateNickname(),
         username: telegramUsername,
+        ...(referredBy ? { referred_by: referredBy } : {}),
       }).select('*').single();
       if (!inserted.error) {
         profile = inserted.data;
@@ -317,6 +346,19 @@ Deno.serve(async (request) => {
   if (walletResult.error) return json({ error: walletResult.error.message }, 500);
   const savedChat = await supabase.rpc('ensure_saved_chat', { p_profile_id: profile.id });
   if (savedChat.error) return json({ error: savedChat.error.message }, 500);
+  if (profile.referred_by) {
+    const referral = await supabase.rpc('complete_profile_referral', {
+      p_invited_profile_id: profile.id,
+    });
+    if (referral.error) {
+      const missingFunction = referral.error.code === 'PGRST202' || referral.error.code === '42883';
+      return json({
+        error: missingFunction
+          ? 'Реферальная система не установлена. Примените supabase/referrals.sql.'
+          : 'Не удалось начислить реферальные награды. Обновите страницу, чтобы повторить попытку.',
+      }, missingFunction ? 503 : 500);
+    }
+  }
 
   const attachGiftResponses = async (messages: any[]) => {
     const offerIds = messages.map((message) => message.gift_offer?.id).filter(Boolean);
@@ -344,6 +386,57 @@ Deno.serve(async (request) => {
   };
 
   const action = input.action;
+  if (action === 'redeem_promo_code') {
+    if (!isBrowserDemo) {
+      if (typeof input.initData !== 'string' || !botToken) {
+        return json({ error: 'Для активации промокода откройте VYRN внутри Telegram.' }, 401);
+      }
+      const verified = await verifyTelegramInitData(input.initData, botToken);
+      if (!verified.user || String(verified.user.id) !== telegramId) {
+        return json({ error: 'Не удалось подтвердить аккаунт Telegram. Переоткройте приложение.' }, 401);
+      }
+    }
+    const code = typeof input.code === 'string' ? input.code.trim().toUpperCase() : '';
+    if (code.length > 32 || !/^VYRN-[A-HJ-NP-Z2-9]{4}(?:-[A-HJ-NP-Z2-9]{4}){3}$/.test(code)) {
+      return json({ error: 'Проверьте формат промокода.' }, 400);
+    }
+    const redemption = await supabase.rpc('redeem_promo_code', {
+      p_profile_id: profile.id,
+      p_code: code,
+      p_browser_demo: isBrowserDemo,
+    });
+    if (redemption.error) {
+      console.error('Promo code redemption failed:', redemption.error.message);
+      return json({ error: 'Не удалось активировать промокод. Попробуйте позже.' }, 500);
+    }
+    if (redemption.data?.success !== true) {
+      return json({ error: redemption.data?.error || 'Не удалось активировать промокод.' }, 400);
+    }
+    return json({ result: redemption.data });
+  }
+
+  if (action === 'referral_info') {
+    if (isBrowserDemo || typeof input.initData !== 'string' || !botToken) {
+      return json({ error: 'Реферальная ссылка доступна в профиле Telegram.' }, 401);
+    }
+    const verified = await verifyTelegramInitData(input.initData, botToken);
+    if (!verified.user || String(verified.user.id) !== telegramId) {
+      return json({ error: 'Не удалось подтвердить аккаунт Telegram. Переоткройте приложение.' }, 401);
+    }
+    const result = await supabase.rpc('get_or_create_referral_info', {
+      p_profile_id: profile.id,
+    });
+    if (result.error) {
+      const missingFunction = result.error.code === 'PGRST202' || result.error.code === '42883';
+      return json({
+        error: missingFunction
+          ? 'Реферальная система не установлена. Примените supabase/referrals.sql.'
+          : result.error.message,
+      }, missingFunction ? 503 : 500);
+    }
+    return json({ referral: result.data });
+  }
+
   if (action === 'daily_task_board') {
     const result = await supabase.rpc('get_daily_task_board', { p_profile_id: profile.id });
     return result.error ? json({ error: result.error.message }, 500) : json({ board: result.data });
@@ -605,7 +698,7 @@ Deno.serve(async (request) => {
       || !Number.isFinite(priceStars)
       || priceStars < 0.01
       || Math.abs(priceStars * 100 - Math.round(priceStars * 100)) > 0.000001) {
-      return json({ error: 'Укажите цену не ниже 0,01 ★ и не более двух знаков после запятой.' }, 400);
+      return json({ error: 'Укажите цену не ниже 0,01 звёзд и не более двух знаков после запятой.' }, 400);
     }
     const ownedItem = await supabase.from('nft_items')
       .select('attributes').eq('id', itemId).eq('owner_profile_id', profile.id).maybeSingle();
@@ -613,7 +706,7 @@ Deno.serve(async (request) => {
     if (!ownedItem.data) return json({ error: 'NFT not found or no longer owned by this player' }, 404);
     const maxPrice = Math.max(1_000_000_000_000, Number(ownedItem.data.attributes?.fragment_price_stars) || 0);
     if (priceStars > maxPrice) {
-      return json({ error: `Укажите цену не выше ${maxPrice.toLocaleString('ru-RU')} ★.` }, 400);
+      return json({ error: `Укажите цену не выше ${maxPrice.toLocaleString('ru-RU')} звёзд.` }, 400);
     }
 
     const savedItem = await supabase.from('nft_items').update({

@@ -8,12 +8,12 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Manrope:wght@400;500;600;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="style.css?v=nav-unselected-fade-v1">
+  <link rel="stylesheet" href="style.css?v=promo-modal-single-surface-v1">
   <script src="https://telegram.org/js/telegram-web-app.js"></script>
   <script src="supabase-client-config.js?v=wallet-data-20261019" defer></script>
   <script src="supabase-api.js?v=daily-task-api-v1" defer></script>
   <script src="nav-transition.js?v=nav-unselected-fade-v1" defer></script>
-  <script src="script.js?v=daily-task-events-v1" defer></script>
+  <script src="script.js?v=browser-promo-redemption-v1" defer></script>
 </head>
 <body class="wallet-screen">
   <header class="wallet-header">
@@ -26,6 +26,10 @@
         <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="5" cy="12" r="1.8"/><circle cx="12" cy="12" r="1.8"/><circle cx="19" cy="12" r="1.8"/></svg>
       </button>
       <div class="wallet-more-menu" id="wallet-more-menu" hidden>
+        <button class="wallet-menu-item wallet-promo-open" type="button" aria-haspopup="dialog" aria-controls="wallet-promo-dialog">
+          <svg class="wallet-menu-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7.5A2.5 2.5 0 0 0 6.5 5h11A2.5 2.5 0 0 0 20 7.5v1a2.5 2.5 0 0 0 0 5v1a2.5 2.5 0 0 0-2.5 2.5h-11A2.5 2.5 0 0 0 4 14.5v-1a2.5 2.5 0 0 0 0-5z"/><path d="M12 8v1m0 3v1m0 3v.01"/></svg>
+          <span>Промокод</span>
+        </button>
         <button class="wallet-menu-item wallet-transfer-action" type="button" disabled title="Переводы пока недоступны">
           <svg class="wallet-menu-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 8h17l-4-4m5 12H4l4 4"/></svg>
           <span>Перевести</span>
@@ -40,7 +44,7 @@
         </button>
         <div class="wallet-currency-options" id="wallet-currency-options" hidden>
           <button class="wallet-currency-option is-selected" type="button" data-wallet-currency="stars" aria-pressed="true">STARS</button>
-          <button class="wallet-currency-option" type="button" data-wallet-currency="ton" aria-pressed="false">TON</button>
+          <button class="wallet-currency-option" type="button" data-wallet-currency="gram" aria-pressed="false">GRAM</button>
         </div>
       </div>
     </div>
@@ -72,6 +76,24 @@
       <p class="wallet-empty-state">Загрузка операций...</p>
     </section>
   </main>
+  <dialog class="wallet-promo-dialog" id="wallet-promo-dialog" aria-labelledby="wallet-promo-title">
+    <header class="wallet-promo-dialog-header">
+      <h2 id="wallet-promo-title">Промокод</h2>
+      <button class="wallet-promo-close" type="button" aria-label="Закрыть окно промокода">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6 6 12 12M18 6 6 18" /></svg>
+      </button>
+    </header>
+    <section class="wallet-promo-section" aria-label="Активация промокода">
+      <form class="wallet-promo-form">
+        <label class="wallet-promo-input-label" for="wallet-promo-code">Ваш промокод</label>
+        <div class="wallet-promo-input-row">
+          <input id="wallet-promo-code" name="promo-code" type="text" maxlength="32" autocomplete="off" autocapitalize="characters" spellcheck="false" placeholder="VYRN-XXXX-XXXX-XXXX-XXXX" required>
+          <button class="wallet-promo-submit" type="submit">Активировать</button>
+        </div>
+        <p class="wallet-promo-status" role="status" aria-live="polite" hidden></p>
+      </form>
+    </section>
+  </dialog>
   <dialog class="wallet-topup-dialog" id="wallet-topup-dialog" aria-labelledby="wallet-topup-title">
     <div class="wallet-topup-shell">
       <header class="wallet-topup-header">

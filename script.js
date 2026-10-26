@@ -245,6 +245,9 @@ if (document.body.classList.contains('wallet-screen')) {
 	const walletToast = document.querySelector('.wallet-toast');
 	const walletMenu = document.querySelector('.wallet-more-menu');
 	const walletMoreButton = document.querySelector('.wallet-header-button.is-more');
+	const walletPromoOpenButton = document.querySelector('.wallet-promo-open');
+	const walletPromoDialog = document.querySelector('#wallet-promo-dialog');
+	const walletPromoCloseButton = walletPromoDialog.querySelector('.wallet-promo-close');
 	const walletCurrencyToggle = document.querySelector('.wallet-currency-toggle');
 	const walletCurrencyOptionsContainer = document.querySelector('#wallet-currency-options');
 	const walletCurrencyOptions = [...document.querySelectorAll('.wallet-currency-option')];
@@ -267,6 +270,8 @@ if (document.body.classList.contains('wallet-screen')) {
 	const formatWalletInteger = (value) => value.toLocaleString('ru-RU');
 	let walletBalances = new Map();
 	let activeWalletCurrency = 'stars';
+	const getWalletStorageCurrency = (currency) => currency === 'gram' ? 'ton' : currency;
+	const formatWalletCurrencyName = (currency) => currency === 'ton' || currency === 'gram' ? 'GRAM' : currency.toUpperCase();
 	const setTopupPaymentStatus = (message) => {
 		walletToast.textContent = message;
 		walletToast.hidden = false;
@@ -368,17 +373,66 @@ if (document.body.classList.contains('wallet-screen')) {
 		}
 		startTelegramStarPayment(Number(walletTopupAmountInput.value));
 	});
+	const walletPromoForm = document.querySelector('.wallet-promo-form');
+	const walletPromoInput = document.querySelector('#wallet-promo-code');
+	const walletPromoStatus = document.querySelector('.wallet-promo-status');
+	walletPromoForm.addEventListener('submit', async (event) => {
+		event.preventDefault();
+		const code = walletPromoInput.value.trim().toUpperCase();
+		const submitButton = walletPromoForm.querySelector('button[type="submit"]');
+		if (!code) {
+			walletPromoInput.focus();
+			return;
+		}
+		if (!telegramWebApp?.initData && !window.VyrnApi?.browserDemo) {
+			walletPromoStatus.textContent = 'Для активации промокода откройте VYRN внутри Telegram.';
+			walletPromoStatus.classList.add('is-error');
+			walletPromoStatus.hidden = false;
+			return;
+		}
+		submitButton.disabled = true;
+		walletPromoInput.disabled = true;
+		walletPromoStatus.textContent = 'Проверяем промокод…';
+		walletPromoStatus.classList.remove('is-error', 'is-success');
+		walletPromoStatus.hidden = false;
+		try {
+			const { result } = await window.VyrnApi.redeemPromoCode(code);
+			if (!result?.success) throw new Error('Не удалось активировать промокод.');
+			walletPromoInput.value = '';
+			if (result.reward_type === 'stars') {
+				walletPromoStatus.textContent = `Промокод активирован! Начислено ${formatWalletInteger(BigInt(result.reward_value))} Stars.`;
+			} else {
+				const premiumDate = new Date(result.premium_until);
+				walletPromoStatus.textContent = `Промокод активирован! Premium действует до ${new Intl.DateTimeFormat('ru-RU', {
+					day: 'numeric', month: 'long', year: 'numeric'
+				}).format(premiumDate)}.`;
+			}
+			walletPromoStatus.classList.add('is-success');
+			try {
+				await loadWallet();
+			} catch (error) {
+				console.error('Не удалось обновить кошелёк после активации промокода:', error);
+			}
+		} catch (error) {
+			walletPromoStatus.textContent = error.message || 'Не удалось активировать промокод.';
+			walletPromoStatus.classList.add('is-error');
+		} finally {
+			submitButton.disabled = false;
+			walletPromoInput.disabled = false;
+		}
+	});
 
 	const setWalletCurrency = (currency) => {
-		if (!walletBalances.has(currency)) return;
+		const storageCurrency = getWalletStorageCurrency(currency);
+		if (!walletBalances.has(storageCurrency)) return;
 		activeWalletCurrency = currency;
-		const balance = readWalletInteger(walletBalances.get(currency));
-		const otherCurrency = currency === 'stars' ? 'ton' : 'stars';
+		const balance = readWalletInteger(walletBalances.get(storageCurrency));
+		const otherCurrency = storageCurrency === 'stars' ? 'ton' : 'stars';
 		walletBalanceElement.textContent = formatWalletInteger(balance);
-		walletCurrencyLabel.textContent = currency.toUpperCase();
-		walletStarsIcon.hidden = currency !== 'stars';
-		walletOtherBalance.textContent = `${otherCurrency.toUpperCase()}: ${formatWalletInteger(readWalletInteger(walletBalances.get(otherCurrency)))}`;
-		walletCurrencyCurrent.textContent = currency.toUpperCase();
+		walletCurrencyLabel.textContent = formatWalletCurrencyName(currency);
+		walletStarsIcon.hidden = storageCurrency !== 'stars';
+		walletOtherBalance.textContent = `${formatWalletCurrencyName(otherCurrency)}: ${formatWalletInteger(readWalletInteger(walletBalances.get(otherCurrency)))}`;
+		walletCurrencyCurrent.textContent = formatWalletCurrencyName(currency);
 		walletCurrencyOptions.forEach((option) => {
 			const isSelected = option.dataset.walletCurrency === currency;
 			option.classList.toggle('is-selected', isSelected);
@@ -392,6 +446,8 @@ if (document.body.classList.contains('wallet-screen')) {
 			market_purchase: ['Покупка NFT', 'Покупка на VYRN Market'],
 			market_sale: ['Продажа NFT', 'Продажа на VYRN Market'],
 			nft_auto_sale: ['Автопродажа NFT', 'Продажа по оценке Fragment'],
+			promo_code_reward: ['Промокод', 'Награда за активацию промокода'],
+			referral_reward: ['Реферальная награда', 'Бонус за приглашение друга'],
 			chat_gift_purchase: ['Покупка подарка', 'Покупка в чате'],
 			chat_gift_sale: ['Продажа подарка', 'Продажа в чате']
 		};
@@ -440,7 +496,7 @@ if (document.body.classList.contains('wallet-screen')) {
 			} else {
 				const currencyLabel = document.createElement('span');
 				currencyLabel.className = 'wallet-transaction-currency';
-				currencyLabel.textContent = currency.toUpperCase();
+				currencyLabel.textContent = formatWalletCurrencyName(currency);
 				amountElement.append(currencyLabel);
 			}
 			row.append(copy, amountElement);
@@ -513,6 +569,15 @@ if (document.body.classList.contains('wallet-screen')) {
 		walletMoreButton.setAttribute('aria-expanded', String(!isExpanded));
 		walletMenu.hidden = isExpanded;
 	});
+	walletPromoOpenButton.addEventListener('click', () => {
+		closeWalletMenu();
+		walletPromoDialog.showModal();
+		walletPromoInput.focus();
+	});
+	walletPromoCloseButton.addEventListener('click', () => walletPromoDialog.close());
+	walletPromoDialog.addEventListener('click', (event) => {
+		if (event.target === walletPromoDialog) walletPromoDialog.close();
+	});
 	walletCurrencyToggle.addEventListener('click', () => {
 		const isExpanded = walletCurrencyToggle.getAttribute('aria-expanded') === 'true';
 		walletCurrencyToggle.setAttribute('aria-expanded', String(!isExpanded));
@@ -569,7 +634,14 @@ const profileEditorError = profileEditorForm?.querySelector('.profile-editor-err
 const profileEditorBirthdayValue = profileEditorForm?.querySelector('.profile-editor-birthday-value');
 const profileEditorPremiumButton = profileEditorForm?.querySelector('.profile-editor-premium-button');
 const profileEditorBannerButton = profileEditorForm?.querySelector('.profile-editor-banner-button');
+const profileEditorReferralButton = profileEditorForm?.querySelector('.profile-editor-referral-button');
 const profileEditorBannerSwatch = profileEditorBannerButton?.querySelector('.profile-editor-banner-swatch');
+const referralDialog = document.querySelector('.referral-dialog');
+const referralLinkInput = referralDialog?.querySelector('.referral-link-input');
+const referralCopyButton = referralDialog?.querySelector('.referral-copy-button');
+const referralShareButton = referralDialog?.querySelector('.referral-share-button');
+const referralDialogStatus = referralDialog?.querySelector('.referral-dialog-status');
+const referralDialogStats = referralDialog?.querySelector('.referral-dialog-stats');
 const bannerColorDialog = document.querySelector('.banner-color-dialog');
 const bannerColorForm = bannerColorDialog?.querySelector('.banner-color-form');
 const bannerColorInput = bannerColorForm?.elements.namedItem('bannerColor');
@@ -758,6 +830,67 @@ if (profileEditButton && profileEditorDialog && profileEditorForm && profileAvat
 
 	renderProfile();
 	syncProfileFromServer();
+	if (profileEditorReferralButton && referralDialog && referralLinkInput && referralCopyButton && referralShareButton
+		&& referralDialogStatus && referralDialogStats) {
+		profileEditorReferralButton.hidden = !telegramUser || Boolean(window.VyrnApi?.browserDemo);
+		let referralLink = '';
+		profileEditorReferralButton.addEventListener('click', async () => {
+			referralDialog.showModal();
+			referralLinkInput.value = '';
+			referralLinkInput.disabled = true;
+			referralCopyButton.disabled = true;
+			referralShareButton.disabled = true;
+			referralDialogStatus.hidden = true;
+			referralDialogStats.textContent = 'Загружаем статистику…';
+			try {
+				const result = await window.VyrnApi.referralInfo();
+				const code = result.referral?.code;
+				const botUsername = String(window.VyrnApi.botUsername || '').replace(/^@/, '');
+				if (typeof code !== 'string' || !/^[a-f0-9]{24}$/i.test(code)) {
+					throw new Error('Сервер не вернул корректный реферальный код.');
+				}
+				if (!/^[A-Za-z0-9_]{5,32}$/.test(botUsername)) {
+					throw new Error('Укажите username бота в supabase-client-config.js.');
+				}
+				referralLink = `https://t.me/${botUsername}?startapp=${code}`;
+				referralLinkInput.value = referralLink;
+				referralLinkInput.disabled = false;
+				referralCopyButton.disabled = false;
+				referralShareButton.disabled = false;
+				referralDialogStats.textContent = `Приглашено друзей: ${Number(result.referral.invite_count) || 0} · Получено Stars: ${Number(result.referral.earned_stars) || 0}`;
+			} catch (error) {
+				referralDialogStats.textContent = '';
+				referralDialogStatus.textContent = error.message || 'Не удалось загрузить реферальную ссылку.';
+				referralDialogStatus.hidden = false;
+			}
+		});
+		referralDialog.querySelector('.referral-dialog-close').addEventListener('click', () => referralDialog.close());
+		referralDialog.addEventListener('click', (event) => {
+			if (event.target === referralDialog) referralDialog.close();
+		});
+		referralCopyButton.addEventListener('click', async () => {
+			try {
+				await navigator.clipboard.writeText(referralLink);
+				referralDialogStatus.textContent = 'Ссылка скопирована.';
+				referralDialogStatus.hidden = false;
+			} catch (error) {
+				referralLinkInput.focus();
+				referralLinkInput.select();
+				referralDialogStatus.textContent = `Не удалось скопировать ссылку: ${error.message || 'скопируйте её вручную.'}`;
+				referralDialogStatus.hidden = false;
+			}
+		});
+		referralShareButton.addEventListener('click', () => {
+			if (!referralLink) return;
+			if (typeof telegramWebApp?.openTelegramLink !== 'function') {
+				referralDialogStatus.textContent = 'Откройте приложение в Telegram, чтобы поделиться ссылкой.';
+				referralDialogStatus.hidden = false;
+				return;
+			}
+			const shareUrl = `https://t.me/share/url?url=${encodeURIComponent(referralLink)}&text=${encodeURIComponent('Присоединяйся ко мне в VYRN!')}`;
+			telegramWebApp.openTelegramLink(shareUrl);
+		});
+	}
 	const bannerResizeObserver = new ResizeObserver(updateBannerGradientHeight);
 	bannerResizeObserver.observe(profileSummaryElement);
 	window.addEventListener('resize', updateBannerGradientHeight);
@@ -1472,7 +1605,7 @@ if (marketGrid) {
 					const currency = document.createElement('span');
 					currency.className = 'market-card-currency';
 					if (entry.currency === 'ton') {
-						currency.textContent = 'TON';
+						currency.textContent = 'GRAM';
 					} else {
 						const currencyIcon = document.createElement('img');
 						currencyIcon.className = 'stars-inline-icon';
@@ -2126,7 +2259,7 @@ if ((nftGrids.length || marketGrid) && nftModal && nftModalAnimation && nftModal
 			: Number(price).toLocaleString('ru-RU');
 		if (currency === 'ton') {
 			const currencyLabel = document.createElement('span');
-			currencyLabel.textContent = 'TON';
+			currencyLabel.textContent = 'GRAM';
 			nftModalPrice.replaceChildren(priceValue, currencyLabel);
 			return;
 		}
@@ -2438,7 +2571,7 @@ if ((nftGrids.length || marketGrid) && nftModal && nftModalAnimation && nftModal
 			window.refreshVyrnAccount?.().catch((error) => {
 				console.error('Не удалось обновить баланс после автопродажи NFT:', error);
 			});
-			window.alert(`NFT продан за ${Number(sale.net_amount).toLocaleString('ru-RU')} ★. Комиссия ${sale.commission_percent}%: ${Number(sale.commission_amount).toLocaleString('ru-RU')} ★.`);
+			window.alert(`NFT продан за ${Number(sale.net_amount).toLocaleString('ru-RU')} звёзд. Комиссия ${sale.commission_percent}%: ${Number(sale.commission_amount).toLocaleString('ru-RU')} звёзд.`);
 		} catch (error) {
 			nftListingError.textContent = error.message || 'Не удалось продать NFT';
 			nftListingError.hidden = false;
@@ -2470,7 +2603,7 @@ if ((nftGrids.length || marketGrid) && nftModal && nftModalAnimation && nftModal
 			const insufficientBalance = /insufficient balance/i.test(error.message || '');
 			if (nftModalError && nftModalErrorMessage && nftModalErrorWalletLink) {
 				nftModalErrorMessage.textContent = insufficientBalance
-					? `Недостаточно ${activeNftPriceCurrency === 'ton' ? 'TON' : 'Stars'} для покупки.`
+					? `Недостаточно ${activeNftPriceCurrency === 'ton' ? 'GRAM' : 'Stars'} для покупки.`
 					: error.message || 'Не удалось выполнить действие.';
 				nftModalErrorWalletLink.hidden = !insufficientBalance;
 				nftModalError.hidden = false;

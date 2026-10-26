@@ -3768,6 +3768,7 @@ body.chats-screen {
 .profile-editor-icon.is-birthday { background: #399cf0; }
 .profile-editor-icon.is-phone { background: #4bd36c; }
 .profile-editor-icon.is-username { background: #8272f5; }
+.profile-editor-icon.is-referral { background: #9368e8; }
 
 .profile-editor-row-title {
   min-width: 0;
@@ -3846,6 +3847,29 @@ body.chats-screen {
   flex: 1 1 auto;
 }
 
+.profile-editor-referral-button {
+  display: flex;
+  width: 100%;
+  min-height: 70px;
+  align-items: center;
+  gap: 14px;
+  margin-top: 18px;
+  padding: 0 19px;
+  border: 0;
+  border-radius: 28px;
+  background: #fff;
+  color: #17171a;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.profile-editor-referral-button[hidden] { display: none; }
+.profile-editor-referral-button:active { transform: scale(0.99); }
+.profile-editor-referral-copy { display: grid; flex: 1 1 auto; gap: 3px; }
+.profile-editor-referral-copy strong { font-size: 16px; font-weight: 600; }
+.profile-editor-referral-copy small { color: #85858d; font-size: 12px; }
+
 .profile-editor-banner-swatch {
   width: 40px;
   height: 40px;
@@ -3865,6 +3889,81 @@ body.chats-screen {
   background: #f5f5f7;
   color: #17171a;
 }
+
+.referral-dialog {
+  width: min(390px, calc(100vw - 32px));
+  max-width: none;
+  box-sizing: border-box;
+  margin: auto;
+  padding: 22px;
+  border: 0;
+  border-radius: 26px;
+  background: #f5f5f7;
+  color: #17171a;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.2);
+}
+
+.referral-dialog::backdrop {
+  background: rgb(12 14 20 / 46%);
+  -webkit-backdrop-filter: blur(3px);
+  backdrop-filter: blur(3px);
+}
+
+.referral-dialog-header { display: flex; align-items: center; justify-content: space-between; gap: 16px; }
+.referral-dialog-header h2 { margin: 0; font-size: 21px; }
+.referral-dialog-close {
+  display: grid;
+  width: 38px;
+  height: 38px;
+  flex: 0 0 38px;
+  place-items: center;
+  border: 1px solid #e1e2e7;
+  border-radius: 50%;
+  background: #fff;
+  color: #24242a;
+  font: inherit;
+  font-size: 25px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.referral-dialog-description { margin: 14px 0 20px; color: #666872; font-size: 14px; line-height: 1.5; }
+.referral-link-label { display: block; margin-bottom: 7px; color: #525660; font-size: 12px; font-weight: 600; }
+.referral-link-input {
+  display: block;
+  width: 100%;
+  min-height: 46px;
+  box-sizing: border-box;
+  padding: 0 12px;
+  border: 1px solid #dfe3e9;
+  border-radius: 13px;
+  outline: 0;
+  background: #fff;
+  color: #34363d;
+  font: inherit;
+  font-size: 13px;
+}
+
+.referral-link-input:focus { border-color: #1688ed; box-shadow: 0 0 0 3px rgba(22, 136, 237, 0.12); }
+.referral-dialog-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 10px; }
+.referral-dialog-actions button {
+  min-height: 44px;
+  padding: 0 10px;
+  border: 0;
+  border-radius: 13px;
+  background: #0787ec;
+  color: #fff;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.referral-dialog-actions button:disabled { opacity: 0.55; cursor: wait; }
+.referral-dialog-actions .referral-share-button { background: #e7eff9; color: #1877c9; }
+.referral-dialog-stats { margin: 17px 0 0; color: #4e535d; font-size: 13px; font-weight: 600; }
+.referral-dialog-status { margin: 10px 0 0; color: #2376bf; font-size: 13px; line-height: 1.45; }
+.referral-dialog-status[hidden] { display: none; }
 
 .banner-color-dialog::backdrop {
   background: rgb(12 14 20 / 42%);
@@ -5755,6 +5854,157 @@ body.chats-screen {
   cursor: not-allowed;
 }
 
+.wallet-promo-section {
+  margin-top: 18px;
+  padding: 20px;
+  border: 1px solid #e0e3e9;
+  border-radius: 24px;
+  background: rgba(255, 255, 255, 0.84);
+  box-shadow: 0 8px 24px rgba(32, 43, 60, 0.05);
+}
+
+.wallet-promo-heading h2 {
+  margin: 0;
+  color: #202127;
+  font-size: 19px;
+}
+
+.wallet-promo-heading p {
+  margin: 5px 0 16px;
+  color: #858992;
+  font-size: 13px;
+}
+
+.wallet-promo-input-label {
+  display: block;
+  margin-bottom: 7px;
+  color: #525660;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.wallet-promo-input-row {
+  display: flex;
+  gap: 10px;
+}
+
+.wallet-promo-input-row input {
+  width: 100%;
+  min-width: 0;
+  min-height: 48px;
+  box-sizing: border-box;
+  padding: 0 14px;
+  border: 1px solid #dfe3e9;
+  border-radius: 14px;
+  outline: none;
+  background: #f8f9fb;
+  color: #202127;
+  font: inherit;
+  font-size: 15px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  transition: border-color 150ms ease, box-shadow 150ms ease;
+}
+
+.wallet-promo-input-row input:focus {
+  border-color: #1688ed;
+  box-shadow: 0 0 0 3px rgba(22, 136, 237, 0.12);
+}
+
+.wallet-promo-input-row input:disabled {
+  opacity: 0.65;
+}
+
+.wallet-promo-submit {
+  min-height: 48px;
+  flex: 0 0 auto;
+  padding: 0 18px;
+  border: 0;
+  border-radius: 14px;
+  background: #0787ec;
+  color: #fff;
+  font: inherit;
+  font-size: 14px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background-color 150ms ease, transform 150ms ease;
+}
+
+.wallet-promo-submit:hover:not(:disabled) { background: #087bd8; }
+.wallet-promo-submit:active:not(:disabled) { transform: scale(0.985); }
+.wallet-promo-submit:disabled { opacity: 0.6; cursor: wait; }
+
+.wallet-promo-status {
+  margin: 12px 0 0;
+  color: #2376bf;
+  font-size: 13px;
+  line-height: 1.45;
+}
+
+.wallet-promo-status.is-success { color: #16804d; }
+.wallet-promo-status.is-error { color: #b34235; }
+
+.wallet-promo-dialog {
+  width: min(460px, calc(100% - 32px));
+  max-width: none;
+  max-height: calc(100% - 32px);
+  box-sizing: border-box;
+  padding: 18px;
+  overflow: auto;
+  border: 1px solid rgba(255, 255, 255, 0.78);
+  border-radius: 26px;
+  background: #f0eff5;
+  color: #202127;
+  box-shadow: 0 24px 80px rgba(14, 22, 40, 0.25);
+}
+
+.wallet-promo-dialog[open] {
+  animation: wallet-topup-enter 220ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
+}
+
+.wallet-promo-dialog::backdrop {
+  background: rgba(14, 22, 40, 0.62);
+  -webkit-backdrop-filter: blur(8px);
+  backdrop-filter: blur(8px);
+}
+
+.wallet-promo-dialog-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 12px;
+}
+
+.wallet-promo-dialog-header h2 {
+  margin: 0;
+  color: #202127;
+  font-size: 21px;
+}
+
+.wallet-promo-close {
+  display: grid;
+  width: 42px;
+  height: 42px;
+  flex: 0 0 42px;
+  place-items: center;
+  border: 1px solid #e0e3e9;
+  border-radius: 50%;
+  background: #fff;
+  color: #202127;
+  cursor: pointer;
+}
+
+.wallet-promo-close svg { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-linecap: round; stroke-width: 2; }
+.wallet-promo-dialog .wallet-promo-section {
+  margin: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
 .wallet-topup-dialog {
   position: fixed;
   inset: 0;
@@ -6200,6 +6450,10 @@ h6 {
   }
   .wallet-actions { gap: 10px; margin-top: 14px; }
   .wallet-action { min-height: 58px; gap: 5px; padding: 0 8px; font-size: 16px; }
+  .wallet-promo-section { padding: 16px; border-radius: 22px; }
+  .wallet-promo-dialog { padding: 14px; border-radius: 22px; }
+  .wallet-promo-input-row { flex-direction: column; }
+  .wallet-promo-submit { width: 100%; }
   .wallet-transactions { margin-top: 16px; padding: 0 13px; border-radius: 24px; }
   .wallet-transaction { min-height: 88px; gap: 10px; }
   .wallet-transaction-avatar { width: 48px; height: 48px; flex-basis: 48px; }
@@ -6254,8 +6508,10 @@ h6 {
   }
 
   .wallet-topup-dialog[open] { animation: none; }
+  .wallet-promo-dialog[open] { animation: none; }
   .wallet-topup-close,
-  .wallet-topup-done { transition: none; }
+  .wallet-topup-done,
+  .wallet-promo-close { transition: none; }
 }
 
 .top-screen {
