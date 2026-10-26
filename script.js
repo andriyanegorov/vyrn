@@ -832,7 +832,7 @@ if (profileEditButton && profileEditorDialog && profileEditorForm && profileAvat
 	syncProfileFromServer();
 	if (profileEditorReferralButton && referralDialog && referralLinkInput && referralCopyButton && referralShareButton
 		&& referralDialogStatus && referralDialogStats) {
-		profileEditorReferralButton.hidden = !telegramUser || Boolean(window.VyrnApi?.browserDemo);
+		profileEditorReferralButton.hidden = !telegramUser;
 		let referralLink = '';
 		profileEditorReferralButton.addEventListener('click', async () => {
 			referralDialog.showModal();
