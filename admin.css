@@ -643,6 +643,117 @@ body.admin-page {
   margin: 20px 0 0;
 }
 
+.admin-task-form {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  align-items: end;
+  gap: 12px;
+}
+
+.admin-task-count-form {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  align-items: end;
+  gap: 12px;
+}
+
+.admin-task-settings-hint {
+  margin: 10px 0 16px;
+  color: var(--admin-muted);
+  font-size: 11px;
+  line-height: 1.5;
+}
+
+.admin-task-reset {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 12px;
+  border: 1px solid #f0d4ce;
+  background: #fff8f6;
+}
+
+.admin-task-reset-button {
+  flex: 0 0 auto;
+  min-height: 36px;
+  padding: 0 12px;
+  background: var(--admin-red);
+}
+
+.admin-task-reset-button:hover:not(:disabled) {
+  background: #92372e;
+}
+
+.admin-task-reset p {
+  margin: 0;
+  color: #795b56;
+  font-size: 10px;
+  line-height: 1.5;
+}
+
+.admin-task-form .admin-task-add-button {
+  min-height: 40px;
+}
+
+.admin-task-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-top: 14px;
+}
+
+.admin-task-toolbar .admin-status {
+  margin: 0;
+}
+
+.admin-task-list {
+  display: grid;
+  gap: 8px;
+  margin-top: 14px;
+}
+
+.admin-task-item {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 12px;
+  padding: 12px;
+  border: 1px solid #e6e9e8;
+  background: #fff;
+}
+
+.admin-task-item.is-disabled {
+  opacity: 0.65;
+}
+
+.admin-task-copy {
+  display: grid;
+  min-width: 0;
+  gap: 4px;
+}
+
+.admin-task-copy strong,
+.admin-task-copy span,
+.admin-task-copy small {
+  overflow-wrap: anywhere;
+}
+
+.admin-task-copy strong {
+  font-size: 12px;
+}
+
+.admin-task-copy span,
+.admin-task-copy small {
+  color: var(--admin-muted);
+  font-size: 10px;
+}
+
+.admin-task-toggle {
+  min-height: 34px;
+  padding: 0 12px;
+  white-space: nowrap;
+}
+
 @media (max-width: 760px) {
   .admin-layout {
     padding-top: 28px;
@@ -650,6 +761,14 @@ body.admin-page {
 
   .admin-workspace {
     grid-template-columns: 1fr;
+  }
+
+  .admin-task-form {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .admin-task-count-form {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
 
@@ -704,6 +823,24 @@ body.admin-page {
 
   .admin-custom-fields {
     grid-template-columns: 1fr;
+  }
+
+  .admin-task-form {
+    grid-template-columns: 1fr;
+  }
+
+  .admin-task-count-form {
+    grid-template-columns: 1fr;
+  }
+
+  .admin-task-toolbar {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .admin-task-reset {
+    align-items: stretch;
+    flex-direction: column;
   }
 
   .admin-gift-preview {

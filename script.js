@@ -1,4 +1,18 @@
 const navItems = [...document.querySelectorAll('.nav-button')];
+const dailyTaskPageEvents = {
+	'index.html': 'visit_home',
+	'profile.html': 'visit_profile',
+	'market.html': 'visit_market',
+	'chats.html': 'visit_chats'
+};
+if (window.VyrnApi?.recordDailyTaskEvent) {
+	const currentPage = window.location.pathname.split('/').filter(Boolean).pop() || 'index.html';
+	['visit_app', dailyTaskPageEvents[currentPage]].filter(Boolean).forEach((eventKey) => {
+		window.VyrnApi.recordDailyTaskEvent(eventKey).catch((error) => {
+			console.warn(`Не удалось записать событие задания (${eventKey}):`, error);
+		});
+	});
+}
 const showSquareSkeletons = (container, count, className = '') => {
 	if (!container) return;
 	container.replaceChildren(...Array.from({ length: count }, () => {
@@ -377,6 +391,7 @@ if (document.body.classList.contains('wallet-screen')) {
 		const descriptions = {
 			market_purchase: ['Покупка NFT', 'Покупка на VYRN Market'],
 			market_sale: ['Продажа NFT', 'Продажа на VYRN Market'],
+			nft_auto_sale: ['Автопродажа NFT', 'Продажа по оценке Fragment'],
 			chat_gift_purchase: ['Покупка подарка', 'Покупка в чате'],
 			chat_gift_sale: ['Продажа подарка', 'Продажа в чате']
 		};
@@ -1778,6 +1793,9 @@ if (nftGrid) {
 	const renderOwnedNfts = (items) => {
 		const coordinatedLoad = isProfilePageLoading();
 		nftGrid.replaceChildren();
+		window.VyrnApi.recordDailyTaskEvent('view_collection').catch((error) => {
+			console.warn('Не удалось записать просмотр коллекции для заданий:', error);
+		});
 		if (!coordinatedLoad) clearSkeletonState(nftGrid);
 		cards = items.map((item) => renderNftCard(mapOwnedNft(item)));
 		const collectionValuePromise = renderProfileCollectionValue(
@@ -1795,6 +1813,11 @@ if (nftGrid) {
 		filterProfileNftCards();
 		updateVisibleNftCards();
 	};
+	window.addEventListener('vyrn:nft-auto-sold', () => {
+		window.VyrnApi.myNfts().then(({ items }) => renderOwnedNfts(items)).catch((error) => {
+			console.error('Не удалось обновить коллекцию после автопродажи NFT:', error);
+		});
+	});
 	if (canLoadPlayerData()) {
 		showSquareSkeletons(nftGrid, 9, 'profile-nft-skeleton');
 		window.VyrnApi.myNfts().then(({ items }) => renderOwnedNfts(items)).catch((error) => {
@@ -2038,6 +2061,7 @@ if ((nftGrids.length || marketGrid) && nftModal && nftModalAnimation && nftModal
 	const nftListingPrice = nftListingDialog?.querySelector('#nft-listing-price');
 	const nftListingError = nftListingDialog?.querySelector('.nft-listing-error');
 	const nftListingSubmit = nftListingDialog?.querySelector('.nft-listing-submit');
+	const nftListingAutoSell = nftListingDialog?.querySelector('.nft-listing-autosell');
 	let activeNftCard;
 	let activeNftAnimation;
 	let activeNftBackdrop;
@@ -2199,6 +2223,9 @@ if ((nftGrids.length || marketGrid) && nftModal && nftModalAnimation && nftModal
 	};
 
 	window.openVyrnNftModal = ({ card = null, title, model, source, preview, file = '', owner = '', ownerAvatar = '', ownerProfile = null, collection = 'VYRN', fragmentPriceStars = null, priceStars = null, priceCurrency = 'stars', confirmText = '', onConfirm = null }) => {
+		window.VyrnApi.recordDailyTaskEvent('view_nft').catch((error) => {
+			console.warn('Не удалось записать просмотр NFT для заданий:', error);
+		});
 		nftModalTitle.textContent = title;
 		nftModalCollection.textContent = `Коллекция ${collection}`;
 		if (nftModalCollectionName) nftModalCollectionName.textContent = collection;
@@ -2298,6 +2325,9 @@ if ((nftGrids.length || marketGrid) && nftModal && nftModalAnimation && nftModal
 
 	if (marketGrid) {
 		const openMarketCard = (card) => {
+			window.VyrnApi.recordDailyTaskEvent('view_market_listing').catch((error) => {
+				console.warn('Не удалось записать просмотр лота для заданий:', error);
+			});
 			const listing = card.marketListing || {
 				title: card.dataset.marketTitle,
 				model: card.dataset.marketCollection,
@@ -2378,6 +2408,7 @@ if ((nftGrids.length || marketGrid) && nftModal && nftModalAnimation && nftModal
 		}
 		nftListingError.hidden = true;
 		nftListingSubmit.disabled = true;
+		nftListingAutoSell.disabled = true;
 		try {
 			const result = await window.VyrnApi.createListing(activeNftCard.dataset.nftItemId, price, 'stars');
 			updateListingState(true, result.listing.id);
@@ -2387,6 +2418,33 @@ if ((nftGrids.length || marketGrid) && nftModal && nftModalAnimation && nftModal
 			nftListingError.hidden = false;
 		} finally {
 			nftListingSubmit.disabled = false;
+			nftListingAutoSell.disabled = false;
+		}
+	});
+
+	nftListingAutoSell?.addEventListener('click', async () => {
+		if (!activeNftCard?.dataset.nftItemId) return;
+		nftListingError.hidden = true;
+		nftListingSubmit.disabled = true;
+		nftListingAutoSell.disabled = true;
+		try {
+			await window.VyrnApi.refreshNftPrice(activeNftCard.dataset.nftItemId);
+			const result = await window.VyrnApi.autoSellNft(activeNftCard.dataset.nftItemId);
+			const sale = result.sale;
+			activeNftCard.remove();
+			nftListingDialog.close();
+			nftModal.close();
+			window.dispatchEvent(new CustomEvent('vyrn:nft-auto-sold'));
+			window.refreshVyrnAccount?.().catch((error) => {
+				console.error('Не удалось обновить баланс после автопродажи NFT:', error);
+			});
+			window.alert(`NFT продан за ${Number(sale.net_amount).toLocaleString('ru-RU')} ★. Комиссия ${sale.commission_percent}%: ${Number(sale.commission_amount).toLocaleString('ru-RU')} ★.`);
+		} catch (error) {
+			nftListingError.textContent = error.message || 'Не удалось продать NFT';
+			nftListingError.hidden = false;
+		} finally {
+			nftListingSubmit.disabled = false;
+			nftListingAutoSell.disabled = false;
 		}
 	});
 

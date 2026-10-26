@@ -1,0 +1,314 @@
+.daily-tasks-screen {
+  background: linear-gradient(180deg, #f4f8ff 0%, #f7fbff 48%, #f4f8ff 100%);
+  color: #18213b;
+}
+
+.daily-tasks-page {
+  width: min(680px, calc(100% - 36px));
+  box-sizing: border-box;
+  margin: 0 auto;
+  padding: 14px 0 calc(112px + env(safe-area-inset-bottom, 0px));
+}
+
+.daily-tasks-hero {
+  position: relative;
+  display: flex;
+  min-height: 144px;
+  align-items: center;
+  justify-content: space-between;
+  box-sizing: border-box;
+  padding: 20px 24px;
+  overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, 0.85);
+  border-radius: 22px;
+  background:
+    radial-gradient(circle at 82% 16%, rgba(255, 255, 255, 0.7), transparent 33%),
+    linear-gradient(115deg, #c6d5ff, #e3eaff 55%, #cfddff);
+}
+
+.daily-tasks-hero-copy {
+  position: relative;
+  z-index: 2;
+}
+
+.daily-tasks-hero-copy > p {
+  margin: 0 0 6px;
+  color: #6480c4;
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: 1px;
+}
+
+.daily-tasks-hero h1 {
+  margin: 0;
+  color: #14203e;
+  font-family: Manrope, Inter, sans-serif;
+  font-size: clamp(25px, 7vw, 34px);
+  font-weight: 800;
+  letter-spacing: -1px;
+  line-height: 1.1;
+}
+
+.daily-tasks-hero-copy > span {
+  display: block;
+  margin-top: 7px;
+  color: #4b608d;
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+.daily-tasks-chest-art {
+  position: relative;
+  width: 148px;
+  height: 112px;
+  flex: 0 0 148px;
+}
+
+.daily-tasks-chest {
+  position: absolute;
+  right: 23px;
+  bottom: 14px;
+  display: grid;
+  width: 78px;
+  height: 58px;
+  place-items: center;
+  border: 4px solid #bd6b16;
+  border-radius: 13px 13px 17px 17px;
+  background: linear-gradient(135deg, #ffcb44, #ef8c1d 58%, #cf5e15);
+  transform: rotate(-7deg);
+}
+
+.daily-tasks-chest::before {
+  position: absolute;
+  top: -18px;
+  left: -4px;
+  width: 78px;
+  height: 24px;
+  border: 4px solid #ca771a;
+  border-radius: 18px 18px 7px 7px;
+  background: linear-gradient(135deg, #ffe374, #efa32a);
+  content: "";
+}
+
+.daily-tasks-chest::after {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 30px;
+  width: 13px;
+  border-right: 3px solid #ffe17a;
+  border-left: 3px solid #ffe17a;
+  background: #df7b19;
+  content: "";
+}
+
+.daily-tasks-chest > span {
+  z-index: 1;
+  display: grid;
+  width: 30px;
+  height: 30px;
+  place-items: center;
+  border: 3px solid #f9c934;
+  border-radius: 50%;
+  background: #fff1a7;
+  color: #f18a1b;
+  font-size: 19px;
+}
+
+.daily-tasks-chest-spark,
+.daily-tasks-chest-coin {
+  position: absolute;
+  z-index: 1;
+  color: #ffb927;
+  text-shadow: 0 2px 3px rgba(179, 122, 32, 0.2);
+}
+
+.daily-tasks-spark-one { top: 4px; right: 9px; font-size: 28px; }
+.daily-tasks-spark-two { top: 33px; left: 11px; font-size: 19px; color: #fff; }
+.daily-tasks-coin-one { top: 13px; left: 43px; font-size: 23px; transform: rotate(-15deg); }
+.daily-tasks-coin-two { right: 5px; bottom: 7px; font-size: 18px; }
+
+.daily-tasks-tabs {
+  position: relative;
+  display: inline-flex;
+  gap: 3px;
+  margin: 14px 0 12px;
+  padding: 4px;
+  border: 1px solid rgba(255, 255, 255, 0.9);
+  border-radius: 999px;
+  background: rgba(225, 237, 255, 0.8);
+}
+
+.daily-tasks-tab-indicator {
+  position: absolute;
+  top: 4px;
+  bottom: 4px;
+  left: 0;
+  border-radius: 999px;
+  background: rgba(215, 215, 215, 0.72);
+  pointer-events: none;
+  transition: transform 360ms cubic-bezier(0.2, 0.8, 0.2, 1), width 360ms cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+.daily-tasks-tab {
+  position: relative;
+  z-index: 1;
+  min-height: 34px;
+  padding: 0 45px;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  color: #353232;
+  font: inherit;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.daily-tasks-tab.is-active { color: #2481cc; }
+.daily-tasks-tab:focus-visible { outline: 2px solid #155fe0; outline-offset: 2px; }
+
+.daily-tasks-progress {
+  display: grid;
+  grid-template-columns: 40px minmax(0, 1fr) auto auto;
+  align-items: center;
+  gap: 11px;
+  min-height: 68px;
+  box-sizing: border-box;
+  padding: 12px;
+  border: 1px solid #e4edfa;
+  border-radius: 17px;
+  background: rgba(255, 255, 255, 0.83);
+}
+
+.daily-tasks-progress-icon {
+  display: grid;
+  width: 38px;
+  height: 38px;
+  place-items: center;
+  border-radius: 12px;
+  background: #3ca6df;
+  color: #fff;
+}
+
+.daily-tasks-progress-icon img,
+.daily-task-icon img {
+  width: 22px;
+  height: 22px;
+  object-fit: contain;
+}
+
+.daily-tasks-progress-copy { min-width: 0; }
+.daily-tasks-progress-copy strong { display: block; margin-bottom: 8px; font-size: 11px; font-weight: 800; }
+.daily-tasks-progress-track { height: 8px; overflow: hidden; border-radius: 99px; background: #e7effb; }
+.daily-tasks-progress-track > span { display: block;
+    height: 100%;
+    border-radius: inherit;
+    background: rgb(60 166 223);
+    transition: width 320ms ease; }
+.daily-tasks-progress-count { color: #526383; font-size: 10px; font-weight: 700; white-space: nowrap; }
+.daily-tasks-progress-reward,
+.daily-task-reward { display: inline-flex; align-items: center; gap: 4px; color: #26334d; font-size: 11px; font-weight: 800; white-space: nowrap; }
+.daily-tasks-progress-reward img,
+.daily-task-reward img { width: 17px; height: 17px; object-fit: contain; }
+
+.daily-tasks-demo-note {
+  margin: 12px 3px 17px;
+  color: #8290a8;
+  font-size: 10px;
+  line-height: 1.4;
+}
+
+.daily-tasks-section-heading {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  margin: 0 4px 10px;
+}
+
+.daily-tasks-section-heading h2 { margin: 0; color: #1d2944; font-size: 15px; font-weight: 800; letter-spacing: -0.3px; }
+.daily-tasks-section-heading > span { color: #2081f6; font-size: 10px; font-weight: 700; }
+.daily-task-list { display: grid; gap: 8px; }
+
+.daily-task-card {
+  display: grid;
+  grid-template-columns: 42px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 10px;
+  min-height: 66px;
+  box-sizing: border-box;
+  padding: 10px;
+  border: 1px solid #e8eef8;
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.88);
+}
+
+.daily-task-icon {
+  display: grid;
+  width: 40px;
+  height: 40px;
+  place-items: center;
+  border-radius: 12px;
+  background: rgb(60 166 223);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.3), 0 5px 12px rgba(51, 75, 120, 0.12);
+}
+
+.daily-task-icon.is-complete { background: #17b982; }
+
+.daily-task-icon.is-violet { background: linear-gradient(145deg, #a68aff, #7356ed); }
+.daily-task-icon.is-green { background: linear-gradient(145deg, #20d797, #04ac79); }
+.daily-task-icon.is-pink { background: linear-gradient(145deg, #ff65ab, #ee368c); }
+.daily-task-icon.is-orange { background: linear-gradient(145deg, #ffae28, #ff721e); }
+
+.daily-task-copy { min-width: 0; }
+.daily-task-copy h3 { overflow: hidden; margin: 0; color: #263451; font-size: 11px; font-weight: 800; text-overflow: ellipsis; white-space: nowrap; }
+.daily-task-copy p { overflow: hidden; margin: 4px 0 0; color: #8a97ad; font-size: 9px; text-overflow: ellipsis; white-space: nowrap; }
+.daily-task-action { display: flex; min-width: 75px; flex-direction: column; align-items: flex-end; gap: 5px; }
+.daily-task-action > button { display: inline-flex; min-height: 25px; align-items: center; justify-content: center; box-sizing: border-box; padding: 0 12px; border: 0; border-radius: 99px; background: #3ca6df; color: #fff; font: inherit; font-size: 9px; font-weight: 700; cursor: pointer; white-space: nowrap; }
+.daily-task-action > button:focus-visible { outline: 2px solid #145bce; outline-offset: 2px; }
+.daily-task-action > button:disabled { background: #17b982; cursor: default; }
+.daily-task-card.is-complete { border-color: #8ddbb9; background: #dff7e9; }
+.daily-task-progress-mini { color: #71809a; font-size: 9px; font-weight: 700; }
+.daily-tasks-empty { margin: 0; padding: 20px 12px; border: 1px dashed #dce6f3; border-radius: 14px; color: #8290a8; font-size: 11px; text-align: center; }
+
+.daily-tasks-footer {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-height: 76px;
+  box-sizing: border-box;
+  margin-top: 15px;
+  padding: 12px;
+  overflow: hidden;
+  border: 1px solid #e8e7ff;
+  border-radius: 18px;
+  background: linear-gradient(110deg, #f0eaff, #e9f0ff);
+}
+
+.daily-tasks-footer-icon { display: grid; width: 48px; height: 48px; flex: 0 0 48px; place-items: center; border-radius: 15px; background: linear-gradient(145deg, #ae7aff, #7c4cf1); }
+.daily-tasks-footer strong { color: #433280; font-size: 11px; font-weight: 800; line-height: 1.4; }
+.daily-tasks-footer p { margin: 4px 0 0; color: #8290aa; font-size: 9px; }
+.daily-tasks-footer-spark { position: absolute; right: 18px; color: rgba(255, 255, 255, 0.7); font-size: 54px; }
+
+.daily-tasks-panel[hidden] { display: none; }
+
+@media (max-width: 380px) {
+  .daily-tasks-page { width: calc(100% - 26px); }
+  .daily-tasks-hero { min-height: 132px; padding: 17px; }
+  .daily-tasks-chest-art { width: 122px; flex-basis: 122px; transform: scale(0.9); transform-origin: right center; }
+  .daily-tasks-progress { grid-template-columns: 36px minmax(0, 1fr) auto; gap: 8px; padding: 10px; }
+  .daily-tasks-progress-icon { width: 34px; height: 34px; }
+  .daily-tasks-progress-reward { grid-column: 3; grid-row: 1; }
+  .daily-tasks-progress-count { grid-column: 3; grid-row: 2; }
+  .daily-task-card { grid-template-columns: 38px minmax(0, 1fr) auto; gap: 8px; padding: 9px; }
+  .daily-task-icon { width: 36px; height: 36px; }
+  .daily-task-action { min-width: 68px; }
+  .daily-task-action > button { padding: 0 9px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .daily-tasks-tab-indicator,
+  .daily-tasks-progress-track > span { transition: none; }
+}

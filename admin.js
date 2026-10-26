@@ -162,6 +162,13 @@ xmasstocking|Xmas Stockings
   const randomStatus = document.querySelector('.admin-random-status');
   const randomMarketButton = document.querySelector('.admin-random-market-button');
   const randomPlayerButton = document.querySelector('.admin-random-player-button');
+  const taskForm = document.querySelector('.admin-task-form');
+  const taskCountForm = document.querySelector('.admin-task-count-form');
+  const taskResetButton = document.querySelector('.admin-task-reset-button');
+  const taskList = document.querySelector('.admin-task-list');
+  const taskStatus = document.querySelector('.admin-task-status');
+  const taskRefreshButton = document.querySelector('.admin-task-refresh-button');
+  const taskSettingsHint = document.querySelector('.admin-task-settings-hint');
   let selectedPlayer = null;
   let giftPreviewUrl = '';
   let priceRequestId = 0;
@@ -295,6 +302,198 @@ xmasstocking|Xmas Stockings
     }
     return data;
   };
+
+  const taskManagerRequest = async (payload) => {
+    if (!config.url || !config.anonKey || config.url.includes('YOUR_PROJECT_REF') || config.anonKey.includes('YOUR_SUPABASE')) {
+      throw new Error('Проверь URL и anon key в supabase-client-config.js.');
+    }
+    let response;
+    try {
+      response = await fetch(`${config.url.replace(/\/$/, '')}/functions/v1/admin-tasks`, {
+        method: 'POST',
+        headers: {
+          apikey: config.anonKey,
+          Authorization: `Bearer ${config.anonKey}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ ...payload, password: passwordInput.value })
+      });
+    } catch {
+      throw new Error('Edge Function admin-tasks не опубликована или не отвечает.');
+    }
+    const data = await response.json().catch(() => null);
+    if (response.status === 404) {
+      throw new Error('Функция admin-tasks не опубликована в Supabase. Выполните deploy из README.');
+    }
+    if (!response.ok) throw new Error(data?.error || `Не удалось изменить задания (${response.status}).`);
+    return data;
+  };
+
+  const renderTaskDefinitions = (tasks) => {
+    taskList.replaceChildren();
+    if (!tasks.length) {
+      const empty = document.createElement('p');
+      empty.className = 'admin-empty-result';
+      empty.textContent = 'В пуле пока нет заданий.';
+      taskList.append(empty);
+      return;
+    }
+    tasks.forEach((task) => {
+      const row = document.createElement('article');
+      row.className = `admin-task-item${task.enabled ? '' : ' is-disabled'}`;
+      const copy = document.createElement('div');
+      copy.className = 'admin-task-copy';
+      const title = document.createElement('strong');
+      title.textContent = task.title;
+      const details = document.createElement('span');
+      details.textContent = `${task.period_type === 'daily' ? 'Ежедневное' : 'Еженедельное'} · ${task.reward} ⭐ · ${task.event_key} ${task.target > 1 ? `× ${task.target}` : ''}`;
+      const description = document.createElement('small');
+      description.textContent = task.description || 'Без описания';
+      copy.append(title, details, description);
+      const toggle = document.createElement('button');
+      toggle.type = 'button';
+      toggle.className = 'admin-button admin-task-toggle';
+      toggle.textContent = task.enabled ? 'Отключить' : 'Восстановить';
+      toggle.addEventListener('click', async () => {
+        toggle.disabled = true;
+        showStatus(taskStatus, task.enabled ? 'Отключаем задание…' : 'Восстанавливаем задание…');
+        try {
+          await taskManagerRequest({
+            action: task.enabled ? 'delete' : 'restore',
+            task_id: task.id
+          });
+          showStatus(taskStatus, task.enabled ? 'Задание отключено.' : 'Задание восстановлено.');
+          await loadTaskDefinitions();
+        } catch (error) {
+          showStatus(taskStatus, error.message, true);
+          toggle.disabled = false;
+        }
+      });
+      row.append(copy, toggle);
+      taskList.append(row);
+    });
+  };
+
+  const loadTaskDefinitions = async () => {
+    if (!passwordInput.value) {
+      showStatus(taskStatus, 'Сначала введите пароль администратора.', true);
+      passwordInput.focus();
+      return;
+    }
+    taskRefreshButton.disabled = true;
+    showStatus(taskStatus, 'Загружаем задания…');
+    try {
+      const [result, settingsResult] = await Promise.all([
+        taskManagerRequest({ action: 'list' }),
+        taskManagerRequest({ action: 'get_settings' })
+      ]);
+      if (!Array.isArray(result.tasks)) throw new Error('Сервер вернул некорректный список заданий.');
+      if (!settingsResult.settings || !settingsResult.enabled_pool) {
+        throw new Error('Сервер вернул некорректные настройки количества заданий.');
+      }
+      taskCountForm.querySelector('.admin-daily-task-count').value = settingsResult.settings.daily_task_count;
+      taskCountForm.querySelector('.admin-weekly-task-count').value = settingsResult.settings.weekly_task_count;
+      taskSettingsHint.textContent = `В пуле активно: ${settingsResult.enabled_pool.daily} ежедневных и ${settingsResult.enabled_pool.weekly} еженедельных заданий. На период выпадет не больше заданного количества и доступных включённых заданий; сохранённые настройки применятся со следующего периода.`;
+      renderTaskDefinitions(result.tasks);
+      showStatus(taskStatus, `Загружено заданий: ${result.tasks.length}.`);
+    } catch (error) {
+      showStatus(taskStatus, error.message, true);
+    } finally {
+      taskRefreshButton.disabled = false;
+    }
+  };
+
+  taskRefreshButton.addEventListener('click', loadTaskDefinitions);
+  taskResetButton.addEventListener('click', async () => {
+    if (!passwordInput.value) {
+      showStatus(taskStatus, 'Сначала введите пароль администратора.', true);
+      passwordInput.focus();
+      return;
+    }
+    const confirmed = window.confirm(
+      'Сбросить ежедневные и еженедельные задания у ВСЕХ игроков? Текущий прогресс и отметки о наградах будут очищены, а списки обновлены. Начисленные Stars останутся на балансах.'
+    );
+    if (!confirmed) return;
+
+    taskResetButton.disabled = true;
+    showStatus(taskStatus, 'Сбрасываем задания у всех игроков…');
+    try {
+      const result = await taskManagerRequest({ action: 'reset_all_tasks' });
+      if (!result.reset || !Number.isInteger(result.reset.daily_count) || !Number.isInteger(result.reset.weekly_count)) {
+        throw new Error('Сервер вернул некорректный результат сброса.');
+      }
+      showStatus(
+        taskStatus,
+        `Сброс выполнен. Обновлены списки для всех игроков: ${result.reset.daily_count} ежедневных и ${result.reset.weekly_count} еженедельных заданий.`
+      );
+    } catch (error) {
+      showStatus(taskStatus, error.message, true);
+    } finally {
+      taskResetButton.disabled = false;
+    }
+  });
+  taskCountForm.addEventListener('submit', async (event) => {
+    event.preventDefault();
+    if (!passwordInput.value) {
+      showStatus(taskStatus, 'Сначала введите пароль администратора.', true);
+      passwordInput.focus();
+      return;
+    }
+    const button = taskCountForm.querySelector('button[type="submit"]');
+    button.disabled = true;
+    showStatus(taskStatus, 'Сохраняем количество заданий…');
+    try {
+      const result = await taskManagerRequest({
+        action: 'update_settings',
+        daily_task_count: Number(taskCountForm.querySelector('.admin-daily-task-count').value),
+        weekly_task_count: Number(taskCountForm.querySelector('.admin-weekly-task-count').value)
+      });
+      taskSettingsHint.textContent = `В пуле активно: ${result.enabled_pool.daily} ежедневных и ${result.enabled_pool.weekly} еженедельных заданий. Новые значения применятся со следующего периода.`;
+      showStatus(taskStatus, 'Количество заданий сохранено.');
+    } catch (error) {
+      showStatus(taskStatus, error.message, true);
+    } finally {
+      button.disabled = false;
+    }
+  });
+  taskForm.querySelector('.admin-task-period').addEventListener('change', (event) => {
+    const rewardInput = taskForm.querySelector('.admin-task-reward');
+    const minimumReward = event.currentTarget.value === 'weekly' ? 2 : 1;
+    rewardInput.min = String(minimumReward);
+    rewardInput.max = event.currentTarget.value === 'weekly' ? '5' : '3';
+    if (Number(rewardInput.value) < minimumReward) rewardInput.value = String(minimumReward);
+    if (Number(rewardInput.value) > Number(rewardInput.max)) rewardInput.value = rewardInput.max;
+  });
+  taskForm.addEventListener('submit', async (event) => {
+    event.preventDefault();
+    if (!passwordInput.value) {
+      showStatus(taskStatus, 'Сначала введите пароль администратора.', true);
+      passwordInput.focus();
+      return;
+    }
+    const button = taskForm.querySelector('button[type="submit"]');
+    button.disabled = true;
+    showStatus(taskStatus, 'Добавляем задание…');
+    try {
+      await taskManagerRequest({
+        action: 'create',
+        period_type: taskForm.querySelector('.admin-task-period').value,
+        title: taskForm.querySelector('.admin-task-title').value,
+        description: taskForm.querySelector('.admin-task-description').value,
+        event_key: taskForm.querySelector('.admin-task-event').value,
+        target: Number(taskForm.querySelector('.admin-task-target').value),
+        reward: Number(taskForm.querySelector('.admin-task-reward').value)
+      });
+      taskForm.reset();
+      taskForm.querySelector('.admin-task-period').dispatchEvent(new Event('change'));
+      showStatus(taskStatus, 'Задание добавлено в пул.');
+      await loadTaskDefinitions();
+    } catch (error) {
+      showStatus(taskStatus, error.message, true);
+    } finally {
+      button.disabled = false;
+    }
+  });
 
   const fragmentCatalogRequest = async (payload) => {
     if (!config.url || !config.anonKey || config.url.includes('YOUR_PROJECT_REF') || config.anonKey.includes('YOUR_SUPABASE')) {
@@ -706,6 +905,7 @@ xmasstocking|Xmas Stockings
     showStatus(catalogStatus, '');
     showStatus(randomStatus, '');
     showStatus(deleteAllStatus, '');
+    showStatus(taskStatus, '');
   });
 
   renderCollections();

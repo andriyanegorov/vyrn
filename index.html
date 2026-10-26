@@ -10,9 +10,9 @@
   <link rel="stylesheet" href="style.css?v=section-fade-v20">
   <script src="https://telegram.org/js/telegram-web-app.js"></script>
   <script src="supabase-client-config.js?v=wallet-balance-read-20261018" defer></script>
-  <script src="supabase-api.js?v=account-session-cache-v1" defer></script>
+  <script src="supabase-api.js?v=daily-task-api-v1" defer></script>
   <script src="nav-transition.js?v=section-fade-v15" defer></script>
-  <script src="script.js?v=route-fade-v1" defer></script>
+  <script src="script.js?v=daily-task-events-v1" defer></script>
 </head>
 <body>
   <header class="site-header">
@@ -83,7 +83,7 @@
       <div class="daily-quests-copy">
         <p class="daily-quests-badge"><img src="./assets/stars.png" alt="" aria-hidden="true"> Ежедневные задания</p>
         <h2 id="daily-quests-title">Выполняйте задания и получайте награды!</h2>
-        <button class="daily-quests-action" type="button">Перейти к заданиям</button>
+        <a class="daily-quests-action" href="daily-tasks.html">Перейти к заданиям</a>
       </div>
       <div class="daily-quests-art" aria-hidden="true">
         <img class="daily-quests-gem-effect" src="./assets/placeholder.png" alt="">

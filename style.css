@@ -2604,7 +2604,6 @@ body.chats-screen {
   opacity: 1;
   transform: none;
   animation: none;
-  box-shadow: 0 12px 26px rgba(15, 20, 28, 0.24);
 }
 
 .conversation-bubble {
@@ -2871,7 +2870,6 @@ body.chats-screen {
   border-radius: 13px;
   background: rgba(255, 255, 255, 0.96);
   color: #202127;
-  box-shadow: 0 10px 30px rgba(15, 20, 28, 0.2);
   -webkit-backdrop-filter: blur(14px) saturate(125%);
   backdrop-filter: blur(14px) saturate(125%);
   transform-origin: top center;
@@ -3447,7 +3445,6 @@ body.chats-screen {
   border: 1px solid rgba(255, 255, 255, 0.82);
   border-radius: 999px;
   background: rgba(255, 255, 255, 0.58);
-  box-shadow: 0 10px 32px rgba(25, 35, 45, 0.1), inset 0 1px 0 rgba(255, 255, 255, 0.9);
   -webkit-backdrop-filter: blur(24px) saturate(180%);
   backdrop-filter: blur(24px) saturate(180%);
 }
@@ -3593,7 +3590,6 @@ body.chats-screen {
   border: 1px solid rgba(255, 255, 255, 0.62);
   border-radius: 999px;
   background: rgba(255, 255, 255, 0.58);
-  box-shadow: 0 5px 18px rgba(54, 54, 72, 0.06), inset 0 1px 0 rgba(255, 255, 255, 0.7);
   -webkit-backdrop-filter: blur(8px) saturate(120%);
   backdrop-filter: blur(8px) saturate(120%);
   color: #17171a;
@@ -3862,7 +3858,6 @@ body.chats-screen {
   border-radius: 24px;
   background: #f5f5f7;
   color: #17171a;
-  box-shadow: 0 18px 60px rgb(0 0 0 / 18%);
 }
 
 .banner-color-dialog::backdrop {
@@ -3912,7 +3907,6 @@ body.chats-screen {
   border: 2px solid #fff;
   border-radius: 16px;
   background: #f5f5f5;
-  box-shadow: 0 0 0 1px #dedee3;
   cursor: pointer;
 }
 
@@ -3923,9 +3917,6 @@ body.chats-screen {
 .banner-color-option[data-banner-color="#fff2d6"] { background: #fff2d6; }
 .banner-color-option[data-banner-color="#e6f7fb"] { background: #e6f7fb; }
 
-.banner-color-option.is-selected {
-  box-shadow: 0 0 0 3px #2788df;
-}
 
 .banner-color-custom {
   display: flex;
@@ -4079,8 +4070,7 @@ body.chats-screen {
   border-radius: 28px;
   background: #fff;
   color: #15151a;
-  box-shadow: 0 18px 64px rgba(20, 20, 32, 0.3);
-}
+  }
 
 .premium-dialog:not([open]) {
   display: none;
@@ -4464,7 +4454,6 @@ body.chats-screen {
   border: 1px solid rgba(255, 255, 255, 0.82);
   border-radius: 999px;
   background: rgba(255, 255, 255, 0.58);
-  box-shadow: 0 10px 32px rgba(25, 35, 45, 0.1), inset 0 1px 0 rgba(255, 255, 255, 0.9);
   -webkit-backdrop-filter: blur(24px) saturate(180%);
   backdrop-filter: blur(24px) saturate(180%);
   margin: 12px auto 0;
@@ -4482,7 +4471,6 @@ body.chats-screen {
   background: rgba(255, 255, 255, 0.72);
   color: #17191f;
   text-align: left;
-  box-shadow: 0 8px 24px rgba(25, 35, 45, 0.06);
 }
 
 .profile-collection-value-label,
@@ -4578,7 +4566,6 @@ body.chats-screen {
   aspect-ratio: 1;
   border: 1px solid rgba(255, 255, 255, 0.92);
   border-radius: 14px;
-  box-shadow: 0 5px 16px rgba(25, 35, 45, 0.05);
 }
 
 .profile-nft-tabs.profile-skeleton-tabs .profile-nft-indicator {
@@ -4654,7 +4641,6 @@ body.chats-screen {
   border-radius: 16px;
   background: #fff;
   color: #161616;
-  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.34);
 }
 
 .nft-modal::backdrop {
@@ -4959,7 +4945,6 @@ body.chats-screen {
   border-radius: 18px;
   background: #fff;
   color: #202127;
-  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
 }
 
 .nft-listing-dialog::backdrop {
@@ -5026,7 +5011,6 @@ body.chats-screen {
 
 .nft-listing-price-field:focus-within {
   border-color: #2586e8;
-  box-shadow: 0 0 0 3px rgba(37, 134, 232, 0.12);
 }
 
 .nft-listing-price-field input {
@@ -5059,8 +5043,16 @@ body.chats-screen {
   display: none;
 }
 
+.nft-listing-autosell-description {
+  margin: -4px 0 2px;
+  color: #737b86;
+  font-size: 12px;
+  line-height: 1.4;
+}
+
 .nft-listing-actions {
   display: flex;
+  flex-wrap: wrap;
   justify-content: flex-end;
   gap: 8px;
   margin-top: 4px;
@@ -5087,6 +5079,12 @@ body.chats-screen {
   color: #fff;
 }
 
+.nft-listing-autosell {
+  background: #e8f3ff;
+  color: #1769aa;
+}
+
+.nft-listing-autosell:disabled,
 .nft-listing-submit:disabled {
   opacity: 0.55;
   cursor: wait;
@@ -5266,7 +5264,6 @@ body.chats-screen {
   border: 1px solid #e3e7ee;
   border-radius: 14px;
   background: rgba(255, 255, 255, 0.76);
-  box-shadow: 0 6px 18px rgba(25, 35, 45, 0.045);
   color: #000000;
   text-align: left;
 }
@@ -5460,7 +5457,6 @@ body.chats-screen {
   border: 1px solid rgba(255, 255, 255, 0.72);
   border-radius: 18px;
   background: rgba(246, 250, 255, 0.72);
-  box-shadow: 0 16px 38px rgba(20, 30, 45, 0.18), inset 0 1px 0 rgba(255, 255, 255, 0.88);
   -webkit-backdrop-filter: blur(24px) saturate(165%);
   backdrop-filter: blur(24px) saturate(165%);
   color: #202127;
@@ -5574,7 +5570,6 @@ body.chats-screen {
     radial-gradient(circle at 76% 76%, rgba(255, 255, 255, 0.36) 0 1px, transparent 2px),
     radial-gradient(ellipse at 86% 112%, rgba(50, 196, 255, 0.42), transparent 44%),
     linear-gradient(125deg, #087cf0 0%, #168ff2 58%, #0876df 100%);
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.28);
   color: #fff;
   transform: perspective(900px) rotateX(var(--wallet-tilt-x, 0deg)) rotateY(var(--wallet-tilt-y, 0deg));
   transform-style: preserve-3d;
@@ -5738,7 +5733,6 @@ body.chats-screen {
   border: 0;
   border-radius: 999px;
   background: #0787ec;
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.36);
   color: #fff;
   font: inherit;
   font-size: 19px;
@@ -5941,7 +5935,7 @@ body.chats-screen {
   transition: border-color 150ms ease, box-shadow 150ms ease;
 }
 
-.wallet-topup-input-wrap:focus-within { border-color: #6a91ed; box-shadow: 0 0 0 3px rgba(84, 129, 235, 0.12); }
+.wallet-topup-input-wrap:focus-within { border-color: #6a91ed; }
 .wallet-topup-input-wrap input { width: 100%; min-width: 0; border: 0; outline: 0; background: transparent; color: #242b38; font: inherit; font-size: 15px; font-variant-numeric: tabular-nums; }
 .wallet-topup-input-wrap input::placeholder { color: #a0a8b5; }
 .wallet-topup-input-wrap img { width: 23px; height: 23px; flex: 0 0 23px; object-fit: contain; }
@@ -6379,7 +6373,6 @@ h6 {
   border: 1px solid rgba(255, 255, 255, 0.44);
   border-radius: 28px;
   background: linear-gradient(145deg, #ffe5a7, #e8ae4c);
-  box-shadow: 0 14px 38px rgba(14, 19, 48, 0.32), inset 0 2px 2px rgba(255, 255, 255, 0.7);
   color: #7b4f16;
   transform: rotate(8deg);
 }
@@ -6455,7 +6448,6 @@ h6 {
   border: 1px solid rgba(255, 255, 255, 0.82);
   border-radius: 999px;
   background: rgba(255, 255, 255, 0.58);
-  box-shadow: 0 10px 32px rgba(25, 35, 45, 0.1), inset 0 1px 0 rgba(255, 255, 255, 0.9);
   -webkit-backdrop-filter: blur(24px) saturate(180%);
   backdrop-filter: blur(24px) saturate(180%);
 }
@@ -6520,7 +6512,6 @@ h6 {
   border: 1px solid #ececf1;
   border-radius: 20px 20px 16px 16px;
   background: linear-gradient(180deg, #fff, #f9f9fc);
-  box-shadow: 0 8px 24px rgba(33, 40, 58, 0.04);
   cursor: pointer;
 }
 
@@ -6577,7 +6568,6 @@ h6 {
   place-items: center;
   border: 3px solid #fff;
   border-radius: 50%;
-  box-shadow: 0 3px 12px rgba(28, 35, 52, 0.12);
   color: #34384a;
   font-size: 19px;
   font-weight: 800;
@@ -6677,7 +6667,6 @@ h6 {
   border: 1px solid #ececf1;
   border-radius: 20px;
   background: #fff;
-  box-shadow: 0 8px 24px rgba(33, 40, 58, 0.035);
 }
 
 .top-list-heading,

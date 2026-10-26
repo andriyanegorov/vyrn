@@ -344,6 +344,30 @@ Deno.serve(async (request) => {
   };
 
   const action = input.action;
+  if (action === 'daily_task_board') {
+    const result = await supabase.rpc('get_daily_task_board', { p_profile_id: profile.id });
+    return result.error ? json({ error: result.error.message }, 500) : json({ board: result.data });
+  }
+
+  if (action === 'record_daily_task_event') {
+    const eventKey = typeof input.event_key === 'string' ? input.event_key : '';
+    const result = await supabase.rpc('record_daily_task_event', {
+      p_profile_id: profile.id,
+      p_event_key: eventKey,
+    });
+    return result.error ? json({ error: result.error.message }, 400) : json({ recorded: result.data });
+  }
+
+  if (action === 'check_daily_task') {
+    const assignmentId = typeof input.assignment_id === 'string' ? input.assignment_id : '';
+    if (!/^[0-9a-f-]{36}$/i.test(assignmentId)) return json({ error: 'Invalid task ID' }, 400);
+    const result = await supabase.rpc('check_daily_task', {
+      p_profile_id: profile.id,
+      p_assignment_id: assignmentId,
+    });
+    return result.error ? json({ error: result.error.message }, 409) : json({ result: result.data });
+  }
+
   if (action === 'create_premium_invoice') {
     if (isBrowserDemo || typeof input.initData !== 'string' || !botToken) {
       return json({ error: 'Open VYRN inside Telegram to buy Premium' }, 401);
@@ -1006,6 +1030,17 @@ Deno.serve(async (request) => {
     if (created.error) return json({ error: created.error.message }, 409);
     const listing = await supabase.from('market_listings').select('*').eq('id', created.data).single();
     return listing.error ? json({ error: listing.error.message }, 500) : json({ listing: listing.data });
+  }
+
+  if (action === 'auto_sell_nft') {
+    const itemId = typeof input.nft_item_id === 'string' ? input.nft_item_id : '';
+    if (!/^[0-9a-f-]{36}$/i.test(itemId)) return json({ error: 'Invalid NFT ID' }, 400);
+    const sold = await supabase.rpc('auto_sell_nft', {
+      p_nft_item_id: itemId,
+      p_seller_profile_id: profile.id,
+    });
+    if (sold.error) return json({ error: sold.error.message }, 409);
+    return json({ sale: sold.data });
   }
 
   if (action === 'cancel_listing') {

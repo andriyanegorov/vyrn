@@ -8,9 +8,9 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Inter:wght@400;500;600;700&family=Manrope:wght@400;500;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="style.css?v=fonts-manrope-inter-20261021">
-  <link rel="stylesheet" href="admin.css?v=delete-all-nfts-20261021">
+  <link rel="stylesheet" href="admin.css?v=daily-tasks-reset-v1">
   <script src="supabase-client-config.js?v=admin-panel-number-media-20261018" defer></script>
-  <script src="admin.js?v=delete-all-nfts-20261021" defer></script>
+  <script src="admin.js?v=daily-tasks-reset-v1" defer></script>
 </head>
 <body class="admin-page">
   <header class="admin-header">
@@ -157,6 +157,79 @@
       </div>
       <div class="admin-inventory-list" aria-live="polite">
         <p class="admin-empty-result">Нажмите «Загрузить список NFT».</p>
+      </div>
+    </section>
+    <section class="admin-section admin-tasks-section" aria-labelledby="tasks-heading">
+      <div class="admin-section-heading">
+        <span class="admin-step">05</span>
+        <div><h2 id="tasks-heading">Задания</h2><p>Настраивайте количество и состав случайного пула</p></div>
+      </div>
+      <form class="admin-task-count-form">
+        <label class="admin-field">
+          <span>Ежедневных заданий</span>
+          <input class="admin-daily-task-count" type="number" min="1" max="100" step="1" value="3" required>
+        </label>
+        <label class="admin-field">
+          <span>Еженедельных заданий</span>
+          <input class="admin-weekly-task-count" type="number" min="1" max="100" step="1" value="5" required>
+        </label>
+        <button class="admin-button admin-task-count-save-button" type="submit">Сохранить количество</button>
+      </form>
+      <p class="admin-task-settings-hint">По умолчанию: 3 ежедневных и 5 еженедельных. Значения от 1 до 100 вступят в силу при следующем обновлении периода и ограничены количеством включённых заданий в пуле.</p>
+      <div class="admin-task-reset">
+        <button class="admin-button admin-task-reset-button" type="button">Сбросить задания у всех игроков</button>
+        <p>Сбросит текущие ежедневные и еженедельные задания для всех игроков: прогресс и отметки о получении наград будут очищены, а списки заданий обновлены. Начисленные ранее Stars не списываются.</p>
+      </div>
+      <form class="admin-task-form">
+        <label class="admin-field">
+          <span>Период</span>
+          <select class="admin-task-period">
+            <option value="daily">Ежедневное</option>
+            <option value="weekly">Еженедельное</option>
+          </select>
+        </label>
+        <label class="admin-field">
+          <span>Название</span>
+          <input class="admin-task-title" type="text" maxlength="100" required>
+        </label>
+        <label class="admin-field">
+          <span>Описание</span>
+          <input class="admin-task-description" type="text" maxlength="180">
+        </label>
+        <label class="admin-field">
+          <span>Что проверять</span>
+          <select class="admin-task-event">
+            <option value="visit_app">Входы в приложение</option>
+            <option value="visit_home">Посещение главной</option>
+            <option value="visit_profile">Посещение профиля</option>
+            <option value="visit_market">Посещение маркета</option>
+            <option value="visit_chats">Посещение чатов</option>
+            <option value="visit_daily_tasks">Посещение заданий</option>
+            <option value="view_collection">Просмотр коллекции</option>
+            <option value="view_nft">Просмотр карточек NFT</option>
+            <option value="view_market_listing">Просмотр лотов</option>
+            <option value="send_message">Отправленные сообщения</option>
+            <option value="create_listing">Выставленные лоты</option>
+            <option value="purchase_listing">Покупки на маркете</option>
+          </select>
+        </label>
+        <label class="admin-field">
+          <span>Цель (раз)</span>
+          <input class="admin-task-target" type="number" min="1" max="1000" step="1" value="1" required>
+        </label>
+        <label class="admin-field">
+          <span>Награда, Stars</span>
+          <input class="admin-task-reward" type="number" min="1" max="3" step="1" value="1" required>
+        </label>
+        <button class="admin-button admin-task-add-button" type="submit">Добавить в пул</button>
+      </form>
+      <p class="admin-price-note">Ежедневно можно выбрать награду 1–3 Stars, еженедельно — 2–5 Stars. Количество выбираемых заданий настраивается выше. Покупки платные: не добавляйте их, если не хотите связывать награду с расходами игрока.</p>
+      <div class="admin-task-toolbar">
+        <button class="admin-button admin-task-refresh-button" type="button">Обновить список</button>
+        <p class="admin-status admin-task-status" role="status" hidden></p>
+      </div>
+      <div class="admin-task-list" aria-live="polite">
+        <p class="admin-empty-result">Введите пароль администратора и нажмите «Обновить список».</p>
       </div>
     </section>
     <section class="admin-section admin-danger-section" aria-labelledby="delete-all-nfts-heading">

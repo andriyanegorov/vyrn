@@ -3,7 +3,7 @@ alter table public.nft_transfers
 
 alter table public.nft_transfers
   add constraint nft_transfers_transfer_type_check
-  check (transfer_type in ('mint', 'market', 'gift', 'admin', 'craft'));
+  check (transfer_type in ('mint', 'market', 'gift', 'admin', 'craft', 'auto_sale'));
 
 create or replace function public.crafting_chance(p_attributes jsonb)
 returns numeric
