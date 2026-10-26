@@ -1,5 +1,28 @@
 const routeTransitionKey = 'vyrn:section-transition';
 const routeNavigation = [...document.querySelectorAll('.bottom-nav .nav-button')];
+const getNavigationItem = (pathname) => routeNavigation.find((item) => {
+	const href = item.getAttribute('href');
+	if (href) return new URL(href, window.location.href).pathname === pathname;
+	const label = item.querySelector('span')?.textContent.trim();
+	return label === 'Главное' && new URL('index.html', window.location.href).pathname === pathname;
+});
+const setNavigationItem = (item) => {
+	routeNavigation.forEach((navItem) => {
+		const isActive = navItem === item;
+		navItem.classList.toggle('is-active', isActive);
+		if (navItem.tagName === 'BUTTON') {
+			navItem.setAttribute('aria-pressed', String(isActive));
+		} else if (isActive) {
+			navItem.setAttribute('aria-current', 'page');
+		} else {
+			navItem.removeAttribute('aria-current');
+		}
+	});
+	document.querySelectorAll('.bottom-nav .nav-indicator').forEach((indicator) => {
+		indicator.classList.toggle('is-hidden', !item);
+	});
+};
+if (!getNavigationItem(window.location.pathname)) setNavigationItem(null);
 const routeContent = (() => {
 	const embeddedApp = document.querySelector('body > #app');
 	const embeddedNav = embeddedApp?.querySelector(':scope > .bottom-nav');
@@ -87,22 +110,17 @@ document.addEventListener('click', (event) => {
 		navigate();
 	}, 500);
 
-	const nav = link.closest('.bottom-nav');
-	const toIndex = routeNavigation.indexOf(link);
-	if (!nav || toIndex < 0) return;
-	routeNavigation.forEach((item) => {
-		const isActive = item === link;
-		item.classList.toggle('is-active', isActive);
-		if (isActive) item.setAttribute('aria-current', 'page');
-		else item.removeAttribute('aria-current');
-	});
-	const indicator = nav.querySelector('.nav-indicator');
-	if (indicator) {
+	const destinationItem = getNavigationItem(destination.pathname);
+	setNavigationItem(destinationItem || null);
+	const nav = document.querySelector('.bottom-nav');
+	const indicator = destinationItem && nav?.querySelector('.nav-indicator');
+	if (destinationItem && nav && indicator) {
 		const navRect = nav.getBoundingClientRect();
-		const linkRect = link.getBoundingClientRect();
+		const linkRect = destinationItem.getBoundingClientRect();
 		const inset = 4;
 		indicator.style.left = `${linkRect.left - navRect.left - nav.clientLeft + inset}px`;
 		indicator.style.setProperty('--indicator-width', `${linkRect.width - inset * 2}px`);
+		indicator.classList.remove('is-hidden');
 		indicator.classList.remove('is-moving');
 		void indicator.offsetWidth;
 		indicator.classList.add('is-moving');
