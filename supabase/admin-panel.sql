@@ -398,6 +398,154 @@ begin
 end;
 $$;
 
+create or replace function public.admin_delete_player(
+  p_password text,
+  p_profile_id uuid,
+  p_confirmation text
+)
+returns uuid
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare
+  configured_hash text;
+  target public.profiles%rowtype;
+  owned_nft_ids uuid[];
+  saved_chat_ids uuid[];
+begin
+  select settings.password_hash into configured_hash
+  from public.admin_settings as settings
+  where settings.singleton = true;
+
+  if configured_hash is null or p_password is null
+    or extensions.crypt(p_password, configured_hash) <> configured_hash then
+    raise exception 'Invalid administrator password' using errcode = '28000';
+  end if;
+
+  select * into target
+  from public.profiles
+  where id = p_profile_id
+  for update;
+  if not found then
+    raise exception 'Player not found';
+  end if;
+  if target.telegram_id <= 0 then
+    raise exception 'The shared browser demo profile cannot be deleted';
+  end if;
+  if p_confirmation is distinct from 'УДАЛИТЬ ' || target.nickname then
+    raise exception 'Type УДАЛИТЬ followed by the exact player nickname to confirm';
+  end if;
+
+  select coalesce(array_agg(items.id), array[]::uuid[])
+  into owned_nft_ids
+  from public.nft_items as items
+  where items.owner_profile_id = target.id;
+
+  select coalesce(array_agg(members.chat_id), array[]::uuid[])
+  into saved_chat_ids
+  from public.chat_members as members
+  join public.chats as chats on chats.id = members.chat_id
+  where members.profile_id = target.id and chats.chat_type = 'saved';
+
+  delete from public.market_transactions as transactions
+  where transactions.buyer_profile_id = target.id
+    or transactions.seller_profile_id = target.id
+    or transactions.nft_item_id = any(owned_nft_ids)
+    or transactions.listing_id in (
+      select listings.id
+      from public.market_listings as listings
+      where listings.seller_profile_id = target.id
+        or listings.nft_item_id = any(owned_nft_ids)
+    );
+  delete from public.market_listings as listings
+  where listings.seller_profile_id = target.id
+    or listings.nft_item_id = any(owned_nft_ids);
+  if to_regclass('public.nft_auto_sales') is not null then
+    execute '
+      delete from public.nft_auto_sales as sales
+      where sales.seller_profile_id = $1
+        or sales.nft_item_id = any($2)'
+    using target.id, owned_nft_ids;
+  end if;
+
+  update public.messages
+  set gift_offer_id = null
+  where gift_offer_id in (
+    select offers.id
+    from public.nft_gift_offers as offers
+    where offers.sender_profile_id = target.id
+      or offers.recipient_profile_id = target.id
+      or offers.nft_item_id = any(owned_nft_ids)
+  );
+  if to_regclass('public.nft_gift_responses') is not null then
+    execute '
+      delete from public.nft_gift_responses as responses
+      where responses.recipient_profile_id = $1
+        or responses.original_offer_id in (
+          select offers.id
+          from public.nft_gift_offers as offers
+          where offers.sender_profile_id = $1
+            or offers.recipient_profile_id = $1
+            or offers.nft_item_id = any($2)
+        )
+        or responses.result_offer_id in (
+          select offers.id
+          from public.nft_gift_offers as offers
+          where offers.sender_profile_id = $1
+            or offers.recipient_profile_id = $1
+            or offers.nft_item_id = any($2)
+        )'
+    using target.id, owned_nft_ids;
+  end if;
+  delete from public.nft_gift_offers as offers
+  where offers.sender_profile_id = target.id
+    or offers.recipient_profile_id = target.id
+    or offers.nft_item_id = any(owned_nft_ids);
+  delete from public.messages
+  where sender_profile_id = target.id;
+
+  delete from public.nft_transfers as transfers
+  where transfers.from_profile_id = target.id
+    or transfers.to_profile_id = target.id
+    or transfers.nft_item_id = any(owned_nft_ids);
+  delete from public.nft_items
+  where id = any(owned_nft_ids);
+
+  if to_regclass('public.telegram_star_topups') is not null then
+    execute '
+      delete from public.telegram_star_topups as topups
+      where topups.profile_id = $1
+        or topups.wallet_transaction_id in (
+          select transactions.id
+          from public.wallet_transactions as transactions
+          join public.wallets as wallets on wallets.id = transactions.wallet_id
+          where wallets.profile_id = $1
+        )'
+    using target.id;
+  end if;
+  if to_regclass('public.telegram_premium_orders') is not null then
+    execute 'delete from public.telegram_premium_orders where profile_id = $1'
+    using target.id;
+  end if;
+  delete from public.wallet_transactions as transactions
+  where transactions.wallet_id in (
+    select wallets.id from public.wallets as wallets where wallets.profile_id = target.id
+  );
+  delete from public.wallets where profile_id = target.id;
+
+  delete from public.profiles where id = target.id;
+
+  delete from public.chats as chats
+  where chats.id = any(saved_chat_ids)
+    and not exists (
+      select 1 from public.chat_members as members where members.chat_id = chats.id
+    );
+
+  return target.id;
+end;
+$$;
+
 create or replace function public.admin_verify_password(p_password text)
 returns boolean
 language sql
@@ -587,6 +735,8 @@ revoke all on function public.admin_remove_nft(text, uuid) from public, anon, au
 grant execute on function public.admin_remove_nft(text, uuid) to anon;
 revoke all on function public.admin_remove_all_nfts(text, text) from public, anon, authenticated;
 grant execute on function public.admin_remove_all_nfts(text, text) to anon;
+revoke all on function public.admin_delete_player(text, uuid, text) from public, anon, authenticated;
+grant execute on function public.admin_delete_player(text, uuid, text) to anon;
 revoke all on function public.admin_verify_password(text) from public, anon, authenticated;
 grant execute on function public.admin_verify_password(text) to service_role;
 revoke all on function public.admin_publish_random_fragment_gifts(text, uuid, boolean, jsonb) from public, anon, authenticated;

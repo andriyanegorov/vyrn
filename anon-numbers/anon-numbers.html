@@ -1,0 +1,79 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#f5f5f5">
+<title>Анонимные номера | VYRN</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Manrope:wght@400;500;600;700&display=swap" rel="stylesheet">
+<script src="https://telegram.org/js/telegram-web-app.js"></script>
+  <link rel="stylesheet" href="anon-numbers.css?v=anonymous-numbers-browser-v2">
+  <script src="../supabase-client-config.js?v=anonymous-numbers-browser-v2" defer></script>
+  <script src="../supabase-api.js?v=insufficient-stars-routing-v1" defer></script>
+  <script src="anon-numbers.js?v=anonymous-numbers-browser-v2" defer></script>
+</head>
+<body>
+<div class="app">
+  <header class="site-header">
+    <a class="brand" href="../index.html" aria-label="VYRN, главная">VYRN</a>
+    <div class="star-balance" id="bal" aria-label="Баланс">
+      <img src="../assets/stars.png" alt="" aria-hidden="true">
+      <span id="balVal">0</span>
+    </div>
+  </header>
+
+  <main>
+    <section class="hero" id="hero" aria-label="Выбивание номера">
+      <span class="blob b1" aria-hidden="true"></span><span class="blob b2" aria-hidden="true"></span><span class="blob b3" aria-hidden="true"></span><span class="sheen" aria-hidden="true"></span><span id="sparks" aria-hidden="true"></span>
+      <div class="hero-top">
+      </div>
+      <div class="number" id="number" role="img" aria-label="Номер +888 0000 0000">
+        <span class="plus">+</span><span class="prefix">888</span>
+        <span class="gap"></span>
+        <span class="reels" id="g1" style="display:contents"></span>
+        <span class="gap"></span>
+        <span class="reels" id="g2" style="display:contents"></span>
+      </div>
+      <div class="status" id="status">Нажми «Выбить номер»</div>
+    </section>
+
+    <div class="chips" role="group" aria-label="Скорость прокрутки">
+      <button class="chip on" type="button" data-speed="normal">Быстро</button>
+      <button class="chip" type="button" data-speed="turbo">Турбо</button>
+    </div>
+
+    <button class="btn-main" id="spin" type="button" disabled>
+      <span>Выбить номер</span><span class="sep">·</span>
+      <img class="star-ico" src="../assets/stars.png" alt="" aria-hidden="true"><span id="cost">25</span>
+    </button>
+
+    <section class="panel" aria-label="Мои номера">
+      <header class="panel-head"><h2>Выбитые номера</h2><span class="count" id="count">0</span></header>
+      <div class="list" id="list"></div>
+      <div class="empty" id="empty">Пока пусто — крути и забирай!</div>
+    </section>
+  </main>
+
+  <nav class="bottom-nav" aria-label="Основная навигация">
+    <span class="nav-indicator" id="ind" aria-hidden="true"></span>
+    <a class="nav-button is-active" href="../index.html">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m3 10 9-7 9 7M5 9v11h14V9M9 20v-6h6v6"/></svg><span>Главное</span>
+    </a>
+    <a class="nav-button" href="../market.html">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 10h18l-1.5-6h-15L3 10Zm0 0v10h18V10M8 20v-6h8v6"/></svg><span>Рынок</span>
+    </a>
+    <a class="nav-button" href="../chats.html">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 11.5a7.5 7.5 0 0 1-7.5 7.5H6l-3 2v-5.5A7.5 7.5 0 1 1 20 11.5Z"/></svg><span>Чаты</span>
+    </a>
+    <a class="nav-button" href="../profile.html">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/></svg><span>Профиль</span>
+    </a>
+  </nav>
+  <div class="toast" id="toast"></div>
+</div>
+
+
+</body>
+</html>

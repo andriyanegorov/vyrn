@@ -154,8 +154,33 @@ function createProfileStatusBadge(status) {
 	badge.src = isPremium ? './assets/svg/premium.svg' : './assets/svg/verified.svg';
 	badge.alt = '';
 	badge.setAttribute('aria-label', isPremium ? 'Premium' : 'Подтверждённый профиль');
+	if (isPremium) {
+		badge.title = 'Открыть VYRN Премиум';
+		badge.tabIndex = 0;
+		badge.setAttribute('role', 'button');
+		badge.setAttribute('aria-haspopup', 'dialog');
+	}
 	return badge;
 }
+
+const openPremiumDialogPage = () => {
+	const apiScript = [...document.scripts].find((script) => script.src.includes('supabase-api.js'));
+	const baseUrl = new URL('.', apiScript?.src || window.location.href);
+	const url = new URL('profile.html', baseUrl);
+	url.searchParams.set('openPremium', '1');
+	window.location.assign(url.href);
+};
+document.addEventListener('click', (event) => {
+	if (!event.target.closest('.profile-status-badge.is-premium')) return;
+	event.preventDefault();
+	event.stopPropagation();
+	openPremiumDialogPage();
+});
+document.addEventListener('keydown', (event) => {
+	if (!['Enter', ' '].includes(event.key) || !event.target.matches('.profile-status-badge.is-premium')) return;
+	event.preventDefault();
+	openPremiumDialogPage();
+});
 
 function getProfileStatus(profile) {
 	const validStatuses = new Set(['premium', 'verified', 'verfied']);
@@ -331,7 +356,7 @@ if (document.body.classList.contains('wallet-screen')) {
 		walletMenu.hidden = true;
 	};
 
-	walletTopupOpenButton.addEventListener('click', () => {
+	const openWalletTopupDialog = () => {
 		closeWalletMenu();
 		walletTopupBalance.textContent = walletBalances.has('stars')
 			? formatWalletInteger(readWalletInteger(walletBalances.get('stars')))
@@ -344,7 +369,8 @@ if (document.body.classList.contains('wallet-screen')) {
 		walletTopupAmountInput.value = '';
 		walletTopupAmountInput.setCustomValidity('');
 		walletTopupDialog.showModal();
-	});
+	};
+	walletTopupOpenButton.addEventListener('click', openWalletTopupDialog);
 	walletTopupCloseButtons.forEach((button) => button.addEventListener('click', () => {
 		walletTopupDialog.close();
 	}));
@@ -446,6 +472,8 @@ if (document.body.classList.contains('wallet-screen')) {
 			market_purchase: ['Покупка NFT', 'Покупка на VYRN Market'],
 			market_sale: ['Продажа NFT', 'Продажа на VYRN Market'],
 			nft_auto_sale: ['Автопродажа NFT', 'Продажа по оценке Fragment'],
+			anonymous_number_spin: ['Анонимный номер', 'Выбивание номера +888'],
+			anonymous_number_upgrade: ['Улучшение номера', 'Изменение цифры номера +888'],
 			promo_code_reward: ['Промокод', 'Награда за активацию промокода'],
 			referral_reward: ['Реферальная награда', 'Бонус за приглашение друга'],
 			chat_gift_purchase: ['Покупка подарка', 'Покупка в чате'],
@@ -598,6 +626,12 @@ if (document.body.classList.contains('wallet-screen')) {
 			if (walletTopupDialog.open) walletTopupDialog.close();
 		}
 	});
+	if (new URLSearchParams(window.location.search).get('openTopup') === '1') {
+		const currentUrl = new URL(window.location.href);
+		currentUrl.searchParams.delete('openTopup');
+		window.history.replaceState(null, '', `${currentUrl.pathname}${currentUrl.search}${currentUrl.hash}`);
+		openWalletTopupDialog();
+	}
 
 	loadWallet().catch((error) => {
 		console.error('Не удалось загрузить кошелёк:', error);
@@ -653,17 +687,21 @@ const premiumDialogSubmitButton = premiumDialog?.querySelector('.premium-dialog-
 const premiumDialogStatus = premiumDialog?.querySelector('.premium-dialog-status');
 const premiumPlanOptions = premiumDialog ? [...premiumDialog.querySelectorAll('input[name="premium-plan"]')] : [];
 const profileAvatarImage = profileAvatarElement?.querySelector('.profile-avatar-image');
-const profileDetailValues = profileContentElement ? [...profileContentElement.querySelectorAll('.profile-detail-value')] : [];
+const profileUsernameValue = profileContentElement?.querySelector('.profile-username-value');
+const profileBioValue = profileContentElement?.querySelector('.profile-bio-value');
+const profileAnonymousNumber = profileContentElement?.querySelector('.profile-anonymous-number');
+const profileAnonymousNumberValue = profileAnonymousNumber?.querySelector('.profile-anonymous-number-value');
 
-if (profileEditButton && profileEditorDialog && profileEditorForm && profileAvatarElement && profileNameElement && profileDetailValues.length >= 2) {
+if (profileEditButton && profileEditorDialog && profileEditorForm && profileAvatarElement && profileNameElement
+	&& profileUsernameValue && profileBioValue && profileAnonymousNumber && profileAnonymousNumberValue) {
 	const telegramUser = getTelegramUser();
 	if (canLoadPlayerData()) beginProfilePageLoad();
 	const storedName = profileNameElement.textContent.trim().split(/\s+/);
 	const defaultProfile = {
 		firstName: telegramUser?.first_name || storedName[0] || '',
 		lastName: telegramUser ? telegramUser.last_name || '' : storedName.slice(1).join(' '),
-		about: profileDetailValues[1].textContent.trim(),
-		username: telegramUser?.username ? `@${telegramUser.username}` : profileDetailValues[0].textContent.trim(),
+		about: profileBioValue.textContent.trim(),
+		username: telegramUser?.username ? `@${telegramUser.username}` : profileUsernameValue.textContent.trim(),
 		birthday: '',
 		phone: '',
 		avatar: telegramUser?.photo_url || '',
@@ -709,7 +747,7 @@ if (profileEditButton && profileEditorDialog && profileEditorForm && profileAvat
 			profileData.firstName = defaultProfile.firstName;
 			profileData.lastName = defaultProfile.lastName;
 		}
-		if (!profileData.username || profileData.username === profileDetailValues[0].textContent.trim()) {
+		if (!profileData.username || profileData.username === profileUsernameValue.textContent.trim()) {
 			profileData.username = defaultProfile.username;
 		}
 		profileData.avatar = telegramUser.photo_url || '';
@@ -769,8 +807,12 @@ if (profileEditButton && profileEditorDialog && profileEditorForm && profileAvat
 	};
 	const renderProfile = () => {
 		renderProfileName(profileNameElement, [profileData.firstName, profileData.lastName].filter(Boolean).join(' '), getProfileStatus(profileData));
-		profileDetailValues[0].textContent = profileData.username || (profileData.nickname ? `@${profileData.nickname}` : '');
-		profileDetailValues[1].textContent = profileData.about || '';
+		profileUsernameValue.textContent = profileData.username || (profileData.nickname ? `@${profileData.nickname}` : '');
+		profileAnonymousNumber.hidden = !profileData.phone;
+		profileAnonymousNumberValue.textContent = profileData.phone
+			? `${profileData.phone.slice(0, 4)} ${profileData.phone.slice(4, 8)} ${profileData.phone.slice(8)}`
+			: '';
+		profileBioValue.textContent = profileData.about || '';
 		setAvatarImage(profileAvatarImage, profileData.avatar);
 		renderBannerColor();
 	};
@@ -799,7 +841,7 @@ if (profileEditButton && profileEditorDialog && profileEditorForm && profileAvat
 				banner_gradient: profile.banner_gradient === true
 			};
 			if (!telegramUser && window.VyrnApi.browserDemo && storedProfile) {
-				profileData = { ...profileData, ...storedProfile };
+				profileData = { ...profileData, ...storedProfile, phone: profileData.phone };
 			}
 			renderProfile();
 		} catch (error) {
@@ -813,7 +855,7 @@ if (profileEditButton && profileEditorDialog && profileEditorForm && profileAvat
 		}
 	};
 
-	const loadProfileEditor = () => {
+	const loadProfileEditor = async () => {
 		for (const field of profileEditorForm.elements) {
 			if (field.name && Object.hasOwn(profileData, field.name)) {
 				if (field.type === 'checkbox') {
@@ -826,6 +868,40 @@ if (profileEditButton && profileEditorDialog && profileEditorForm && profileAvat
 		profileEditorBirthdayValue.textContent = formatBirthday(profileData.birthday);
 		profileEditorError.hidden = true;
 		setAvatarImage(profileEditorPhotoImage, profileData.avatar);
+		const anonymousNumberSelect = profileEditorForm.elements.namedItem('phone');
+		anonymousNumberSelect.replaceChildren(new Option('Загружаем номера…', ''));
+		anonymousNumberSelect.disabled = true;
+		const isTelegramProfile = Boolean(telegramUser && telegramWebApp?.initData);
+		const isBrowserDemoProfile = Boolean(window.VyrnApi?.browserDemo && !telegramWebApp?.initData);
+		if ((!isTelegramProfile && !isBrowserDemoProfile) || !window.VyrnApi) {
+			anonymousNumberSelect.replaceChildren(new Option('Откройте профиль в Telegram или браузере', ''));
+			profileEditorError.textContent = 'Не удалось определить профиль для загрузки анонимных номеров.';
+			profileEditorError.hidden = false;
+			return;
+		}
+		try {
+			const { numbers } = await window.VyrnApi.anonymousNumbers();
+			anonymousNumberSelect.replaceChildren(new Option(
+				numbers.length ? 'Не выбран' : 'Сначала выбейте номер',
+				''
+			));
+			numbers.forEach((number) => {
+				const value = `+888${number.digits}`;
+				const option = new Option(
+					`+888 ${number.digits.slice(0, 4)} ${number.digits.slice(4)}`,
+					value
+				);
+				anonymousNumberSelect.add(option);
+			});
+			anonymousNumberSelect.value = numbers.some((number) => `+888${number.digits}` === profileData.phone)
+				? profileData.phone
+				: '';
+			anonymousNumberSelect.disabled = false;
+		} catch (error) {
+			anonymousNumberSelect.replaceChildren(new Option('Не удалось загрузить номера', ''));
+			profileEditorError.textContent = error.message || 'Не удалось загрузить список анонимных номеров.';
+			profileEditorError.hidden = false;
+		}
 	};
 
 	renderProfile();
@@ -970,6 +1046,13 @@ if (profileEditButton && profileEditorDialog && profileEditorForm && profileAvat
 		premiumDialog.addEventListener('click', (event) => {
 			if (event.target === premiumDialog) premiumDialog.close();
 		});
+		if (new URLSearchParams(window.location.search).get('openPremium') === '1') {
+			const currentUrl = new URL(window.location.href);
+			currentUrl.searchParams.delete('openPremium');
+			window.history.replaceState(null, '', `${currentUrl.pathname}${currentUrl.search}${currentUrl.hash}`);
+			premiumDialogStatus.hidden = true;
+			premiumDialog.showModal();
+		}
 		premiumDialogSubmitButton.addEventListener('click', async () => {
 			if (!telegramWebApp?.initData || typeof telegramWebApp.openInvoice !== 'function') {
 				premiumDialogStatus.textContent = 'Для тестовой оплаты откройте VYRN внутри Telegram.';
@@ -1034,7 +1117,7 @@ if (profileEditButton && profileEditorDialog && profileEditorForm && profileAvat
 		});
 	}
 	profileEditButton.addEventListener('click', () => {
-		loadProfileEditor();
+		void loadProfileEditor();
 		profileEditorDialog.showModal();
 		profileEditorForm.elements.namedItem('firstName').focus();
 	});
@@ -1067,7 +1150,9 @@ if (profileEditButton && profileEditorDialog && profileEditorForm && profileAvat
 			banner_color: profileData.banner_color,
 			banner_gradient: profileData.banner_gradient
 		};
-		if (telegramUser) {
+		const isTelegramProfile = Boolean(telegramUser && telegramWebApp?.initData);
+		const isBrowserDemoProfile = Boolean(window.VyrnApi?.browserDemo && !telegramWebApp?.initData);
+		if (isTelegramProfile) {
 			if (!window.VyrnApi) {
 				profileEditorError.textContent = 'Supabase API не подключён.';
 				profileEditorError.hidden = false;
@@ -1088,8 +1173,12 @@ if (profileEditButton && profileEditorDialog && profileEditorForm && profileAvat
 				profileEditorError.hidden = false;
 				return;
 			}
-		} else if (window.VyrnApi?.browserDemo) {
+		} else if (isBrowserDemoProfile) {
 			try {
+				const result = await window.VyrnApi.updateProfile({
+					phone: nextProfile.phone || null
+				});
+				nextProfile.phone = result.profile.phone || '';
 				localStorage.setItem('vyrn.profile.editor.v1', JSON.stringify(nextProfile));
 				storedProfile = nextProfile;
 			} catch (error) {
@@ -1637,7 +1726,7 @@ if (marketGrid) {
 							if (ownListing) {
 								await window.VyrnApi.cancelListing(entry.id);
 							} else {
-								await window.VyrnApi.buyListing(entry.id);
+								await window.VyrnApi.buyListing(entry.id, entry.currency);
 								await window.refreshVyrnAccount();
 							}
 							await renderMarketList();
@@ -2021,6 +2110,7 @@ playerProfileDialog.innerHTML = `
       </section>
       <section class="profile-details" aria-label="Информация профиля">
         <div class="profile-detail"><h2 class="profile-detail-label">Имя пользователя</h2><p class="profile-detail-value player-profile-username"></p></div>
+        <div class="profile-detail player-profile-anonymous-number" hidden><h2 class="profile-detail-label">Анонимный номер</h2><p class="profile-detail-value player-profile-phone"></p></div>
         <div class="profile-detail"><h2 class="profile-detail-label">О себе</h2><p class="profile-detail-value player-profile-bio"></p></div>
       </section>
       <section class="profile-collection-value" aria-label="Ценность коллекции" aria-live="polite">
@@ -2039,6 +2129,8 @@ document.body.append(playerProfileDialog);
 const sharedPlayerProfileName = playerProfileDialog.querySelector('.profile-name');
 const sharedPlayerProfileAvatar = playerProfileDialog.querySelector('.profile-avatar');
 const sharedPlayerProfileUsername = playerProfileDialog.querySelector('.player-profile-username');
+const sharedPlayerProfileAnonymousNumber = playerProfileDialog.querySelector('.player-profile-anonymous-number');
+const sharedPlayerProfilePhone = playerProfileDialog.querySelector('.player-profile-phone');
 const sharedPlayerProfileBio = playerProfileDialog.querySelector('.player-profile-bio');
 const sharedPlayerProfileNfts = playerProfileDialog.querySelector('.player-profile-nft-grid');
 let sharedPlayerProfileRequestId = 0;
@@ -2061,6 +2153,10 @@ const renderSharedPlayerProfile = (profile, items = []) => {
 	renderProfileBanner(profilePage, profile);
 	renderProfileName(sharedPlayerProfileName, displayName, getProfileStatus(profile));
 	sharedPlayerProfileUsername.textContent = profile.username ? `@${profile.username.replace(/^@+/, '')}` : `@${profile.nickname || ''}`;
+	sharedPlayerProfileAnonymousNumber.hidden = !profile.phone;
+	sharedPlayerProfilePhone.textContent = profile.phone
+		? `${profile.phone.slice(0, 4)} ${profile.phone.slice(4, 8)} ${profile.phone.slice(8)}`
+		: '';
 	sharedPlayerProfileBio.textContent = profile.bio || '';
 	sharedPlayerProfileAvatar.replaceChildren();
 	sharedPlayerProfileAvatar.setAttribute('aria-label', `Аватар ${displayName}`);
@@ -2876,7 +2972,15 @@ if (chatRows.length && conversationDialog) {
 	const playerProfileName = conversationProfile.querySelector('.profile-name');
 	const playerProfileStatus = conversationProfile.querySelector('.profile-status');
 	const playerProfileUsername = conversationProfile.querySelector('.player-profile-username');
+	const playerProfileAnonymousNumber = conversationProfile.querySelector('.player-profile-anonymous-number');
+	const playerProfilePhone = conversationProfile.querySelector('.player-profile-phone');
 	const playerProfileBio = conversationProfile.querySelector('.player-profile-bio');
+	const renderPlayerProfilePhone = (profile) => {
+		playerProfileAnonymousNumber.hidden = !profile.phone;
+		playerProfilePhone.textContent = profile.phone
+			? `${profile.phone.slice(0, 4)} ${profile.phone.slice(4, 8)} ${profile.phone.slice(8)}`
+			: '';
+	};
 	const playerProfileNftGrid = conversationProfile.querySelector('.player-profile-nft-grid');
 	const playerProfileValue = conversationProfile.querySelector('.profile-collection-value');
 	const playerProfiles = [
@@ -3570,6 +3674,7 @@ if (chatRows.length && conversationDialog) {
 			renderProfileName(playerProfileName, name, getProfileStatus(profile));
 			playerProfileStatus.textContent = profile.status;
 			playerProfileUsername.textContent = profile.username;
+			renderPlayerProfilePhone(profile);
 			playerProfileBio.textContent = profile.bio;
 			setProfilePageSkeleton(conversationProfile.querySelector('.player-profile-page'), false);
 			if (playerProfileNftGrid) {
@@ -3588,6 +3693,7 @@ if (chatRows.length && conversationDialog) {
 						profile.accountStatus = latestStatus;
 						profile.status = latestProfile.status;
 						playerProfiles[index] = { ...profile, ...latestProfile, accountStatus: latestStatus };
+						renderPlayerProfilePhone(playerProfiles[index]);
 						if (profilePage) {
 							profilePage.dataset.accountStatus = latestStatus;
 							renderProfileBanner(profilePage, playerProfiles[index]);
@@ -3944,6 +4050,7 @@ if (profileSummary && profileContent && profileAvatar && profileName && profileS
 	const baseAvatarSize = 112;
 	const avatarTransitionDuration = window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 160 : 280;
 	let isExpanded = false;
+	let avatarTopOffset = 56;
 	let settleTimeout;
 	let collapsedSummaryHeight;
 
@@ -3962,7 +4069,7 @@ if (profileSummary && profileContent && profileAvatar && profileName && profileS
 		profileSummary.style.marginLeft = `${(contentWidth - summaryWidth) / 2}px`;
 		profileSummary.style.height = isExpanded ? `${collapsedSummaryHeight}px` : '';
 		profileContent.style.setProperty('--profile-avatar-content-shift', `${contentShift}px`);
-		profileAvatar.style.transform = `translateY(${-56 * progress}px) scale(${size / baseAvatarSize})`;
+		profileAvatar.style.transform = `translateY(${-avatarTopOffset * progress}px) scale(${size / baseAvatarSize})`;
 		profileAvatar.style.borderRadius = `${50 * (1 - progress)}%`;
 	};
 
@@ -3971,6 +4078,7 @@ if (profileSummary && profileContent && profileAvatar && profileName && profileS
 		const currentSummaryHeight = profileSummary.getBoundingClientRect().height;
 		if (!isExpanded) {
 			collapsedSummaryHeight = currentSummaryHeight;
+			avatarTopOffset = profileAvatar.getBoundingClientRect().top;
 		}
 		profileSummary.style.height = `${currentSummaryHeight}px`;
 		isExpanded = !isExpanded;
@@ -3990,6 +4098,7 @@ if (profileSummary && profileContent && profileAvatar && profileName && profileS
 					profileSummary.style.removeProperty('margin-left');
 					profileSummary.style.removeProperty('height');
 					profileContent.style.removeProperty('--profile-avatar-content-shift');
+					avatarTopOffset = 56;
 					collapsedSummaryHeight = undefined;
 				}
 			}, avatarTransitionDuration + 40);

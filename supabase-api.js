@@ -1,6 +1,8 @@
 (() => {
   const config = window.VYRN_SUPABASE_CONFIG || {};
-  const CACHE_VERSION = 'v2';
+  const CACHE_VERSION = 'v5';
+  const apiScript = [...document.scripts].find((script) => script.src.includes('supabase-api.js'));
+  const appBaseUrl = new URL('.', apiScript?.src || window.location.href);
   const CACHE_PREFIX = `vyrn:${CACHE_VERSION}:`;
   const ACCOUNT_CACHE_PREFIX = `${CACHE_PREFIX}account:`;
   const ACCOUNT_CACHE_TTL = 5 * 60 * 1000;
@@ -170,10 +172,30 @@
     return cached.result;
   };
 
-  const mutate = async (action, payload = {}) => {
+  const openStarsTopup = () => {
+    const url = new URL('wallet.html', appBaseUrl);
+    url.searchParams.set('openTopup', '1');
+    window.location.assign(url.href);
+  };
+  window.addEventListener('vyrn:insufficient-stars', openStarsTopup);
+
+  const mutate = async (action, payload = {}, options = {}) => {
     const scope = getCacheScope();
     if (scope) cacheGenerations.set(scope, (cacheGenerations.get(scope) || 0) + 1);
-    const result = await request(action, payload);
+    let result;
+    try {
+      result = await request(action, payload);
+    } catch (error) {
+      const message = String(error?.message || '');
+      const explicitStarsShortage = /(?:not enough|insufficient)\s+stars|stars.{0,30}(?:not enough|insufficient)/i.test(message);
+      const listingStarsShortage = action === 'buy_listing'
+        && options.currency === 'stars'
+        && /insufficient balance/i.test(message);
+      if (explicitStarsShortage || listingStarsShortage) {
+        window.dispatchEvent(new CustomEvent('vyrn:insufficient-stars', { detail: { action } }));
+      }
+      throw error;
+    }
     if (scope) {
       removeUserCache(scope);
       try {
@@ -235,6 +257,12 @@
     redeemPromoCode: (code) => mutate('redeem_promo_code', { code }),
     referralInfo: () => request('referral_info'),
     updateProfile: (profile) => mutate('update_profile', profile),
+    anonymousNumbers: () => request('anonymous_numbers'),
+    spinAnonymousNumber: () => mutate('spin_anonymous_number'),
+    upgradeAnonymousNumber: (numberId, digitIndex) => mutate('upgrade_anonymous_number', {
+      number_id: numberId,
+      digit_index: digitIndex
+    }),
     myNfts: () => cachedRequest('my_nfts'),
     upgradeNft: (nftItemId) => mutate('upgrade_nft', { nft_item_id: nftItemId }),
     upgradeRoulettePool: () => mutate('upgrade_roulette_pool'),
@@ -247,7 +275,7 @@
     market: (mode = 'all') => cachedRequest('market', { mode }),
     createListing: (nftItemId, price, currency) => mutate('create_listing', { nft_item_id: nftItemId, price, currency }),
     cancelListing: (listingId) => mutate('cancel_listing', { listing_id: listingId }),
-    buyListing: (listingId) => mutate('buy_listing', { listing_id: listingId }),
+    buyListing: (listingId, currency) => mutate('buy_listing', { listing_id: listingId }, { currency }),
     dailyTaskBoard: () => request('daily_task_board'),
     checkDailyTask: (assignmentId) => mutate('check_daily_task', { assignment_id: assignmentId }),
     recordDailyTaskEvent: (eventKey) => request('record_daily_task_event', { event_key: eventKey }),

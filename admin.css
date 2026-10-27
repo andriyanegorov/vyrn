@@ -476,7 +476,8 @@ body.admin-page {
 .admin-selected-player {
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  flex-wrap: wrap;
+  justify-content: flex-start;
   gap: 12px;
   margin-top: 12px;
   padding: 12px;
@@ -486,6 +487,7 @@ body.admin-page {
 
 .admin-selected-summary {
   display: grid;
+  flex: 1 1 100%;
   gap: 3px;
 }
 
@@ -506,6 +508,27 @@ body.admin-page {
   font-size: 11px;
   font-weight: 600;
   cursor: pointer;
+}
+
+.admin-delete-player-button {
+  border: 1px solid #e5b7b1;
+  border-radius: 3px;
+  padding: 8px 10px;
+  background: #fff;
+  color: var(--admin-red);
+  font: inherit;
+  font-size: 11px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.admin-delete-player-button:hover:not(:disabled) {
+  background: #fff3f1;
+}
+
+.admin-delete-player-button:disabled {
+  cursor: wait;
+  opacity: 0.6;
 }
 
 .admin-gift-fields {

@@ -386,6 +386,7 @@ display: flex;
 .home-action-icon.is-upgrade { background: #3287f5; }
 .home-action-icon.is-market { background: #10b98d; }
 .home-action-icon.is-tournament { background: #ff9e26; }
+.home-action-icon.is-anonymous-number { background: #1683f4; }
 
 .home-action-icon svg {
   width: 28px;
@@ -1789,6 +1790,16 @@ body.chats-screen {
   margin-left: 4px;
   object-fit: contain;
   vertical-align: -3px;
+}
+
+body:not(.admin-page) .profile-status-badge.is-premium {
+  cursor: pointer;
+}
+
+body:not(.admin-page) .profile-status-badge.is-premium:focus-visible {
+  outline: 2px solid currentColor;
+  outline-offset: 2px;
+  border-radius: 50%;
 }
 
 .channel-verified path:last-child {
@@ -3778,7 +3789,8 @@ body.chats-screen {
 }
 
 .profile-editor-birthday-row input,
-.profile-editor-setting-row input:not([type="checkbox"]):not([type="color"]) {
+.profile-editor-setting-row input:not([type="checkbox"]):not([type="color"]),
+.profile-editor-setting-row select {
   min-width: 0;
   margin-left: auto;
   padding: 0;
@@ -4512,9 +4524,10 @@ body.chats-screen {
   white-space: nowrap;
 }
 
-.profile-editor-setting-row input:not([type="checkbox"]):not([type="color"]) {
-  width: 120px;
-  flex: 0 1 42%;
+.profile-editor-setting-row input:not([type="checkbox"]):not([type="color"]),
+.profile-editor-setting-row select {
+ width: 120px;
+ flex: 0 1 42%;
 }
 
 .profile-editor-setting-row input::placeholder {
@@ -5375,7 +5388,6 @@ body.chats-screen {
 
 .profile-detail {
   box-sizing: border-box;
-  min-height: 76px;
   padding: 14px 16px;
 }
 

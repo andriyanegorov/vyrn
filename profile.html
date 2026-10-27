@@ -7,13 +7,13 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Manrope:wght@400;500;600;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="style.css?v=profile-referrals-v1">
+  <link rel="stylesheet" href="style.css?v=premium-badge-click-v1">
   <script src="https://telegram.org/js/telegram-web-app.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/lottie-web/5.12.2/lottie.min.js" defer></script>
   <script src="supabase-client-config.js?v=profile-referrals-v1" defer></script>
-  <script src="supabase-api.js?v=profile-referrals-v1" defer></script>
+  <script src="supabase-api.js?v=insufficient-stars-routing-v1" defer></script>
   <script src="nav-transition.js?v=nav-unselected-fade-v1" defer></script>
-  <script src="script.js?v=profile-referrals-v1" defer></script>
+  <script src="script.js?v=insufficient-stars-premium-v1" defer></script>
 </head>
 <body>
   <main class="profile-page">
@@ -29,11 +29,15 @@
       <section class="profile-details" aria-label="Информация профиля">
         <div class="profile-detail">
           <h2 class="profile-detail-label">Имя пользователя</h2>
-          <p class="profile-detail-value">@username</p>
+          <p class="profile-detail-value profile-username-value">@username</p>
+        </div>
+        <div class="profile-detail profile-anonymous-number" hidden>
+          <h2 class="profile-detail-label">Анонимный номер</h2>
+          <p class="profile-detail-value profile-anonymous-number-value"></p>
         </div>
         <div class="profile-detail">
           <h2 class="profile-detail-label">О себе</h2>
-          <p class="profile-detail-value">example description</p>
+          <p class="profile-detail-value profile-bio-value">example description</p>
         </div>
       </section>
       <section class="profile-collection-value" aria-label="Ценность коллекции" aria-live="polite">
@@ -85,8 +89,10 @@
         <section class="profile-editor-settings" aria-label="Настройки профиля">
           <label class="profile-editor-setting-row">
             <span class="profile-editor-icon is-phone" aria-hidden="true">☎</span>
-            <span class="profile-editor-row-title">Номер</span>
-            <input name="phone" type="tel" autocomplete="tel" placeholder="Добавить" aria-label="Номер">
+            <span class="profile-editor-row-title">Анонимный номер</span>
+            <select name="phone" aria-label="Анонимный номер">
+              <option value="">Не выбран</option>
+            </select>
             <span class="profile-editor-chevron" aria-hidden="true">›</span>
           </label>
           <label class="profile-editor-setting-row">

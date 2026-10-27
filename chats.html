@@ -7,13 +7,13 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Manrope:wght@400;500;600;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="style.css?v=promo-codes-v1">
+  <link rel="stylesheet" href="style.css?v=premium-badge-click-v1">
   <script src="https://telegram.org/js/telegram-web-app.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/lottie-web/5.12.2/lottie.min.js" defer></script>
   <script src="supabase-client-config.js?v=wallet-balance-read-20261018" defer></script>
-  <script src="supabase-api.js?v=daily-task-api-v1" defer></script>
+  <script src="supabase-api.js?v=insufficient-stars-routing-v1" defer></script>
   <script src="nav-transition.js?v=nav-unselected-fade-v1" defer></script>
-  <script src="script.js?v=promo-codes-v1" defer></script>
+  <script src="script.js?v=insufficient-stars-premium-v1" defer></script>
 </head>
 <body class="chats-screen">
   <header class="site-header">
@@ -27,7 +27,7 @@
     <div class="chats-search-panel">
       <label class="market-search chats-search">
         <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="10.8" cy="10.8" r="6.8"/><path d="m16 16 5 5"/></svg>
-        <input class="chats-search-input" type="search" placeholder="Поиск" aria-label="Поиск профиля или чата">
+        <input class="chats-search-input" type="search" placeholder="Ник, username или +888 номер" aria-label="Поиск профиля по нику, username или анонимному номеру">
         <button class="chats-search-clear" type="button" aria-label="Очистить поиск" hidden>×</button>
       </label>
       <div class="chats-profile-results" aria-live="polite" hidden>
@@ -58,7 +58,7 @@
   <dialog class="new-chat-dialog" aria-labelledby="new-chat-title">
     <form class="new-chat-form">
       <h2 id="new-chat-title">Новый чат</h2>
-      <label>Ник игрока<input name="nickname" autocomplete="off" maxlength="32" placeholder="Например, player123456" required></label>
+      <label>Ник или анонимный номер<input name="nickname" autocomplete="off" maxlength="32" placeholder="Например, player123456 или +888 1234 5678" required></label>
       <p class="new-chat-error" role="alert" hidden></p>
       <div class="new-chat-actions">
         <button class="new-chat-cancel" type="button">Отмена</button>
@@ -125,6 +125,10 @@
             <div class="profile-detail">
               <h2 class="profile-detail-label">Имя пользователя</h2>
               <p class="profile-detail-value player-profile-username"></p>
+            </div>
+            <div class="profile-detail player-profile-anonymous-number" hidden>
+              <h2 class="profile-detail-label">Анонимный номер</h2>
+              <p class="profile-detail-value player-profile-phone"></p>
             </div>
             <div class="profile-detail">
               <h2 class="profile-detail-label">Описание</h2>

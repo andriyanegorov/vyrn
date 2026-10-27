@@ -624,9 +624,84 @@ Deno.serve(async (request) => {
     if (typeof changes.nickname === 'string' && !/^[a-zA-Z0-9_]{1,32}$/.test(changes.nickname)) return json({ error: 'Invalid nickname' }, 400);
     if (typeof changes.bio === 'string' && changes.bio.length > 160) return json({ error: 'Bio is too long' }, 400);
     if (typeof changes.username === 'string') changes.username = changes.username.replace(/^@+/, '') || null;
+    if (Object.hasOwn(changes, 'phone')) {
+      const selectedPhone = changes.phone;
+      if (selectedPhone === null || selectedPhone === '') {
+        changes.phone = null;
+      } else if (typeof selectedPhone !== 'string' || !/^\+888\d{8}$/.test(selectedPhone)) {
+        return json({ error: 'Выберите принадлежащий вам анонимный номер формата +888 XXXXXXXX.' }, 400);
+      } else {
+        const ownedNumber = await supabase.from('anonymous_numbers')
+          .select('id').eq('profile_id', profile.id).eq('digits', selectedPhone.slice(4)).maybeSingle();
+        if (ownedNumber.error) {
+          const missingTable = ownedNumber.error.code === 'PGRST205' || ownedNumber.error.code === '42P01';
+          return json({
+            error: missingTable
+              ? 'Система анонимных номеров не установлена. Примените supabase/anonymous-numbers.sql.'
+              : ownedNumber.error.message,
+          }, missingTable ? 503 : 500);
+        }
+        if (!ownedNumber.data) return json({ error: 'Можно выбрать только принадлежащий вам анонимный номер.' }, 403);
+      }
+    }
     const result = await supabase.from('profiles').update(changes).eq('id', profile.id).select('*').single();
     if (result.error) return json({ error: result.error.code === '23505' ? 'Nickname or username is already in use' : result.error.message }, result.error.code === '23505' ? 409 : 500);
     return json({ profile: result.data });
+  }
+
+  if (action === 'anonymous_numbers') {
+    const [numbers, wallet] = await Promise.all([
+      supabase.from('anonymous_numbers').select('id,digits,upgrades,created_at,updated_at')
+        .eq('profile_id', profile.id).order('created_at', { ascending: false }),
+      supabase.from('wallets').select('balance').eq('profile_id', profile.id).eq('currency', 'stars').maybeSingle(),
+    ]);
+    if (numbers.error || wallet.error) {
+      const error = numbers.error || wallet.error;
+      const missingTable = error?.code === 'PGRST205' || error?.code === '42P01';
+      return json({
+        error: missingTable
+          ? 'Система анонимных номеров не установлена. Примените supabase/anonymous-numbers.sql.'
+          : error?.message || 'Не удалось загрузить анонимные номера.',
+      }, missingTable ? 503 : 500);
+    }
+    return json({ numbers: numbers.data, balance: wallet.data?.balance || 0 });
+  }
+
+  if (action === 'spin_anonymous_number') {
+    const result = await supabase.rpc('spin_anonymous_number', { p_profile_id: profile.id });
+    if (result.error) {
+      const missingFunction = result.error.code === 'PGRST202' || result.error.code === '42883';
+      return json({
+        error: missingFunction
+          ? 'Система анонимных номеров не установлена. Примените supabase/anonymous-numbers.sql.'
+          : result.error.message,
+      }, missingFunction ? 503 : 400);
+    }
+    return json({ number: result.data });
+  }
+
+  if (action === 'upgrade_anonymous_number') {
+    const numberId = typeof input.number_id === 'string' ? input.number_id : '';
+    const digitIndex = input.digit_index;
+    if (!/^[0-9a-f-]{36}$/i.test(numberId)
+      || typeof digitIndex !== 'number'
+      || !Number.isInteger(digitIndex) || digitIndex < 0 || digitIndex > 7) {
+      return json({ error: 'Укажите номер и цифру для улучшения.' }, 400);
+    }
+    const result = await supabase.rpc('upgrade_anonymous_number', {
+      p_profile_id: profile.id,
+      p_number_id: numberId,
+      p_digit_index: digitIndex,
+    });
+    if (result.error) {
+      const missingFunction = result.error.code === 'PGRST202' || result.error.code === '42883';
+      return json({
+        error: missingFunction
+          ? 'Система анонимных номеров не установлена. Примените supabase/anonymous-numbers.sql.'
+          : result.error.message,
+      }, missingFunction ? 503 : 400);
+    }
+    return json({ number: result.data });
   }
 
   if (action === 'refresh_nft_price') {
@@ -1047,7 +1122,7 @@ Deno.serve(async (request) => {
     const profileId = typeof input.profile_id === 'string' ? input.profile_id : '';
     if (!profileId) return json({ error: 'Profile ID is required' }, 400);
     const profileResult = await supabase.from('profiles')
-      .select('id,nickname,username,first_name,last_name,avatar_url,bio,status,premium_until,banner_color,banner_gradient')
+      .select('id,nickname,username,first_name,last_name,avatar_url,bio,phone,status,premium_until,banner_color,banner_gradient')
       .eq('id', profileId).maybeSingle();
     if (profileResult.error) return json({ error: profileResult.error.message }, 500);
     if (!profileResult.data) return json({ error: 'Player not found' }, 404);
@@ -1064,10 +1139,15 @@ Deno.serve(async (request) => {
   if (action === 'create_chat') {
     const nickname = typeof input.nickname === 'string' ? input.nickname.trim().replace(/^@+/, '') : '';
     if (!nickname || nickname.length > 32) return json({ error: 'Enter a valid player nickname' }, 400);
-    let target = await supabase.from('profiles').select('id,nickname,username,first_name,last_name,avatar_url,status,premium_until,banner_color,banner_gradient').eq('nickname', nickname).maybeSingle();
-    if (!target.data) target = await supabase.from('profiles').select('id,nickname,username,first_name,last_name,avatar_url,status,premium_until,banner_color,banner_gradient').eq('username', nickname).maybeSingle();
-    if (!target.data) target = await supabase.from('profiles').select('id,nickname,username,first_name,last_name,avatar_url,status,premium_until,banner_color,banner_gradient').ilike('first_name', `%${nickname}%`).limit(1).maybeSingle();
-    if (!target.data) target = await supabase.from('profiles').select('id,nickname,username,first_name,last_name,avatar_url,status,premium_until,banner_color,banner_gradient').ilike('last_name', `%${nickname}%`).limit(1).maybeSingle();
+    const profileFields = 'id,nickname,username,first_name,last_name,avatar_url,phone,status,premium_until,banner_color,banner_gradient';
+    const numberDigits = nickname.replace(/[^\d]/g, '');
+    const isAnonymousNumber = /^\+?888\d{8}$/.test(nickname.replace(/[\s()-]/g, ''));
+    let target = isAnonymousNumber
+      ? await supabase.from('profiles').select(profileFields).eq('phone', `+888${numberDigits.slice(-8)}`).maybeSingle()
+      : await supabase.from('profiles').select(profileFields).eq('nickname', nickname).maybeSingle();
+    if (!target.data && !isAnonymousNumber) target = await supabase.from('profiles').select(profileFields).eq('username', nickname).maybeSingle();
+    if (!target.data && !isAnonymousNumber) target = await supabase.from('profiles').select(profileFields).ilike('first_name', `%${nickname}%`).limit(1).maybeSingle();
+    if (!target.data && !isAnonymousNumber) target = await supabase.from('profiles').select(profileFields).ilike('last_name', `%${nickname}%`).limit(1).maybeSingle();
     if (target.error) return json({ error: target.error.message }, 500);
     if (!target.data) return json({ error: 'Player not found' }, 404);
     if (target.data.id === profile.id) return json({ error: 'You cannot start a chat with yourself' }, 400);
@@ -1156,7 +1236,7 @@ Deno.serve(async (request) => {
       if (member.chats.chat_type !== 'direct') return member;
       const [peerResult, latestMessage, unreadMessages] = await Promise.all([
         supabase.from('chat_members')
-          .select('profiles!inner(id,nickname,username,first_name,last_name,avatar_url,bio,status,premium_until,banner_color,banner_gradient)')
+          .select('profiles!inner(id,nickname,username,first_name,last_name,avatar_url,bio,phone,status,premium_until,banner_color,banner_gradient)')
           .eq('chat_id', member.chat_id).neq('profile_id', profile.id).maybeSingle(),
         supabase.from('messages').select('body,created_at,sender_profile_id')
           .eq('chat_id', member.chat_id).is('deleted_at', null).order('created_at', { ascending: false }).limit(1).maybeSingle(),
@@ -1185,7 +1265,7 @@ Deno.serve(async (request) => {
     const markedRead = await supabase.from('chat_members').update({ last_read_at: readAt })
       .eq('chat_id', input.chat_id).eq('profile_id', profile.id);
     if (markedRead.error) return json({ error: markedRead.error.message }, 500);
-    const result = await supabase.from('messages').select('id,sender_profile_id,body,kind,created_at,gift_offer_id,profiles!messages_sender_profile_id_fkey(id,nickname,username,first_name,last_name,avatar_url,bio,status,premium_until,banner_color,banner_gradient),gift_offer:nft_gift_offers!messages_gift_offer_id_fkey(id,nft_item_id,sender_profile_id,recipient_profile_id,price_stars,status,nft_items(external_id,attributes,nft_models(name,slug,preview_url,animation_url,nft_collections(name,slug))))')
+    const result = await supabase.from('messages').select('id,sender_profile_id,body,kind,created_at,gift_offer_id,profiles!messages_sender_profile_id_fkey(id,nickname,username,first_name,last_name,avatar_url,bio,phone,status,premium_until,banner_color,banner_gradient),gift_offer:nft_gift_offers!messages_gift_offer_id_fkey(id,nft_item_id,sender_profile_id,recipient_profile_id,price_stars,status,nft_items(external_id,attributes,nft_models(name,slug,preview_url,animation_url,nft_collections(name,slug))))')
       .eq('chat_id', input.chat_id).is('deleted_at', null).order('created_at', { ascending: true }).limit(200);
     if (result.error) return json({ error: result.error.message }, 500);
     return json({ messages: await attachGiftResponses(result.data) });

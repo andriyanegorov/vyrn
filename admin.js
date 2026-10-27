@@ -787,6 +787,44 @@ xmasstocking|Xmas Stockings
           updateGiftPreview();
         });
         selectedPlayerHost.append(summary, clear);
+        if (Number(player.telegram_id) > 0) {
+          const deletePlayer = document.createElement('button');
+          deletePlayer.className = 'admin-delete-player-button';
+          deletePlayer.type = 'button';
+          deletePlayer.textContent = 'Удалить игрока';
+          deletePlayer.addEventListener('click', async () => {
+            if (!passwordInput.value) {
+              showStatus(playerStatus, 'Сначала введи пароль администратора.', true);
+              passwordInput.focus();
+              return;
+            }
+            const confirmed = window.confirm(
+              `Игрок ${player.nickname} будет удалён из проекта вместе с его NFT, балансом, платежными записями и сообщениями. Это действие нельзя отменить.`
+            );
+            if (!confirmed) return;
+            const confirmation = window.prompt(`Для подтверждения введи: УДАЛИТЬ ${player.nickname}`);
+            if (confirmation === null) return;
+            deletePlayer.disabled = true;
+            showStatus(playerStatus, 'Удаляем профиль игрока…');
+            try {
+              await rpc('admin_delete_player', {
+                p_password: passwordInput.value,
+                p_profile_id: player.profile_id,
+                p_confirmation: confirmation
+              });
+              selectedPlayer = null;
+              randomPlayerButton.disabled = true;
+              selectedPlayerHost.hidden = true;
+              button.remove();
+              showStatus(playerStatus, `Профиль ${player.nickname} и связанные данные удалены.`);
+              updateGiftPreview();
+            } catch (error) {
+              showStatus(playerStatus, error.message, true);
+              deletePlayer.disabled = false;
+            }
+          });
+          selectedPlayerHost.append(deletePlayer);
+        }
         selectedPlayerHost.hidden = false;
         playerResults.querySelectorAll('.admin-player-result').forEach((item) => item.setAttribute('aria-pressed', String(item === button)));
         updateGiftPreview();
