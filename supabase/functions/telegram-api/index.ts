@@ -31,6 +31,10 @@ const telegramApiRequest = async (botToken: string, method: string, payload: Rec
 const hex = (buffer: ArrayBuffer) => [...new Uint8Array(buffer)]
   .map((byte) => byte.toString(16).padStart(2, '0')).join('');
 
+const isUuid = (value: unknown): value is string =>
+  typeof value === 'string'
+  && /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value);
+
 const hmac = async (keyBytes: Uint8Array, message: string) => {
   const key = await crypto.subtle.importKey('raw', keyBytes, { name: 'HMAC', hash: 'SHA-256' }, false, ['sign']);
   return new Uint8Array(await crypto.subtle.sign('HMAC', key, new TextEncoder().encode(message)));
@@ -126,6 +130,128 @@ const readFragmentGiftNumbers = (html: string, collectionSlug: string) => {
     if (/^\d{1,12}$/.test(match[1]) && Number(match[1]) > 0) numbers.add(match[1]);
   }
   return [...numbers];
+};
+
+type StarterListingFilter = 'sale' | 'auction';
+type StarterListingCandidate = { slug: string; number: string };
+type StarterListingCursor = {
+  apiUrl: URL;
+  nextOffset: number | null;
+  cookie: string;
+  pageUrl: string;
+};
+type StarterListingState = {
+  filter: StarterListingFilter;
+  gifts: StarterListingCandidate[];
+  cursor: StarterListingCursor | null;
+  pagesLoaded: number;
+};
+
+const getFragmentAttribute = (attributes: string, name: string) =>
+  attributes.match(new RegExp(`\\b${name}\\s*=\\s*["']([^"']*)["']`, 'i'))?.[1]
+    ?.replace(/&amp;/gi, '&') || '';
+
+const parseStarterListings = (html: string, filter: StarterListingFilter): StarterListingCandidate[] => {
+  const gifts: StarterListingCandidate[] = [];
+  const cards = html.matchAll(/<a\b([^>]*\bclass=["'][^"']*\btm-grid-item\b[^"']*["'][^>]*)>([\s\S]*?)<\/a>/gi);
+  for (const [, attributes, contents] of cards) {
+    const href = getFragmentAttribute(attributes, 'href').replace(/\\\//g, '/');
+    let path: string;
+    try {
+      path = new URL(href, 'https://fragment.com').pathname;
+    } catch {
+      continue;
+    }
+    const match = path.match(/^\/gift\/([a-z0-9]+)-(\d{1,12})$/);
+    if (!match || Number(match[2]) <= 0) continue;
+    const statusHtml = contents.match(/<div\b[^>]*\bclass=["'][^"']*\btm-grid-item-status\b[^"']*["'][^>]*>([\s\S]*?)<\/div>/i)?.[1] || '';
+    const statusWide = statusHtml.match(/<span\b[^>]*\bclass=["'][^"']*\bwide-only\b[^"']*["'][^>]*>([\s\S]*?)<\/span>/i)?.[1] || statusHtml;
+    const status = statusWide.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim().toLowerCase();
+    if ((filter === 'sale' && status !== 'for sale') || (filter === 'auction' && status !== 'on auction')) continue;
+    gifts.push({ slug: match[1], number: match[2] });
+  }
+  return gifts;
+};
+
+const extractFragmentNextOffset = (html: string) => {
+  const nextOffset = html.match(/data-next-offset=["'](\d+)["']/i)?.[1];
+  return nextOffset ? Number(nextOffset) : null;
+};
+
+const fetchStarterListingPage = async (
+  filter: StarterListingFilter,
+  cursor?: StarterListingCursor,
+): Promise<{ gifts: StarterListingCandidate[]; cursor: StarterListingCursor }> => {
+  const pageUrl = cursor?.pageUrl || `https://fragment.com/gifts?filter=${filter}&sort=price_asc`;
+  const headers = { 'User-Agent': 'Mozilla/5.0 VYRN starter gift reader' };
+  if (!cursor) {
+    const response = await fetch(pageUrl, { headers, signal: AbortSignal.timeout(15_000) });
+    if (!response.ok) throw new Error(`Fragment returned HTTP ${response.status}.`);
+    const html = await response.text();
+    if (html.length > 8_000_000) throw new Error('Fragment listing response is too large.');
+    const apiConfig = html.match(/ajInit\((\{[\s\S]*?\})\);/i)?.[1];
+    if (!apiConfig) throw new Error('Fragment did not return the listings API address.');
+    let apiUrl: URL;
+    try {
+      const config = JSON.parse(apiConfig);
+      apiUrl = new URL(String(config.apiUrl).replace(/\\\//g, '/'), 'https://fragment.com');
+    } catch {
+      throw new Error('Fragment returned an invalid listings API address.');
+    }
+    if (apiUrl.origin !== 'https://fragment.com' || apiUrl.pathname !== '/api') {
+      throw new Error('Fragment returned an unsafe listings API address.');
+    }
+    return {
+      gifts: parseStarterListings(html, filter),
+      cursor: {
+        apiUrl,
+        nextOffset: extractFragmentNextOffset(html),
+        cookie: response.headers.get('set-cookie')?.split(';')[0] || '',
+        pageUrl,
+      },
+    };
+  }
+
+  if (cursor.nextOffset === null) return { gifts: [], cursor };
+  const body = new URLSearchParams({
+    type: 'gifts',
+    collection: '',
+    sort: 'price_asc',
+    filter,
+    view: '',
+    query: '',
+    offset_id: String(cursor.nextOffset),
+    method: 'searchAuctions',
+  });
+  const response = await fetch(cursor.apiUrl, {
+    method: 'POST',
+    headers: {
+      ...headers,
+      'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8',
+      'X-Requested-With': 'XMLHttpRequest',
+      Origin: 'https://fragment.com',
+      Referer: cursor.pageUrl,
+      ...(cursor.cookie ? { Cookie: cursor.cookie } : {}),
+    },
+    body,
+    signal: AbortSignal.timeout(15_000),
+  });
+  if (!response.ok) throw new Error(`Fragment returned HTTP ${response.status} while loading listings.`);
+  const result = await response.json().catch(() => null);
+  if (result?.ok !== true || typeof result.body !== 'string' || typeof result.foot !== 'string') {
+    throw new Error('Fragment returned an invalid listings page.');
+  }
+  if (result.body.length > 8_000_000 || result.foot.length > 100_000) {
+    throw new Error('Fragment listings response is too large.');
+  }
+  const nextOffset = extractFragmentNextOffset(result.foot);
+  return {
+    gifts: parseStarterListings(result.body, filter),
+    cursor: {
+      ...cursor,
+      nextOffset: nextOffset !== null && nextOffset > cursor.nextOffset ? nextOffset : null,
+    },
+  };
 };
 
 Deno.serve(async (request) => {
@@ -757,6 +883,7 @@ Deno.serve(async (request) => {
         : fragmentData.stars,
       fragment_traits: fragmentData.traits,
       fragment_traits_updated_at: new Date().toISOString(),
+      fragment_price_version: 2,
     };
     const savedItem = await supabase.from('nft_items').update({ attributes })
       .eq('id', itemId).eq('owner_profile_id', profile.id)
@@ -802,6 +929,324 @@ Deno.serve(async (request) => {
       .select('id,external_id,attributes,acquired_at,nft_models(id,slug,name,preview_url,animation_url,nft_collections(name,slug)),market_listings(id,price,currency,status)')
       .eq('owner_profile_id', profile.id).order('acquired_at', { ascending: false });
     return result.error ? json({ error: result.error.message }, 500) : json({ items: result.data });
+  }
+
+  if (action === 'starter_gift_status') {
+    if (isBrowserDemo) {
+      if (!isUuid(input.launch_id)) return json({ error: 'Invalid demo launch ID' }, 400);
+      const claim = await supabase.from('starter_gift_demo_claims')
+        .select('profile_id').eq('profile_id', profile.id).eq('launch_id', input.launch_id).maybeSingle();
+      if (claim.error) {
+        const missingTable = claim.error.code === 'PGRST205' || claim.error.code === '42P01';
+        return json({
+          error: missingTable
+            ? 'Стартовый подарок не установлен. Примените supabase/starter-gift.sql.'
+            : claim.error.message,
+        }, missingTable ? 503 : 500);
+      }
+      return json({ available: !claim.data });
+    }
+    const claim = await supabase.from('starter_gift_claims')
+      .select('profile_id').eq('profile_id', profile.id).maybeSingle();
+    // Если миграция ещё не применена, окно просто не показываем.
+    if (claim.error) return json({ available: false });
+    return json({ available: !claim.data });
+  }
+
+  if (action === 'claim_starter_gift') {
+    const launchId = isBrowserDemo ? input.launch_id : null;
+    if (isBrowserDemo && !isUuid(launchId)) {
+      return json({ error: 'Invalid demo launch ID' }, 400);
+    }
+    if (!isBrowserDemo && (typeof input.initData !== 'string' || !botToken)) {
+      return json({ error: 'Стартовый подарок доступен только внутри Telegram.' }, 401);
+    }
+    if (!isBrowserDemo) {
+      // Подарок бесплатный, поэтому подпись initData проверяем всегда.
+      const verified = await verifyTelegramInitData(input.initData as string, botToken!);
+      if (!verified.user || String(verified.user.id) !== telegramId) {
+        return json({ error: 'Не удалось подтвердить аккаунт Telegram. Переоткройте приложение.' }, 401);
+      }
+    }
+
+    const existingClaim = isBrowserDemo
+      ? await supabase.from('starter_gift_demo_claims')
+        .select('profile_id').eq('profile_id', profile.id).eq('launch_id', launchId).maybeSingle()
+      : await supabase.from('starter_gift_claims')
+        .select('profile_id').eq('profile_id', profile.id).maybeSingle();
+    if (existingClaim.error) {
+      const missingTable = existingClaim.error.code === 'PGRST205' || existingClaim.error.code === '42P01';
+      return json({
+        error: missingTable
+          ? 'Стартовый подарок не установлен. Примените supabase/starter-gift.sql.'
+          : existingClaim.error.message,
+      }, missingTable ? 503 : 500);
+    }
+    if (existingClaim.data) return json({ already_claimed: true });
+
+    // Настройка может снизить лимит, но стартовый подарок никогда не дороже 30 Stars.
+    const configuredMaxStars = Number(Deno.env.get('VYRN_STARTER_MAX_STARS'));
+    const maxStars = Number.isFinite(configuredMaxStars) && configuredMaxStars > 0
+      ? Math.min(configuredMaxStars, 30)
+      : 30;
+    const configuredSlugs = (Deno.env.get('VYRN_STARTER_COLLECTIONS') || '')
+      .split(',').map((slug) => slug.trim().toLowerCase()).filter((slug) => /^[a-z0-9]+$/.test(slug));
+    const collectionRows = await supabase.from('nft_collections').select('slug,name').limit(200);
+    if (collectionRows.error) return json({ error: collectionRows.error.message }, 500);
+    const collectionNames = new Map<string, string>(
+      collectionRows.data.map((row: { slug: string; name: string }) => [row.slug, row.name]),
+    );
+    let sortedChosen: { slug: string; number: string; data: Record<string, unknown> } | null = null;
+    const sortedDecoys: { collection_slug: string; gift_number: string }[] = [];
+    let sortedChecked = 0;
+    const listingFailures: string[] = [];
+    const listingStates: StarterListingState[] = await Promise.all(
+      (['sale', 'auction'] as const).map(async (filter) => {
+        try {
+          const page = await fetchStarterListingPage(filter);
+          return { filter, gifts: page.gifts, cursor: page.cursor, pagesLoaded: 1 };
+        } catch (error) {
+          listingFailures.push(`${filter}: ${error instanceof Error ? error.message : 'listing request failed'}`);
+          return { filter, gifts: [], cursor: null, pagesLoaded: 0 };
+        }
+      }),
+    );
+    const seenCandidates = new Set<string>();
+    for (let pageIndex = 0; pageIndex < 5 && !sortedChosen; pageIndex += 1) {
+      const pageCandidates: StarterListingCandidate[] = [];
+      const pageLength = Math.max(...listingStates.map((state) => state.gifts.length), 0);
+      for (let index = 0; index < pageLength; index += 1) {
+        for (const state of listingStates) {
+          const candidate = state.gifts[index];
+          if (!candidate || (configuredSlugs.length && !configuredSlugs.includes(candidate.slug))) continue;
+          const key = `${candidate.slug}-${candidate.number}`;
+          if (seenCandidates.has(key)) continue;
+          seenCandidates.add(key);
+          pageCandidates.push(candidate);
+        }
+      }
+
+      for (let start = 0; start < pageCandidates.length && !sortedChosen; start += 40) {
+        const batch = pageCandidates.slice(start, start + 40);
+        try {
+          const response = await fetch(`${supabaseUrl.replace(/\/$/, '')}/functions/v1/fragment-price`, {
+            method: 'POST',
+            headers: {
+              apikey: serviceRoleKey,
+              Authorization: `Bearer ${serviceRoleKey}`,
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              gifts: batch.map(({ slug, number }) => ({
+                collection_slug: slug,
+                gift_number: number,
+              })),
+            }),
+            signal: AbortSignal.timeout(90_000),
+          });
+          const result = await response.json().catch(() => null);
+          if (!response.ok || !Array.isArray(result?.items)) {
+            listingFailures.push(result?.error || 'Fragment price lookup failed.');
+            break;
+          }
+          sortedChecked += batch.length;
+          const priceByGift = new Map<string, Record<string, unknown>>(
+            result.items.map((item: Record<string, unknown>): [string, Record<string, unknown>] => [
+              `${item.collection_slug}-${item.gift_number}`,
+              item,
+            ]),
+          );
+          for (const candidate of batch) {
+            const price = priceByGift.get(`${candidate.slug}-${candidate.number}`);
+            if (!price
+              || typeof price.grams !== 'number' || !Number.isFinite(price.grams) || price.grams <= 0
+              || typeof price.stars !== 'number' || !Number.isFinite(price.stars) || price.stars <= 0
+              || !price.traits || typeof price.traits !== 'object' || Array.isArray(price.traits)) continue;
+            if (price.stars <= maxStars) {
+              sortedChosen = { ...candidate, data: price };
+              break;
+            }
+          }
+          if (sortedChosen) {
+            sortedDecoys.push(...pageCandidates
+              .filter((candidate) => candidate.slug !== sortedChosen!.slug || candidate.number !== sortedChosen!.number)
+              .slice(0, 16)
+              .map((candidate) => ({ collection_slug: candidate.slug, gift_number: candidate.number })));
+          }
+        } catch (error) {
+          listingFailures.push(error instanceof Error ? error.message : 'Fragment price lookup failed.');
+          break;
+        }
+      }
+
+      if (sortedChosen || pageIndex === 4) break;
+      await Promise.all(listingStates.map(async (state) => {
+        const cursor = state.cursor;
+        if (!cursor?.nextOffset || state.pagesLoaded >= 5) {
+          state.gifts = [];
+          return;
+        }
+        try {
+          const page = await fetchStarterListingPage(state.filter, cursor);
+          state.gifts = page.gifts;
+          state.cursor = page.cursor;
+          state.pagesLoaded += 1;
+        } catch (error) {
+          listingFailures.push(`${state.filter}: ${error instanceof Error ? error.message : 'listing page failed'}`);
+          state.gifts = [];
+          state.cursor = null;
+        }
+      }));
+    }
+    const candidateSlugs = listingFailures.length && sortedChecked === 0
+      ? (configuredSlugs.length ? configuredSlugs : [...collectionNames.keys()])
+        .filter((slug) => /^[a-z0-9]+$/.test(slug))
+      : [];
+    for (let index = candidateSlugs.length - 1; index > 0; index -= 1) {
+      const swapIndex = Math.floor(Math.random() * (index + 1));
+      [candidateSlugs[index], candidateSlugs[swapIndex]] = [candidateSlugs[swapIndex], candidateSlugs[index]];
+    }
+
+    let chosen = sortedChosen;
+    const decoys = sortedDecoys;
+    let batchChecked = sortedChecked > 0;
+    const sampledCandidates = (await Promise.all(candidateSlugs.slice(0, 6).map(async (slug) => {
+      try {
+        const page = await fetch(`https://fragment.com/gifts/${slug}`, {
+          headers: { 'User-Agent': 'Mozilla/5.0 VYRN Fragment catalog reader' },
+          signal: AbortSignal.timeout(12_000),
+        });
+        if (!page.ok || Number(page.headers.get('content-length') || 0) > 8_000_000) return [];
+        const html = await page.text();
+        if (html.length > 8_000_000) return [];
+        const numbers = readFragmentGiftNumbers(html, slug);
+        for (let index = numbers.length - 1; index > 0; index -= 1) {
+          const swapIndex = Math.floor(Math.random() * (index + 1));
+          [numbers[index], numbers[swapIndex]] = [numbers[swapIndex], numbers[index]];
+        }
+        return numbers.slice(0, 6).map((number) => ({ slug, number }));
+      } catch {
+        return [];
+      }
+    }))).flat();
+    if (!chosen && sampledCandidates.length) {
+      const priceResponse = await fetch(`${supabaseUrl.replace(/\/$/, '')}/functions/v1/fragment-price`, {
+        method: 'POST',
+        headers: {
+          apikey: serviceRoleKey,
+          Authorization: `Bearer ${serviceRoleKey}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          gifts: sampledCandidates.map(({ slug, number }) => ({
+            collection_slug: slug,
+            gift_number: number,
+          })),
+        }),
+        signal: AbortSignal.timeout(90_000),
+      });
+      const priceResult = await priceResponse.json().catch(() => null);
+      if (!priceResponse.ok || !Array.isArray(priceResult?.items)) {
+        return json({
+          error: priceResult?.error || 'Не удалось получить цены подарков с Fragment.',
+        }, 503);
+      }
+      batchChecked = true;
+      const priceByGift = new Map<string, Record<string, unknown>>(
+        priceResult.items.map((item: Record<string, unknown>): [string, Record<string, unknown>] => [
+          `${item.collection_slug}-${item.gift_number}`,
+          item,
+        ]),
+      );
+      for (const candidate of sampledCandidates) {
+        const price = priceByGift.get(`${candidate.slug}-${candidate.number}`);
+        if (!price
+          || typeof price.grams !== 'number' || !Number.isFinite(price.grams) || price.grams <= 0
+          || typeof price.stars !== 'number' || !Number.isFinite(price.stars) || price.stars <= 0
+          || !price.traits || typeof price.traits !== 'object' || Array.isArray(price.traits)) continue;
+        if (price.stars <= maxStars) {
+          chosen = { ...candidate, data: price };
+          break;
+        }
+      }
+      if (chosen) {
+        decoys.push(...sampledCandidates
+          .filter((candidate) => candidate.slug !== chosen!.slug || candidate.number !== chosen!.number)
+          .slice(0, 16)
+          .map((candidate) => ({ collection_slug: candidate.slug, gift_number: candidate.number })));
+      }
+    }
+    for (const slug of candidateSlugs.slice(0, 6)) {
+      if (chosen || batchChecked) break;
+      try {
+        const page = await fetch(`https://fragment.com/gifts/${slug}`, {
+          headers: { 'User-Agent': 'Mozilla/5.0 VYRN Fragment catalog reader' },
+          signal: AbortSignal.timeout(12_000),
+        });
+        if (!page.ok || Number(page.headers.get('content-length') || 0) > 8_000_000) continue;
+        const html = await page.text();
+        if (html.length > 8_000_000) continue;
+        const numbers = readFragmentGiftNumbers(html, slug);
+        for (let index = numbers.length - 1; index > 0; index -= 1) {
+          const swapIndex = Math.floor(Math.random() * (index + 1));
+          [numbers[index], numbers[swapIndex]] = [numbers[swapIndex], numbers[index]];
+        }
+        if (!numbers.length) continue;
+
+        const priceResponse = await fetch(`${supabaseUrl.replace(/\/$/, '')}/functions/v1/fragment-price`, {
+          method: 'POST',
+          headers: {
+            apikey: serviceRoleKey,
+            Authorization: `Bearer ${serviceRoleKey}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ collection_slug: slug, gift_number: numbers[0] }),
+          signal: AbortSignal.timeout(15_000),
+        });
+        const fragmentData = await priceResponse.json().catch(() => null);
+        const priceOk = priceResponse.ok && fragmentData
+          && typeof fragmentData.grams === 'number' && fragmentData.grams > 0
+          && typeof fragmentData.stars === 'number' && fragmentData.stars > 0
+          && fragmentData.traits && typeof fragmentData.traits === 'object'
+          && !Array.isArray(fragmentData.traits);
+        if (priceOk && fragmentData.stars <= maxStars) {
+          chosen = { slug, number: numbers[0], data: fragmentData };
+          // Остальные подарки этой коллекции пойдут в рулетку как «пустышки».
+          for (const number of numbers.slice(1, 7)) decoys.push({ collection_slug: slug, gift_number: number });
+        } else {
+          for (const number of numbers.slice(0, 3)) decoys.push({ collection_slug: slug, gift_number: number });
+        }
+      } catch {
+        continue;
+      }
+    }
+    if (!chosen) {
+      return json({
+        error: listingFailures.length && sortedChecked === 0 && !batchChecked
+          ? `Не удалось загрузить объявления Fragment: ${listingFailures.join('; ')}`
+          : `Не удалось найти подарок стоимостью до ${maxStars} Stars среди ${Math.max(sortedChecked, batchChecked ? sampledCandidates.length : 0)} объявлений, проверенных по цене. Попробуйте ещё раз позже.`,
+      }, 503);
+    }
+
+    const claimed = await supabase.rpc('claim_starter_gift', {
+      p_profile_id: profile.id,
+      p_collection_slug: chosen.slug,
+      p_collection_name: collectionNames.get(chosen.slug) || chosen.slug,
+      p_gift_number: chosen.number,
+      p_fragment_data: chosen.data,
+      p_launch_id: launchId,
+    });
+    if (claimed.error) {
+      if (claimed.error.code === 'PGRST202' || claimed.error.code === '42883') {
+        return json({
+          error: 'Стартовый подарок не установлен. Примените supabase/starter-gift.sql.',
+          code: claimed.error.code,
+        }, 503);
+      }
+      return json({ error: claimed.error.message, code: claimed.error.code }, 409);
+    }
+    if (claimed.data?.already_claimed) return json({ already_claimed: true });
+    return json({ ...claimed.data, roulette_visuals: decoys.slice(0, 16) });
   }
 
   if (action === 'upgrade_roulette_pool') {

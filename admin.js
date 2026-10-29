@@ -125,7 +125,6 @@ xmasstocking|Xmas Stockings
     const [slug, name] = line.split('|');
     return { slug, name };
   });
-
   const passwordInput = document.querySelector('.admin-password');
   const playerQuery = document.querySelector('.admin-player-query');
   const playerSearchForm = document.querySelector('.admin-player-search-form');
@@ -162,6 +161,9 @@ xmasstocking|Xmas Stockings
   const deleteAllConfirmation = document.querySelector('.admin-delete-all-confirmation');
   const deleteAllButton = document.querySelector('.admin-delete-all-nfts-button');
   const deleteAllStatus = document.querySelector('.admin-delete-all-status');
+  const wipeConfirmation = document.querySelector('.admin-wipe-confirmation');
+  const wipeProjectButton = document.querySelector('.admin-wipe-project-button');
+  const wipeProjectStatus = document.querySelector('.admin-wipe-project-status');
   const randomMinPriceInput = document.querySelector('.admin-random-min-price');
   const randomMaxPriceInput = document.querySelector('.admin-random-max-price');
   const randomQuantityInput = document.querySelector('.admin-random-quantity');
@@ -1029,6 +1031,44 @@ xmasstocking|Xmas Stockings
       deleteAllButton.disabled = false;
     }
   });
+  wipeProjectButton.addEventListener('click', async () => {
+    const confirmation = 'СБРОСИТЬ ДАННЫЕ ИГРОКОВ';
+    if (!passwordInput.value) {
+      showStatus(wipeProjectStatus, 'Сначала введи пароль администратора.', true);
+      passwordInput.focus();
+      return;
+    }
+    if (wipeConfirmation.value.trim() !== confirmation) {
+      showStatus(wipeProjectStatus, `Для продолжения точно введи «${confirmation}».`, true);
+      wipeConfirmation.focus();
+      return;
+    }
+    if (!window.confirm('Это навсегда удалит данные всех игроков, включая demo. Каталог NFT, задания и настройки сохранятся. Продолжить?')) return;
+
+    wipeProjectButton.disabled = true;
+    showStatus(wipeProjectStatus, 'Удаляем данные игроков…');
+    try {
+      const deletedCounts = await rpc('admin_wipe_project', {
+        p_password: passwordInput.value,
+        p_confirmation: confirmation
+      });
+      wipeConfirmation.value = '';
+      const deletedProfiles = Number(deletedCounts?.profiles || 0).toLocaleString('ru-RU');
+      const deletedNfts = Number(deletedCounts?.nft_items || 0).toLocaleString('ru-RU');
+      showStatus(wipeProjectStatus, `Сброс завершён. Удалено аккаунтов: ${deletedProfiles}, NFT: ${deletedNfts}. Общие игровые настройки и доступ администратора сохранены.`);
+      selectedPlayer = null;
+      selectedPlayerHost.hidden = true;
+      playerResults.replaceChildren();
+      randomPlayerButton.disabled = true;
+      inventoryList.replaceChildren();
+      updateGiftPreview();
+      updateCustomNftGrantButton();
+    } catch (error) {
+      showStatus(wipeProjectStatus, error.message, true);
+    } finally {
+      wipeProjectButton.disabled = false;
+    }
+  });
   const runRandomGiftAction = async (mode) => {
     if (!passwordInput.value) {
       showStatus(randomStatus, 'Сначала введи пароль администратора.', true);
@@ -1122,6 +1162,7 @@ xmasstocking|Xmas Stockings
     showStatus(catalogStatus, '');
     showStatus(randomStatus, '');
     showStatus(deleteAllStatus, '');
+    showStatus(wipeProjectStatus, '');
     showStatus(taskStatus, '');
     updateCustomNftGrantButton();
   });

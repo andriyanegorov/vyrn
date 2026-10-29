@@ -8,9 +8,9 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Inter:wght@400;500;600;700&family=Manrope:wght@400;500;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="style.css?v=premium-badge-click-v1">
-  <link rel="stylesheet" href="admin.css?v=admin-custom-tgs-preview-v2">
+  <link rel="stylesheet" href="admin.css?v=admin-project-wipe-v1">
   <script src="supabase-client-config.js?v=admin-panel-number-media-20261018" defer></script>
-  <script src="admin.js?v=admin-custom-tgs-preview-v2" defer></script>
+  <script src="admin.js?v=admin-project-wipe-v1" defer></script>
 </head>
 <body class="admin-page">
   <header class="admin-header">
@@ -308,7 +308,7 @@
     <section class="admin-section admin-danger-section" aria-labelledby="delete-all-nfts-heading">
       <div class="admin-section-heading">
         <span class="admin-step">!</span>
-        <div><h2 id="delete-all-nfts-heading">Опасная зона</h2><p>Безвозвратное удаление NFT со всего проекта</p></div>
+        <div><h2 id="delete-all-nfts-heading">Опасная зона</h2><p>Безвозвратное удаление NFT или всех данных проекта</p></div>
       </div>
       <p class="admin-danger-warning">Будут удалены все NFT, объявления рынка, сделки, передачи и связанные предложения подарков. Профили, балансы игроков и каталог коллекций сохранятся.</p>
       <label class="admin-field admin-delete-all-confirmation-field">
@@ -317,6 +317,16 @@
       </label>
       <button class="admin-button admin-delete-all-nfts-button" type="button">Удалить все NFT проекта</button>
       <p class="admin-status admin-delete-all-status" role="status" hidden></p>
+      <div class="admin-wipe-project">
+        <h3>Сброс данных игроков</h3>
+        <p class="admin-danger-warning">Будут удалены аккаунты (включая demo), балансы, NFT игроков, история, чаты, рефералы, заявки и использованные промокоды. Каталог NFT, задания и их настройки, неиспользованные промокоды и доступ администратора сохранятся. Операцию нельзя отменить.</p>
+        <label class="admin-field admin-wipe-confirmation-field">
+          <span>Для подтверждения введите: СБРОСИТЬ ДАННЫЕ ИГРОКОВ</span>
+          <input class="admin-wipe-confirmation" type="text" autocomplete="off" spellcheck="false" placeholder="СБРОСИТЬ ДАННЫЕ ИГРОКОВ">
+        </label>
+        <button class="admin-button admin-wipe-project-button" type="button">Сбросить данные игроков</button>
+        <p class="admin-status admin-wipe-project-status" role="status" hidden></p>
+      </div>
     </section>
     <p class="admin-footnote">Выдачи записываются в историю NFT-передач. Сайт хранит только публичные метаданные подарка и номер экземпляра.</p>
   </main>

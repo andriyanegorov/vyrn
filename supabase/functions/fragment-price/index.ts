@@ -20,10 +20,14 @@ const decodeHtml = (value: string) => value
   });
 
 const readFragmentGift = (html: string) => {
-  const priceField = html.match(/id=["']bid_value["'][^>]*value=["']([^"']+)["']/i)
-    || html.match(/value=["']([^"']+)["'][^>]*id=["']bid_value["']/i);
-  const rawPrice = priceField?.[1]?.replace(/,/g, '').trim() || '';
-  const grams = Number(rawPrice);
+  const priceField = html.match(
+    /<th\b[^>]*>\s*Sell Price(?:\s*\*)?\s*<\/th>[\s\S]{0,1500}?<div\b[^>]*class=["'][^"']*\btm-value\b[^"']*\bicon-ton\b[^"']*["'][^>]*>([\s\S]*?)<\/div>/i,
+  ) || html.match(
+    /<th\b[^>]*>\s*Minimum Bid\s*<\/th>[\s\S]{0,1500}?<div\b[^>]*class=["'][^"']*\btm-value\b[^"']*\bicon-ton\b[^"']*["'][^>]*>([\s\S]*?)<\/div>/i,
+  );
+  const rawPrice = decodeHtml(priceField?.[1]?.replace(/<[^>]*>/g, ' ') || '')
+    .replace(/[,\s]/g, '');
+  const tons = /^\d+(?:\.\d+)?$/.test(rawPrice) ? Number(rawPrice) : NaN;
 
   const traits: Record<string, { name: string; rarity_percent: number | null }> = {};
   for (const [, row] of html.matchAll(/<tr\b[^>]*>([\s\S]*?)<\/tr>/gi)) {
@@ -37,7 +41,7 @@ const readFragmentGift = (html: string) => {
     traits[label] = { name, rarity_percent: Number.isFinite(rarity) ? rarity : null };
   }
 
-  return { grams: Number.isFinite(grams) && grams > 0 ? grams : null, traits };
+  return { grams: Number.isFinite(tons) && tons > 0 ? tons : null, traits };
 };
 
 const fetchFragmentGift = async (slug: string, number: string) => {

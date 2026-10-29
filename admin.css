@@ -319,6 +319,32 @@ body.admin-page {
   background: #92372e;
 }
 
+.admin-wipe-project {
+  margin-top: 24px;
+  padding-top: 20px;
+  border-top: 1px solid #e5b7b1;
+}
+
+.admin-wipe-project h3 {
+  margin: 0 0 12px;
+  color: var(--admin-red);
+  font-size: 15px;
+}
+
+.admin-wipe-confirmation-field {
+  max-width: 460px;
+  margin-bottom: 12px;
+}
+
+.admin-wipe-project-button,
+.admin-wipe-project-button:hover:not(:disabled) {
+  background: var(--admin-red);
+}
+
+.admin-wipe-project-button:hover:not(:disabled) {
+  background: #92372e;
+}
+
 .admin-random-section {
   margin-top: 18px;
 }
