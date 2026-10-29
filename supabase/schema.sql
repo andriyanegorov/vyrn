@@ -725,8 +725,14 @@
   create view public.browser_demo_nfts with (security_barrier = true) as
   select items.id as item_id, items.external_id, items.attributes, items.acquired_at,
     models.id as model_id, models.slug as model_slug, models.name as model_name,
-    'https://nft.fragment.com/gift/' || collections.slug || '-' || items.external_id || '.webp' as preview_url,
-    'https://nft.fragment.com/gift/' || collections.slug || '-' || items.external_id || '.tgs' as animation_url,
+    case when items.attributes->>'custom_nft' = 'true'
+      then models.preview_url
+      else 'https://nft.fragment.com/gift/' || collections.slug || '-' || items.external_id || '.webp'
+    end as preview_url,
+    case when items.attributes->>'custom_nft' = 'true'
+      then models.animation_url
+      else 'https://nft.fragment.com/gift/' || collections.slug || '-' || items.external_id || '.tgs'
+    end as animation_url,
     collections.name as collection_name, collections.slug as collection_slug,
     listings.id as listing_id, listings.price as listing_price,
     listings.currency as listing_currency, listings.status as listing_status

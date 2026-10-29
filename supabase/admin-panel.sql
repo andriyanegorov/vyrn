@@ -164,6 +164,73 @@ begin
 end;
 $$;
 
+create or replace function public.admin_grant_custom_nft(
+  p_password text,
+  p_profile_id uuid,
+  p_name text,
+  p_animation_url text,
+  p_preview_url text default null,
+  p_price_stars bigint default 80
+)
+returns uuid
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare
+  configured_hash text;
+  clean_name text := btrim(coalesce(p_name, ''));
+  clean_animation_url text := btrim(coalesce(p_animation_url, ''));
+  clean_preview_url text := nullif(btrim(coalesce(p_preview_url, '')), '');
+  v_collection_id uuid;
+  v_model_id uuid;
+  v_item_id uuid;
+  v_model_slug text := 'custom-' || replace(gen_random_uuid()::text, '-', '');
+  v_external_id text := upper(substr(replace(gen_random_uuid()::text, '-', ''), 1, 8));
+begin
+  select settings.password_hash into configured_hash
+  from public.admin_settings as settings
+  where settings.singleton = true;
+
+  if configured_hash is null or p_password is null
+    or extensions.crypt(p_password, configured_hash) <> configured_hash then
+    raise exception 'Invalid administrator password' using errcode = '28000';
+  end if;
+  if not exists (select 1 from public.profiles where id = p_profile_id) then
+    raise exception 'Player not found';
+  end if;
+  if clean_name = '' or char_length(clean_name) > 100
+    or clean_animation_url !~* '^\./nft/[a-z0-9][a-z0-9._-]*\.tgs$'
+    or (clean_preview_url is not null and clean_preview_url !~ '^https://[^[:space:]]+$')
+    or p_price_stars is null or p_price_stars <= 0 then
+    raise exception 'Invalid custom NFT name, URL or price';
+  end if;
+
+  insert into public.nft_collections (slug, name)
+  values ('vyrncustom', 'Кастомные NFT')
+  on conflict (slug) do update set name = excluded.name
+  returning id into v_collection_id;
+
+  insert into public.nft_models (collection_id, slug, name, preview_url, animation_url)
+  values (v_collection_id, v_model_slug, clean_name, clean_preview_url, clean_animation_url)
+  returning id into v_model_id;
+
+  insert into public.nft_items (model_id, external_id, owner_profile_id, attributes)
+  values (
+    v_model_id,
+    v_external_id,
+    p_profile_id,
+    jsonb_build_object('custom_nft', true, 'custom_price_stars', p_price_stars)
+  )
+  returning id into v_item_id;
+
+  insert into public.nft_transfers (nft_item_id, from_profile_id, to_profile_id, transfer_type)
+  values (v_item_id, null, p_profile_id, 'mint');
+
+  return v_item_id;
+end;
+$$;
+
 drop function if exists public.admin_remove_fragment_gift(text, uuid, text, text);
 
 create or replace function public.admin_remove_fragment_gift(
@@ -279,8 +346,13 @@ begin
 
   return query
     select items.id, owners.id, owners.nickname, owners.telegram_id,
-      collections.name, collections.slug, items.external_id,
-      'https://nft.fragment.com/gift/' || collections.slug || '-' || items.external_id || '.webp', items.acquired_at
+      case when items.attributes->>'custom_nft' = 'true' then models.name else collections.name end,
+      collections.slug, items.external_id,
+      case when items.attributes->>'custom_nft' = 'true'
+        then models.preview_url
+        else 'https://nft.fragment.com/gift/' || collections.slug || '-' || items.external_id || '.webp'
+      end,
+      items.acquired_at
     from public.nft_items as items
     join public.profiles as owners on owners.id = items.owner_profile_id
     join public.nft_models as models on models.id = items.model_id
@@ -727,6 +799,8 @@ revoke all on function public.admin_search_players(text, text) from public, anon
 revoke all on function public.admin_grant_fragment_gift(text, uuid, text, text, text, bigint) from public, anon, authenticated;
 grant execute on function public.admin_search_players(text, text) to anon;
 grant execute on function public.admin_grant_fragment_gift(text, uuid, text, text, text, bigint) to anon;
+revoke all on function public.admin_grant_custom_nft(text, uuid, text, text, text, bigint) from public, anon, authenticated;
+grant execute on function public.admin_grant_custom_nft(text, uuid, text, text, text, bigint) to anon;
 revoke all on function public.admin_remove_fragment_gift(text, uuid, text, text) from public, anon, authenticated;
 grant execute on function public.admin_remove_fragment_gift(text, uuid, text, text) to anon;
 revoke all on function public.admin_list_all_nfts(text) from public, anon, authenticated;

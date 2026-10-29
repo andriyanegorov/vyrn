@@ -1244,19 +1244,22 @@ const getProfileDisplayName = (profile) => [profile?.first_name, profile?.last_n
 const mapOwnedNft = (item) => {
 	const model = item.nft_models || {};
 	const collection = model.nft_collections || {};
+	const isCustomNft = item.attributes?.custom_nft === true;
 	const externalId = item.external_id || item.id.slice(0, 8);
 	const visualId = item.attributes?.crafting?.visual_external_id || externalId;
 	const collectionSlug = collection.slug || model.slug || '';
 	return {
 		itemId: item.id,
-		slug: collectionSlug,
+		slug: isCustomNft ? '' : collectionSlug,
 		id: externalId,
 		name: model.name || collection.name || 'NFT',
-		fragmentPriceStars: Number(model.attributes?.fragment_price_stars ?? item.attributes?.fragment_price_stars) || null,
-		previewUrl: collectionSlug && item.external_id
+		fragmentPriceStars: Number(item.attributes?.custom_nft === true
+			? item.attributes.custom_price_stars
+			: model.attributes?.fragment_price_stars ?? item.attributes?.fragment_price_stars) || null,
+		previewUrl: !isCustomNft && collectionSlug && item.external_id
 			? getNftPreviewUrl(collectionSlug, visualId)
 			: model.preview_url || '',
-		animationUrl: collectionSlug && item.external_id
+		animationUrl: !isCustomNft && collectionSlug && item.external_id
 			? getNftAnimationUrl(`${collectionSlug}-${visualId}.tgs`)
 			: model.animation_url || '',
 		listingId: (item.market_listings || []).find((listing) => listing.status === 'active')?.id || '',
@@ -1266,10 +1269,12 @@ const mapOwnedNft = (item) => {
 const collectionValueRequests = new WeakMap();
 const getSavedFragmentValue = (item) => {
 	const attributes = item.attributes || {};
-	const value = attributes.fragment_price_fragment_stars
-		?? (attributes.fragment_price_manual === true || attributes.fragment_price_crafted_total === true
+	const value = attributes.custom_nft === true
+		? attributes.custom_price_stars
+		: (attributes.fragment_price_fragment_stars
+			?? (attributes.fragment_price_manual === true || attributes.fragment_price_crafted_total === true
 			? null
-			: attributes.fragment_price_stars);
+			: attributes.fragment_price_stars));
 	const number = Number(value);
 	return Number.isFinite(number) && number > 0 ? number : null;
 };
@@ -1642,12 +1647,13 @@ if (marketGrid) {
 					const nft = entry.nft_items || {};
 					const model = nft.nft_models || {};
 					const collectionInfo = model.nft_collections || {};
+					const isCustomNft = nft.attributes?.custom_nft === true;
 					const itemId = nft.external_id || nft.id || entry.nft_item_id;
 					const visualId = nft.attributes?.crafting?.visual_external_id || nft.external_id || itemId;
 					const title = `${model.name || 'NFT'} #${itemId}`;
-					const imageSource = collectionInfo.slug && nft.external_id
+					const imageSource = !isCustomNft && collectionInfo.slug && nft.external_id
 						? getNftPreviewUrl(collectionInfo.slug, visualId)
-						: model.preview_url || (model.slug && itemId ? getNftPreviewUrl(model.slug, itemId) : './assets/placeholder.png');
+						: model.preview_url || (!isCustomNft && model.slug && itemId ? getNftPreviewUrl(model.slug, itemId) : './assets/placeholder.png');
 					const card = document.createElement('article');
 					card.className = 'market-card';
 					card.dataset.marketCard = 'true';
@@ -1656,13 +1662,13 @@ if (marketGrid) {
 					card.dataset.marketModel = getFragmentTrait(nft.attributes, 'model');
 					card.dataset.marketBackdrop = getFragmentTrait(nft.attributes, 'backdrop');
 					card.dataset.marketSymbol = getFragmentTrait(nft.attributes, 'symbol');
-					card.dataset.marketSlug = collectionInfo.slug || '';
+					card.dataset.marketSlug = isCustomNft ? '' : collectionInfo.slug || '';
 					card.dataset.marketExternalId = visualId || '';
-					card.dataset.marketTraitKey = collectionInfo.slug && visualId
+					card.dataset.marketTraitKey = !isCustomNft && collectionInfo.slug && visualId
 						? `${collectionInfo.slug}-${visualId}`
 						: '';
 					card.dataset.marketPrice = String(entry.price || 0);
-					card.dataset.marketAnimation = collectionInfo.slug && nft.external_id
+					card.dataset.marketAnimation = !isCustomNft && collectionInfo.slug && nft.external_id
 						? getNftAnimationUrl(`${collectionInfo.slug}-${visualId}.tgs`)
 						: model.animation_url || '';
 					card.dataset.marketPreview = imageSource;
@@ -3308,16 +3314,17 @@ if (chatRows.length && conversationDialog) {
 				const nftItem = offer.nft_items || {};
 				const nftModel = nftItem.nft_models || {};
 				const nftCollection = nftModel.nft_collections || {};
+				const isCustomNft = nftItem.attributes?.custom_nft === true;
 				const nftId = nftItem.external_id || offer.nft_item_id.slice(0, 8);
 				const nftVisualId = nftItem.attributes?.crafting?.visual_external_id || nftItem.external_id;
 				const nftTitle = `${nftModel.name || nftCollection.name || 'NFT'} #${nftId}`;
-				const nftPreview = nftCollection.slug && nftItem.external_id
+				const nftPreview = !isCustomNft && nftCollection.slug && nftItem.external_id
 					? getNftPreviewUrl(nftCollection.slug, nftVisualId)
 					: nftModel.preview_url || './assets/svg/placeholder.svg';
-				const nftFile = nftCollection.slug && nftItem.external_id
+				const nftFile = !isCustomNft && nftCollection.slug && nftItem.external_id
 					? `${nftCollection.slug}-${nftVisualId}.tgs`
 					: '';
-				const nftAnimation = nftCollection.slug && nftItem.external_id
+				const nftAnimation = !isCustomNft && nftCollection.slug && nftItem.external_id
 					? getNftAnimationUrl(nftFile)
 					: nftModel.animation_url || '';
 				const fragmentPriceStars = nftItem.attributes?.fragment_price_stars ?? null;

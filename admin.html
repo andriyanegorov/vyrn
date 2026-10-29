@@ -8,9 +8,9 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Inter:wght@400;500;600;700&family=Manrope:wght@400;500;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="style.css?v=premium-badge-click-v1">
-  <link rel="stylesheet" href="admin.css?v=admin-player-delete-v1">
+  <link rel="stylesheet" href="admin.css?v=admin-custom-tgs-nft-v1">
   <script src="supabase-client-config.js?v=admin-panel-number-media-20261018" defer></script>
-  <script src="admin.js?v=admin-player-delete-v1" defer></script>
+  <script src="admin.js?v=admin-custom-tgs-nft-v1" defer></script>
 </head>
 <body class="admin-page">
   <header class="admin-header">
@@ -103,6 +103,32 @@
           <button class="admin-button admin-grant-button" type="button" disabled>Выдать выбранному игроку</button>
           <button class="admin-button admin-remove-button" type="button" disabled>Удалить с профиля</button>
         </div>
+        <details class="admin-custom-nft">
+          <summary>Выдать кастомную NFT из .tgs</summary>
+          <div class="admin-custom-nft-fields">
+            <label class="admin-field">
+              <span>Название NFT</span>
+              <input class="admin-custom-nft-name" type="text" maxlength="100" autocomplete="off" placeholder="Например, VYRN Dragon" required>
+            </label>
+            <label class="admin-field">
+              <span>Файл из ./nft/</span>
+              <select class="admin-custom-nft-animation" required>
+                <option value="">Загрузка файлов…</option>
+              </select>
+            </label>
+            <label class="admin-field">
+              <span>Превью, необязательно (HTTPS)</span>
+              <input class="admin-custom-nft-preview" type="url" autocomplete="url" placeholder="https://example.com/nft/dragon.webp">
+            </label>
+            <label class="admin-field">
+              <span>Оценка, Stars</span>
+              <input class="admin-custom-nft-price" type="number" min="1" step="1" inputmode="numeric" value="80" required>
+            </label>
+          </div>
+          <p class="admin-price-note">Файлы берутся из каталога проекта ./nft/. Новые файлы добавляй в список nft/catalog.json.</p>
+          <button class="admin-button admin-custom-nft-grant-button" type="button" disabled>Выдать кастомную NFT</button>
+          <p class="admin-status admin-custom-nft-status" role="status" hidden></p>
+        </details>
       </section>
     </div>
     <section class="admin-section admin-random-section" aria-labelledby="random-heading">

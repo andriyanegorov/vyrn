@@ -138,6 +138,12 @@ xmasstocking|Xmas Stockings
   const giftPriceInput = document.querySelector('.admin-gift-price');
   const customSlugInput = document.querySelector('.admin-custom-slug');
   const customNameInput = document.querySelector('.admin-custom-name');
+  const customNftNameInput = document.querySelector('.admin-custom-nft-name');
+  const customNftAnimationInput = document.querySelector('.admin-custom-nft-animation');
+  const customNftPreviewInput = document.querySelector('.admin-custom-nft-preview');
+  const customNftPriceInput = document.querySelector('.admin-custom-nft-price');
+  const customNftGrantButton = document.querySelector('.admin-custom-nft-grant-button');
+  const customNftStatus = document.querySelector('.admin-custom-nft-status');
   const previewImage = document.querySelector('.admin-preview-image');
   const previewPlaceholder = document.querySelector('.admin-preview-placeholder');
   const previewTitle = document.querySelector('.admin-preview-title');
@@ -202,7 +208,7 @@ xmasstocking|Xmas Stockings
       row.className = 'admin-inventory-item';
       const image = document.createElement('img');
       image.className = 'admin-inventory-image';
-      image.src = item.preview_url || '';
+      image.src = item.preview_url || './assets/placeholder.png';
       image.alt = '';
       const copy = document.createElement('div');
       copy.className = 'admin-inventory-copy';
@@ -666,6 +672,38 @@ xmasstocking|Xmas Stockings
     updateGiftPreview();
   };
 
+  const isValidHttpsUrl = (value) => {
+    try {
+      return new URL(value).protocol === 'https:';
+    } catch {
+      return false;
+    }
+  };
+  const updateCustomNftGrantButton = () => {
+    const animationUrl = customNftAnimationInput.value.trim();
+    const previewUrl = customNftPreviewInput.value.trim();
+    const price = Number(customNftPriceInput.value);
+    customNftGrantButton.disabled = !selectedPlayer
+      || !passwordInput.value
+      || !customNftNameInput.value.trim()
+      || !/^\.\/nft\/[A-Za-z0-9][A-Za-z0-9._-]*\.tgs$/i.test(animationUrl)
+      || (previewUrl && !isValidHttpsUrl(previewUrl))
+      || !Number.isSafeInteger(price)
+      || price <= 0;
+  };
+  const loadCustomNftFiles = async () => {
+    const response = await fetch(new URL('nft/catalog.json', document.baseURI), { cache: 'no-store' });
+    if (!response.ok) throw new Error(`Не удалось загрузить список файлов ./nft/ (${response.status}).`);
+    const files = await response.json();
+    if (!Array.isArray(files) || files.length === 0
+      || files.some((file) => typeof file !== 'string' || !/^[A-Za-z0-9][A-Za-z0-9._-]*\.tgs$/i.test(file))) {
+      throw new Error('В nft/catalog.json должен быть список имён .tgs файлов.');
+    }
+    customNftAnimationInput.replaceChildren(new Option('Выберите .tgs файл', ''));
+    files.forEach((file) => customNftAnimationInput.add(new Option(file, `./nft/${file}`)));
+    updateCustomNftGrantButton();
+  };
+
   const updateGiftPreview = () => {
     const collection = getSelectedCollection();
     const giftNumber = giftNumberInput.value.trim();
@@ -707,6 +745,7 @@ xmasstocking|Xmas Stockings
       previewImage.hidden = false;
       previewPlaceholder.hidden = true;
     };
+
     previewImage.onerror = () => {
       previewImage.hidden = true;
       previewPlaceholder.hidden = false;
@@ -785,6 +824,7 @@ xmasstocking|Xmas Stockings
           selectedPlayerHost.hidden = true;
           playerResults.querySelectorAll('.admin-player-result').forEach((item) => item.setAttribute('aria-pressed', 'false'));
           updateGiftPreview();
+          updateCustomNftGrantButton();
         });
         selectedPlayerHost.append(summary, clear);
         if (Number(player.telegram_id) > 0) {
@@ -815,6 +855,7 @@ xmasstocking|Xmas Stockings
               selectedPlayer = null;
               randomPlayerButton.disabled = true;
               selectedPlayerHost.hidden = true;
+              updateCustomNftGrantButton();
               button.remove();
               showStatus(playerStatus, `Профиль ${player.nickname} и связанные данные удалены.`);
               updateGiftPreview();
@@ -828,6 +869,7 @@ xmasstocking|Xmas Stockings
         selectedPlayerHost.hidden = false;
         playerResults.querySelectorAll('.admin-player-result').forEach((item) => item.setAttribute('aria-pressed', String(item === button)));
         updateGiftPreview();
+        updateCustomNftGrantButton();
         showStatus(playerStatus, 'Игрок выбран. Теперь выберите Fragment-подарок.');
       });
       playerResults.append(button);
@@ -906,6 +948,41 @@ xmasstocking|Xmas Stockings
     } finally {
       updateGiftPreview();
     }
+  });
+
+  customNftGrantButton.addEventListener('click', async () => {
+    const name = customNftNameInput.value.trim();
+    const animationUrl = customNftAnimationInput.value.trim();
+    const previewUrl = customNftPreviewInput.value.trim();
+    const priceStars = Number(customNftPriceInput.value);
+    updateCustomNftGrantButton();
+    if (customNftGrantButton.disabled || !selectedPlayer) return;
+    customNftGrantButton.disabled = true;
+    showStatus(customNftStatus, 'Выдаём кастомную NFT…');
+    try {
+      await rpc('admin_grant_custom_nft', {
+        p_password: passwordInput.value,
+        p_profile_id: selectedPlayer.profile_id,
+        p_name: name,
+        p_animation_url: animationUrl,
+        p_preview_url: previewUrl || null,
+        p_price_stars: priceStars
+      });
+      showStatus(customNftStatus, `«${name}» выдана игроку ${selectedPlayer.nickname}.`);
+      await refreshPlayers();
+    } catch (error) {
+      showStatus(customNftStatus, error.message, true);
+    } finally {
+      updateCustomNftGrantButton();
+    }
+  });
+  [customNftNameInput, customNftAnimationInput, customNftPreviewInput, customNftPriceInput].forEach((input) => {
+    input.addEventListener(input === customNftAnimationInput ? 'change' : 'input', updateCustomNftGrantButton);
+  });
+  loadCustomNftFiles().catch((error) => {
+    customNftAnimationInput.replaceChildren(new Option('Список .tgs недоступен', ''));
+    showStatus(customNftStatus, error.message, true);
+    updateCustomNftGrantButton();
   });
 
   collectionQuery.addEventListener('input', renderCollections);
@@ -1038,11 +1115,13 @@ xmasstocking|Xmas Stockings
     showStatus(randomStatus, '');
     showStatus(deleteAllStatus, '');
     showStatus(taskStatus, '');
+    updateCustomNftGrantButton();
   });
 
   renderCollections();
   renderRandomCollections();
   randomPlayerButton.disabled = true;
+  updateCustomNftGrantButton();
   fragmentCatalogRequest({ action: 'list' }).then((savedCollections) => {
     mergeCollections(savedCollections);
     renderCollections();

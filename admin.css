@@ -260,6 +260,30 @@ body.admin-page {
   margin-top: 10px;
 }
 
+.admin-custom-nft {
+  margin-top: 18px;
+  padding-top: 14px;
+  border-top: 1px solid var(--admin-line);
+}
+
+.admin-custom-nft summary {
+  color: var(--admin-green);
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.admin-custom-nft-fields {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+  margin: 14px 0 10px;
+}
+
+.admin-custom-nft-grant-button {
+  margin-top: 12px;
+}
+
 .admin-inventory-section {
   margin-top: 18px;
 }
@@ -908,6 +932,10 @@ body.admin-page {
   }
 
   .admin-custom-fields {
+    grid-template-columns: 1fr;
+  }
+
+  .admin-custom-nft-fields {
     grid-template-columns: 1fr;
   }
 
