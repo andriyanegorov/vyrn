@@ -164,10 +164,14 @@ begin
 end;
 $$;
 
+drop function if exists public.admin_grant_custom_nft(text, uuid, text, text, text, bigint);
+
 create or replace function public.admin_grant_custom_nft(
   p_password text,
   p_profile_id uuid,
+  p_collection_name text,
   p_name text,
+  p_gift_number text,
   p_animation_url text,
   p_preview_url text default null,
   p_price_stars bigint default 80
@@ -179,14 +183,16 @@ set search_path = ''
 as $$
 declare
   configured_hash text;
+  clean_collection_name text := btrim(coalesce(p_collection_name, ''));
   clean_name text := btrim(coalesce(p_name, ''));
+  clean_gift_number text := btrim(coalesce(p_gift_number, ''));
   clean_animation_url text := btrim(coalesce(p_animation_url, ''));
   clean_preview_url text := nullif(btrim(coalesce(p_preview_url, '')), '');
   v_collection_id uuid;
   v_model_id uuid;
   v_item_id uuid;
+  v_collection_slug text := 'vyrncustom-' || replace(gen_random_uuid()::text, '-', '');
   v_model_slug text := 'custom-' || replace(gen_random_uuid()::text, '-', '');
-  v_external_id text := upper(substr(replace(gen_random_uuid()::text, '-', ''), 1, 8));
 begin
   select settings.password_hash into configured_hash
   from public.admin_settings as settings
@@ -199,7 +205,9 @@ begin
   if not exists (select 1 from public.profiles where id = p_profile_id) then
     raise exception 'Player not found';
   end if;
-  if clean_name = '' or char_length(clean_name) > 100
+  if clean_collection_name = '' or char_length(clean_collection_name) > 100
+    or clean_name = '' or char_length(clean_name) > 100
+    or clean_gift_number !~ '^[0-9]{1,12}$' or clean_gift_number ~ '^0+$'
     or clean_animation_url !~* '^\./nft/[a-z0-9][a-z0-9._-]*\.tgs$'
     or (clean_preview_url is not null and clean_preview_url !~ '^https://[^[:space:]]+$')
     or p_price_stars is null or p_price_stars <= 0 then
@@ -207,8 +215,7 @@ begin
   end if;
 
   insert into public.nft_collections (slug, name)
-  values ('vyrncustom', 'Кастомные NFT')
-  on conflict (slug) do update set name = excluded.name
+  values (v_collection_slug, clean_collection_name)
   returning id into v_collection_id;
 
   insert into public.nft_models (collection_id, slug, name, preview_url, animation_url)
@@ -218,7 +225,7 @@ begin
   insert into public.nft_items (model_id, external_id, owner_profile_id, attributes)
   values (
     v_model_id,
-    v_external_id,
+    clean_gift_number,
     p_profile_id,
     jsonb_build_object('custom_nft', true, 'custom_price_stars', p_price_stars)
   )
@@ -346,7 +353,7 @@ begin
 
   return query
     select items.id, owners.id, owners.nickname, owners.telegram_id,
-      case when items.attributes->>'custom_nft' = 'true' then models.name else collections.name end,
+      collections.name,
       collections.slug, items.external_id,
       case when items.attributes->>'custom_nft' = 'true'
         then models.preview_url
@@ -799,8 +806,8 @@ revoke all on function public.admin_search_players(text, text) from public, anon
 revoke all on function public.admin_grant_fragment_gift(text, uuid, text, text, text, bigint) from public, anon, authenticated;
 grant execute on function public.admin_search_players(text, text) to anon;
 grant execute on function public.admin_grant_fragment_gift(text, uuid, text, text, text, bigint) to anon;
-revoke all on function public.admin_grant_custom_nft(text, uuid, text, text, text, bigint) from public, anon, authenticated;
-grant execute on function public.admin_grant_custom_nft(text, uuid, text, text, text, bigint) to anon;
+revoke all on function public.admin_grant_custom_nft(text, uuid, text, text, text, text, text, bigint) from public, anon, authenticated;
+grant execute on function public.admin_grant_custom_nft(text, uuid, text, text, text, text, text, bigint) to anon;
 revoke all on function public.admin_remove_fragment_gift(text, uuid, text, text) from public, anon, authenticated;
 grant execute on function public.admin_remove_fragment_gift(text, uuid, text, text) to anon;
 revoke all on function public.admin_list_all_nfts(text) from public, anon, authenticated;

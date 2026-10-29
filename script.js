@@ -1253,6 +1253,7 @@ const mapOwnedNft = (item) => {
 		slug: isCustomNft ? '' : collectionSlug,
 		id: externalId,
 		name: model.name || collection.name || 'NFT',
+		collectionName: collection.name || '',
 		fragmentPriceStars: Number(item.attributes?.custom_nft === true
 			? item.attributes.custom_price_stars
 			: model.attributes?.fragment_price_stars ?? item.attributes?.fragment_price_stars) || null,
@@ -1370,6 +1371,75 @@ const createNftPreviewImage = (source, title, className) => {
 	return image;
 };
 
+const loadTgsData = async (source) => {
+	const response = await fetch(source, { cache: 'no-store' });
+	if (!response.ok) {
+		throw new Error(`NFT request failed: ${response.status}`);
+	}
+
+	return new Response(
+		response.body.pipeThrough(new DecompressionStream('gzip'))
+	).json();
+};
+
+const tgsPosterCache = new Map();
+const getTgsPoster = (source) => {
+	if (!source) return Promise.reject(new Error('TGS animation URL is missing.'));
+	if (tgsPosterCache.has(source)) return tgsPosterCache.get(source);
+	const posterPromise = (async () => {
+		if (!window.lottie || typeof DecompressionStream === 'undefined') {
+			throw new Error('TGS poster rendering is not supported in this browser.');
+		}
+		const animationData = await loadTgsData(source);
+		const container = document.createElement('div');
+		container.setAttribute('aria-hidden', 'true');
+		container.style.cssText = 'position:fixed;left:-10000px;top:0;width:512px;height:512px;overflow:hidden';
+		document.body.append(container);
+		let animation;
+		try {
+			animation = window.lottie.loadAnimation({
+				container,
+				renderer: 'svg',
+				loop: false,
+				autoplay: false,
+				animationData
+			});
+			await new Promise((resolve, reject) => {
+				const timeoutId = window.setTimeout(() => reject(new Error('Timed out rendering TGS poster.')), 15000);
+				animation.addEventListener('DOMLoaded', () => {
+					window.clearTimeout(timeoutId);
+					resolve();
+				});
+				animation.addEventListener('data_failed', () => {
+					window.clearTimeout(timeoutId);
+					reject(new Error('Failed to render TGS poster.'));
+				});
+			});
+			animation.goToAndStop(0, true);
+			const svg = container.querySelector('svg');
+			if (!svg) throw new Error('TGS poster did not produce SVG output.');
+			const serializedSvg = new XMLSerializer().serializeToString(svg);
+			return `data:image/svg+xml;charset=utf-8,${encodeURIComponent(serializedSvg)}`;
+		} finally {
+			animation?.destroy();
+			container.remove();
+		}
+	})();
+	tgsPosterCache.set(source, posterPromise);
+	posterPromise.catch(() => tgsPosterCache.delete(source));
+	return posterPromise;
+};
+
+const applyTgsPoster = (image, source) => {
+	if (!source) return;
+	image.dataset.nftPosterSource = source;
+	getTgsPoster(source).then((poster) => {
+		if (image.isConnected && image.dataset.nftPosterSource === source) image.src = poster;
+	}).catch((error) => {
+		console.warn('Не удалось создать превью из TGS:', error);
+	});
+};
+
 const collectionPreviewGrid = document.querySelector('.collection-preview-grid');
 if (collectionPreviewGrid) {
 	const collectionTotal = collectionPreviewGrid.closest('.collection-panel').querySelector('.collection-total');
@@ -1380,13 +1450,16 @@ if (collectionPreviewGrid) {
 		collectionPreviewGrid.replaceChildren();
 		items.slice(0, 3).forEach((gift) => {
 			const title = `${gift.name} #${gift.id}`;
-			const imageSource = gift.previewUrl || getNftPreviewUrl(gift.slug, gift.id);
+			const imageSource = gift.previewUrl || (gift.slug
+				? getNftPreviewUrl(gift.slug, gift.id)
+				: './assets/placeholder.png');
 			const image = createNftPreviewImage(imageSource, title, 'collection-preview-image');
-		image.loading = 'lazy';
-		image.addEventListener('error', () => {
-			image.src = './assets/placeholder.png';
-		}, { once: true });
-		collectionPreviewGrid.append(image);
+			image.loading = 'lazy';
+			image.addEventListener('error', () => {
+				image.src = './assets/placeholder.png';
+			}, { once: true });
+			collectionPreviewGrid.append(image);
+			if (!gift.previewUrl) applyTgsPoster(image, gift.animationUrl);
 		});
 	};
 	if (canLoadPlayerData()) {
@@ -1658,7 +1731,8 @@ if (marketGrid) {
 					card.className = 'market-card';
 					card.dataset.marketCard = 'true';
 					card.dataset.marketName = title.toLocaleLowerCase('ru-RU');
-					card.dataset.marketCollection = model.name || collectionInfo.name || '';
+					card.dataset.marketCollection = collectionInfo.name || model.name || '';
+					card.dataset.marketNftModel = model.name || 'NFT';
 					card.dataset.marketModel = getFragmentTrait(nft.attributes, 'model');
 					card.dataset.marketBackdrop = getFragmentTrait(nft.attributes, 'backdrop');
 					card.dataset.marketSymbol = getFragmentTrait(nft.attributes, 'symbol');
@@ -1680,6 +1754,7 @@ if (marketGrid) {
 					image.loading = 'lazy';
 					image.addEventListener('error', () => { image.src = './assets/placeholder.png'; }, { once: true });
 					imageFrame.append(image);
+					if (isCustomNft && !model.preview_url) applyTgsPoster(image, card.dataset.marketAnimation);
 
 					const content = document.createElement('div');
 					content.className = 'market-card-content';
@@ -1863,17 +1938,6 @@ if (marketGrid) {
 	renderMarketList();
 }
 
-	const loadTgsData = async (source) => {
-	const response = await fetch(source, { cache: 'no-store' });
-	if (!response.ok) {
-		throw new Error(`NFT request failed: ${response.status}`);
-	}
-
-	return new Response(
-		response.body.pipeThrough(new DecompressionStream('gzip'))
-	).json();
-};
-
 const createTgsPreview = async (container, source) => {
 	if (!window.lottie || typeof DecompressionStream === 'undefined') {
 		throw new Error('TGS animation is not supported in this browser.');
@@ -1971,6 +2035,7 @@ if (nftGrid) {
 		card.dataset.nftPreview = gift.previewUrl || (gift.slug ? getNftPreviewUrl(gift.slug, gift.id) : './assets/placeholder.png');
 		card.dataset.nftTitle = title;
 		card.dataset.nftModel = gift.name;
+		card.dataset.nftCollection = gift.collectionName || 'VYRN';
 		card.dataset.nftFile = file;
 		card.dataset.nftFragmentPriceStars = gift.fragmentPriceStars ? String(gift.fragmentPriceStars) : '';
 		card.setAttribute('aria-label', `Открыть ${title}`);
@@ -1996,6 +2061,9 @@ if (nftGrid) {
 				card.dataset.nftTitle,
 				'profile-nft-preview'
 			));
+			if (!gift.previewUrl) {
+				applyTgsPoster(animationHost.querySelector('img'), card.dataset.nftSrc);
+			}
 		}
 	};
 	let cards = [];
@@ -2191,10 +2259,13 @@ const renderSharedPlayerProfile = (profile, items = []) => {
 		card.dataset.nftPreview = gift.previewUrl || './assets/placeholder.png';
 		card.dataset.nftTitle = title;
 		card.dataset.nftModel = gift.name;
+		card.dataset.nftCollection = gift.collectionName || 'VYRN';
 		card.dataset.nftFile = file;
 		card.dataset.nftFragmentPriceStars = gift.fragmentPriceStars ? String(gift.fragmentPriceStars) : '';
 		card.setAttribute('aria-label', `Открыть ${title}`);
-		card.append(createNftPreviewImage(card.dataset.nftPreview, title, 'profile-nft-preview'));
+		const image = createNftPreviewImage(card.dataset.nftPreview, title, 'profile-nft-preview');
+		card.append(image);
+		if (!gift.previewUrl) applyTgsPoster(image, gift.animationUrl);
 		sharedPlayerProfileNfts.append(card);
 	});
 	renderProfileCollectionValue(
@@ -2437,7 +2508,7 @@ if ((nftGrids.length || marketGrid) && nftModal && nftModalAnimation && nftModal
 			activeNftAnimation = window.lottie.loadAnimation({
 				container: nftModalAnimation,
 				renderer: 'svg',
-				loop: false,
+				loop: true,
 				autoplay: true,
 				animationData: createNftGiftOverlayData(animationData)
 			});
@@ -2550,6 +2621,7 @@ if ((nftGrids.length || marketGrid) && nftModal && nftModalAnimation && nftModal
 				card: nftCard,
 				title: nftCard.dataset.nftTitle,
 				model: nftCard.dataset.nftModel,
+				collection: nftCard.dataset.nftCollection || 'VYRN',
 				source: nftCard.dataset.nftSrc,
 				preview: nftCard.dataset.nftPreview,
 				file: nftCard.dataset.nftFile,
@@ -2565,8 +2637,8 @@ if ((nftGrids.length || marketGrid) && nftModal && nftModalAnimation && nftModal
 			});
 			const listing = card.marketListing || {
 				title: card.dataset.marketTitle,
-				model: card.dataset.marketCollection,
-				collection: 'VYRN',
+				model: card.dataset.marketNftModel || card.dataset.marketCollection,
+				collection: card.dataset.marketCollection || 'VYRN',
 				owner: 'VYRN Market',
 				amount: card.dataset.marketPrice,
 				currency: 'stars',
@@ -3377,6 +3449,7 @@ if (chatRows.length && conversationDialog) {
 				giftScene.className = 'gift-telegram-scene';
 				const preview = createNftPreviewImage(nftPreview, nftTitle, 'gift-telegram-art');
 				preview.addEventListener('error', () => { preview.src = './placeholder.svg'; }, { once: true });
+				if (isCustomNft && !nftModel.preview_url) applyTgsPoster(preview, nftAnimation);
 				const giftTitle = document.createElement('h3');
 				giftTitle.className = 'gift-telegram-title';
 				const giftFrom = document.createElement('span');
@@ -3421,6 +3494,7 @@ if (chatRows.length && conversationDialog) {
 						window.openVyrnNftModal({
 							title: nftTitle,
 							model: nftModel.name || nftCollection.name || 'NFT',
+							collection: nftCollection.name || 'VYRN',
 							source: nftAnimation,
 							preview: nftPreview,
 							file: nftFile,
@@ -3595,6 +3669,7 @@ if (chatRows.length && conversationDialog) {
 				card.title = gift.isListed ? 'Сначала снимите NFT с продажи' : `${gift.name} #${gift.id}`;
 				const image = createNftPreviewImage(gift.previewUrl || './assets/svg/placeholder.svg', `${gift.name} #${gift.id}`, '');
 				image.addEventListener('error', () => { image.src = './assets/svg/placeholder.svg'; }, { once: true });
+				if (!gift.previewUrl) applyTgsPoster(image, gift.animationUrl);
 				const title = document.createElement('span');
 				title.textContent = `${gift.name} #${gift.id}`;
 				card.append(image, title);
@@ -3727,10 +3802,13 @@ if (chatRows.length && conversationDialog) {
 						card.dataset.nftPreview = gift.previewUrl || (gift.slug ? getNftPreviewUrl(gift.slug, gift.id) : './assets/placeholder.png');
 						card.dataset.nftTitle = title;
 						card.dataset.nftModel = gift.name;
+						card.dataset.nftCollection = gift.collectionName || 'VYRN';
 						card.dataset.nftFile = file;
 						card.dataset.nftFragmentPriceStars = gift.fragmentPriceStars ? String(gift.fragmentPriceStars) : '';
 						card.setAttribute('aria-label', `Открыть ${title}`);
-						card.append(createNftPreviewImage(card.dataset.nftPreview, title, 'profile-nft-preview'));
+						const image = createNftPreviewImage(card.dataset.nftPreview, title, 'profile-nft-preview');
+						card.append(image);
+						if (!gift.previewUrl) applyTgsPoster(image, gift.animationUrl);
 						playerProfileNftGrid.append(card);
 					});
 				}).catch((error) => {

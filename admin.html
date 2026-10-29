@@ -8,9 +8,9 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Inter:wght@400;500;600;700&family=Manrope:wght@400;500;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="style.css?v=premium-badge-click-v1">
-  <link rel="stylesheet" href="admin.css?v=admin-custom-tgs-nft-v1">
+  <link rel="stylesheet" href="admin.css?v=admin-custom-tgs-preview-v2">
   <script src="supabase-client-config.js?v=admin-panel-number-media-20261018" defer></script>
-  <script src="admin.js?v=admin-custom-tgs-nft-v1" defer></script>
+  <script src="admin.js?v=admin-custom-tgs-preview-v2" defer></script>
 </head>
 <body class="admin-page">
   <header class="admin-header">
@@ -107,8 +107,16 @@
           <summary>Выдать кастомную NFT из .tgs</summary>
           <div class="admin-custom-nft-fields">
             <label class="admin-field">
+              <span>Коллекция</span>
+              <input class="admin-custom-nft-collection" type="text" maxlength="100" autocomplete="off" placeholder="Например, VYRN Originals" required>
+            </label>
+            <label class="admin-field">
               <span>Название NFT</span>
               <input class="admin-custom-nft-name" type="text" maxlength="100" autocomplete="off" placeholder="Например, VYRN Dragon" required>
+            </label>
+            <label class="admin-field">
+              <span>Номер подарка</span>
+              <input class="admin-custom-nft-number" type="number" min="1" max="999999999999" step="1" inputmode="numeric" placeholder="Например, 64" required>
             </label>
             <label class="admin-field">
               <span>Файл из ./nft/</span>

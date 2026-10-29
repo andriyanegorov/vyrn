@@ -138,7 +138,9 @@ xmasstocking|Xmas Stockings
   const giftPriceInput = document.querySelector('.admin-gift-price');
   const customSlugInput = document.querySelector('.admin-custom-slug');
   const customNameInput = document.querySelector('.admin-custom-name');
+  const customNftCollectionInput = document.querySelector('.admin-custom-nft-collection');
   const customNftNameInput = document.querySelector('.admin-custom-nft-name');
+  const customNftNumberInput = document.querySelector('.admin-custom-nft-number');
   const customNftAnimationInput = document.querySelector('.admin-custom-nft-animation');
   const customNftPreviewInput = document.querySelector('.admin-custom-nft-preview');
   const customNftPriceInput = document.querySelector('.admin-custom-nft-price');
@@ -685,7 +687,9 @@ xmasstocking|Xmas Stockings
     const price = Number(customNftPriceInput.value);
     customNftGrantButton.disabled = !selectedPlayer
       || !passwordInput.value
+      || !customNftCollectionInput.value.trim()
       || !customNftNameInput.value.trim()
+      || !/^\d{1,12}$/.test(customNftNumberInput.value.trim())
       || !/^\.\/nft\/[A-Za-z0-9][A-Za-z0-9._-]*\.tgs$/i.test(animationUrl)
       || (previewUrl && !isValidHttpsUrl(previewUrl))
       || !Number.isSafeInteger(price)
@@ -951,7 +955,9 @@ xmasstocking|Xmas Stockings
   });
 
   customNftGrantButton.addEventListener('click', async () => {
+    const collectionName = customNftCollectionInput.value.trim();
     const name = customNftNameInput.value.trim();
+    const giftNumber = customNftNumberInput.value.trim();
     const animationUrl = customNftAnimationInput.value.trim();
     const previewUrl = customNftPreviewInput.value.trim();
     const priceStars = Number(customNftPriceInput.value);
@@ -963,12 +969,14 @@ xmasstocking|Xmas Stockings
       await rpc('admin_grant_custom_nft', {
         p_password: passwordInput.value,
         p_profile_id: selectedPlayer.profile_id,
+        p_collection_name: collectionName,
         p_name: name,
+        p_gift_number: giftNumber,
         p_animation_url: animationUrl,
         p_preview_url: previewUrl || null,
         p_price_stars: priceStars
       });
-      showStatus(customNftStatus, `«${name}» выдана игроку ${selectedPlayer.nickname}.`);
+      showStatus(customNftStatus, `${collectionName} · ${name} #${giftNumber} выдана игроку ${selectedPlayer.nickname}.`);
       await refreshPlayers();
     } catch (error) {
       showStatus(customNftStatus, error.message, true);
@@ -976,7 +984,7 @@ xmasstocking|Xmas Stockings
       updateCustomNftGrantButton();
     }
   });
-  [customNftNameInput, customNftAnimationInput, customNftPreviewInput, customNftPriceInput].forEach((input) => {
+  [customNftCollectionInput, customNftNameInput, customNftNumberInput, customNftAnimationInput, customNftPreviewInput, customNftPriceInput].forEach((input) => {
     input.addEventListener(input === customNftAnimationInput ? 'change' : 'input', updateCustomNftGrantButton);
   });
   loadCustomNftFiles().catch((error) => {
