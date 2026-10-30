@@ -3,6 +3,12 @@ const rnd=(a,b)=>a+Math.random()*(b-a);
 const pickR=a=>a[Math.floor(Math.random()*a.length)];
 const $=s=>document.querySelector(s);
 const fmt=n=>n.toLocaleString('ru-RU');
+const loginStreakPromise=window.VyrnApi?.recordLoginStreak
+  ?window.VyrnApi.recordLoginStreak().catch(error=>{
+    console.error('Не удалось записать вход для серии:',error);
+    return null;
+  })
+  :Promise.resolve(null);
 const createStarsIcon=()=>{
   const icon=document.createElement('img');
   icon.className='stars-inline-icon';
@@ -94,6 +100,7 @@ async function refreshCraftBalance(){
   const balance=document.querySelector('.star-balance');
   balance?.classList.add('balance-skeleton');
   try{
+    await loginStreakPromise;
     const {wallets=[]}=await window.VyrnApi.me();
     const stars=wallets.find(wallet=>wallet.currency==='stars');
     if(!stars)return;

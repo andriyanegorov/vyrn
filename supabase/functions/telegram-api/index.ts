@@ -577,6 +577,30 @@ Deno.serve(async (request) => {
     return result.error ? json({ error: result.error.message }, 400) : json({ recorded: result.data });
   }
 
+  if (action === 'record_login_streak') {
+    if (!isBrowserDemo) {
+      if (typeof input.initData !== 'string' || !botToken) {
+        return json({ error: 'Open VYRN inside Telegram to record the daily login' }, 401);
+      }
+      const verified = await verifyTelegramInitData(input.initData, botToken);
+      if (!verified.user || String(verified.user.id) !== telegramId) {
+        return json({ error: 'Telegram identity could not be verified' }, 401);
+      }
+    }
+    const result = await supabase.rpc('record_daily_login', {
+      p_profile_id: profile.id,
+    });
+    if (result.error) {
+      const missingFunction = result.error.code === 'PGRST202' || result.error.code === '42883';
+      return json({
+        error: missingFunction
+          ? 'Система серийного входа не установлена. Примените supabase/login-streak.sql.'
+          : result.error.message,
+      }, missingFunction ? 503 : 500);
+    }
+    return json({ streak: result.data });
+  }
+
   if (action === 'check_daily_task') {
     const assignmentId = typeof input.assignment_id === 'string' ? input.assignment_id : '';
     if (!/^[0-9a-f-]{36}$/i.test(assignmentId)) return json({ error: 'Invalid task ID' }, 400);

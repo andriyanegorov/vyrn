@@ -251,6 +251,18 @@
     cachedAccount: readCachedAccount,
     updateCachedAccount: writeCachedAccount,
     wallet: () => request('wallet'),
+    recordLoginStreak: async () => {
+      const result = await request('record_login_streak');
+      const scope = getCacheScope();
+      if (scope) {
+        try {
+          sessionStorage.removeItem(getAccountCacheKey(scope));
+        } catch (error) {
+          console.warn('Не удалось обновить кэш аккаунта после начисления за вход:', error);
+        }
+      }
+      return result;
+    },
     leaderboard: () => request('leaderboard'),
     createStarInvoice: (amount) => request('create_star_invoice', { amount }),
     createPremiumInvoice: (durationMonths) => request('create_premium_invoice', { duration_months: durationMonths }),

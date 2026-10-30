@@ -5,8 +5,48 @@ const dailyTaskPageEvents = {
 	'market.html': 'visit_market',
 	'chats.html': 'visit_chats'
 };
+const currentPage = window.location.pathname.split('/').filter(Boolean).pop() || 'index.html';
+const loginStreakCard = document.querySelector('[data-login-streak]');
+let loginStreakPromise = Promise.resolve(null);
+if (window.VyrnApi?.recordLoginStreak) {
+	loginStreakPromise = window.VyrnApi.recordLoginStreak().then(({ streak }) => {
+		if (loginStreakCard) {
+			if (!Number.isInteger(streak?.streak_count) || streak.streak_count < 1) {
+				throw new Error('Сервер вернул некорректное значение серии входов.');
+			}
+			const lastTwoDigits = streak.streak_count % 100;
+			const lastDigit = streak.streak_count % 10;
+			const dayWord = lastTwoDigits >= 11 && lastTwoDigits <= 14
+				? 'дней'
+				: lastDigit === 1
+					? 'день'
+					: lastDigit >= 2 && lastDigit <= 4
+						? 'дня'
+						: 'дней';
+			const starsIcon = document.createElement('img');
+			starsIcon.src = './assets/stars.png';
+			starsIcon.alt = '';
+			starsIcon.setAttribute('aria-hidden', 'true');
+			loginStreakCard.querySelector('[data-login-streak-details]').replaceChildren(
+				document.createTextNode(`${streak.streak_count} ${dayWord} · +10 `),
+				starsIcon,
+				document.createTextNode(' сегодня')
+			);
+			loginStreakCard.querySelector('[data-login-streak-status]').textContent = 'Активен';
+			loginStreakCard.setAttribute('aria-busy', 'false');
+		}
+		return streak;
+	}).catch((error) => {
+		console.error('Не удалось обновить серию входов:', error);
+		if (loginStreakCard) {
+			loginStreakCard.querySelector('[data-login-streak-details]').textContent = 'Не удалось загрузить серию';
+			loginStreakCard.querySelector('[data-login-streak-status]').textContent = 'Ошибка';
+			loginStreakCard.setAttribute('aria-busy', 'false');
+		}
+		return null;
+	});
+}
 if (window.VyrnApi?.recordDailyTaskEvent) {
-	const currentPage = window.location.pathname.split('/').filter(Boolean).pop() || 'index.html';
 	['visit_app', dailyTaskPageEvents[currentPage]].filter(Boolean).forEach((eventKey) => {
 		window.VyrnApi.recordDailyTaskEvent(eventKey).catch((error) => {
 			console.warn(`Не удалось записать событие задания (${eventKey}):`, error);
@@ -247,6 +287,7 @@ if (cachedAccount) {
 }
 
 window.refreshVyrnAccount = async () => {
+	await loginStreakPromise;
 	const result = await window.VyrnApi.me();
 	window.VyrnAccount = result;
 	renderWalletBalance(result.wallets);
@@ -474,6 +515,7 @@ if (document.body.classList.contains('wallet-screen')) {
 			nft_auto_sale: ['Автопродажа NFT', 'Продажа по оценке Fragment'],
 			anonymous_number_spin: ['Анонимный номер', 'Выбивание номера +888'],
 			anonymous_number_upgrade: ['Улучшение номера', 'Изменение цифры номера +888'],
+			daily_login_reward: ['Награда за вход', 'Ежедневный бонус за серию входов'],
 			promo_code_reward: ['Промокод', 'Награда за активацию промокода'],
 			referral_reward: ['Реферальная награда', 'Бонус за приглашение друга'],
 			chat_gift_purchase: ['Покупка подарка', 'Покупка в чате'],
@@ -533,6 +575,7 @@ if (document.body.classList.contains('wallet-screen')) {
 	};
 
 	const loadWallet = async () => {
+		await loginStreakPromise;
 		if (!window.VyrnApi?.isConfigured) throw new Error('Supabase API не подключён.');
 		if (!canUseSupabaseAccount()) throw new Error('Откройте кошелёк через Telegram.');
 		const initialLoad = !walletTransactions.dataset.loaded;

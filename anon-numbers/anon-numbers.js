@@ -11,6 +11,12 @@
       balVal=$('balVal'), balBox=$('bal'), listEl=$('list'),
       emptyEl=$('empty'), countEl=$('count'), toastEl=$('toast');
   var balance = 0, speedKey = 'normal', spinning = false, total = 0, ready = false;
+  var loginStreakPromise = window.VyrnApi&&window.VyrnApi.recordLoginStreak
+    ? window.VyrnApi.recordLoginStreak().catch(function(error){
+      console.error('Не удалось записать вход для серии:',error);
+      return null;
+    })
+    : Promise.resolve(null);
   $('cost').textContent = COST;
 
   /* build reels */
@@ -215,6 +221,7 @@
     }
     if (showStatus) statusEl.textContent='Загружаем ваши номера…';
     try {
+      await loginStreakPromise;
       var result=await window.VyrnApi.anonymousNumbers();
       listEl.replaceChildren();
       total=0;

@@ -13,6 +13,12 @@
   const rows = $('#rows');
   const button = $('#cta');
   const hint = $('#hint');
+  const loginStreakPromise = window.VyrnApi?.recordLoginStreak
+    ? window.VyrnApi.recordLoginStreak().catch((error) => {
+      console.error('Не удалось записать вход для серии:', error);
+      return null;
+    })
+    : Promise.resolve(null);
   const deviceMemory = Number(navigator.deviceMemory) || Infinity;
   const hardwareConcurrency = Number(navigator.hardwareConcurrency) || 8;
   const lowPerformanceDevice = hardwareConcurrency <= 4
@@ -898,6 +904,7 @@
       return;
     }
     try {
+      await loginStreakPromise;
       const [me, response] = await Promise.all([
         window.VyrnApi.me(),
         window.VyrnApi.myNfts()

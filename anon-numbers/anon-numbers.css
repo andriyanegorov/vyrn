@@ -28,7 +28,7 @@ button[class]{font-weight:600}
 /* header */
 .site-header{position:sticky;z-index:20;top:0;min-height:56px;padding:0 5vw;display:flex;align-items:center;justify-content:space-between;background:var(--bg)}
 .brand{color:var(--ink);font-size:1.5rem;font-weight:700;text-decoration:none}
-.star-balance{display:flex;align-items:center;gap:6px;padding:6px 10px 6px 6px;border-radius:999px;background:rgba(255,255,255,.78);color:var(--txt);font-size:15px;line-height:1;white-space:nowrap}
+.star-balance{display:flex;align-items:center;gap:6px;padding:6px 10px 6px 6px;border-radius:999px;background:rgba(255,255,255,.78);color:var(--txt);font-size:15px;line-height:1;text-decoration:none;white-space:nowrap}
 .star-balance span{font-family:"Inter","SF Pro Text",sans-serif;font-size:16px;font-weight:600;letter-spacing:-.5px;font-variant-numeric:tabular-nums}
 .star-balance img,.star-ico{display:block;width:20px;height:20px;object-fit:contain}
 .star-balance.bump{animation:bump .35s ease}

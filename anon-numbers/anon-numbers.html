@@ -11,17 +11,17 @@
 <script src="https://telegram.org/js/telegram-web-app.js"></script>
   <link rel="stylesheet" href="anon-numbers.css?v=anonymous-numbers-browser-v2">
   <script src="../supabase-client-config.js?v=anonymous-numbers-browser-v2" defer></script>
-  <script src="../supabase-api.js?v=insufficient-stars-routing-v1" defer></script>
-  <script src="anon-numbers.js?v=anonymous-numbers-browser-v2" defer></script>
+  <script src="../supabase-api.js?v=daily-login-streak-v1" defer></script>
+  <script src="anon-numbers.js?v=daily-login-streak-v1" defer></script>
 </head>
 <body>
 <div class="app">
   <header class="site-header">
     <a class="brand" href="../index.html" aria-label="VYRN, главная">VYRN</a>
-    <div class="star-balance" id="bal" aria-label="Баланс">
+    <a class="star-balance" id="bal" href="../wallet.html?openTopup=1" aria-label="Баланс">
       <img src="../assets/stars.png" alt="" aria-hidden="true">
       <span id="balVal">0</span>
-    </div>
+    </a>
   </header>
 
   <main>

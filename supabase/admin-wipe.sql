@@ -51,6 +51,8 @@ begin
       'promo_code_attempts',
       'daily_task_completions',
       'daily_task_events',
+      'daily_login_rewards',
+      'daily_login_streaks',
       'referral_attributions',
       'referral_codes',
       'telegram_star_topups',

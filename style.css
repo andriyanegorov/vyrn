@@ -251,6 +251,7 @@ display: flex;
     color: #202127;
     font-size: 15px;
     line-height: 1;
+    text-decoration: none;
 }
 
 .star-balance span {
@@ -289,6 +290,98 @@ display: flex;
     radial-gradient(circle at 56% 18%, rgba(255, 255, 255, 0.54) 0 1px, transparent 2px),
     radial-gradient(circle at 86% 28%, rgba(255, 255, 255, 0.46) 0 1px, transparent 2px),
     linear-gradient(115deg, #b5c4ff 0%, #dedbff 52%, #c4d9ff 100%);
+}
+
+.login-streak-card {
+  display: flex;
+  min-height: 66px;
+  max-width: 1120px;
+  align-items: center;
+  gap: 12px;
+  box-sizing: border-box;
+  margin: 12px auto 0;
+  padding: 8px 12px;
+  border: 1px solid #e1e7f0;
+  border-radius: 18px;
+  background: rgba(255, 255, 255, 0.82);
+  color: #202733;
+}
+
+.login-streak-icon {
+  display: grid;
+  width: 42px;
+  height: 42px;
+  flex: 0 0 42px;
+  place-items: center;
+  overflow: hidden;
+  border-radius: 50%;
+  background: #f5f7fb;
+}
+
+.login-streak-icon img {
+  display: block;
+  width: 30px;
+  height: 30px;
+  object-fit: contain;
+}
+
+.login-streak-copy {
+  min-width: 0;
+  flex: 1;
+}
+
+.login-streak-heading {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.login-streak-heading h2 {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 700;
+  line-height: 1.15;
+}
+
+.login-streak-heading svg {
+  width: 15px;
+  height: 15px;
+  fill: none;
+  stroke: #73839a;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 2;
+}
+
+.login-streak-copy p {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin: 2px 0 0;
+  color: #73839a;
+  font-size: 12px;
+  line-height: 1.2;
+  white-space: nowrap;
+}
+
+.login-streak-copy p img {
+  width: 14px;
+  height: 14px;
+  object-fit: contain;
+}
+
+.login-streak-status {
+  display: inline-flex;
+  min-height: 34px;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: center;
+  padding: 0 14px;
+  border-radius: 12px;
+  background: #eef4fb;
+  color: #7193b8;
+  font-size: 12px;
+  font-weight: 600;
 }
 
 .resource-panel {
@@ -957,6 +1050,31 @@ display: flex;
     right: 5%;
     width: 48%;
     height: 100%;
+  }
+
+  .login-streak-card {
+    min-height: 62px;
+    gap: 10px;
+    margin-top: 10px;
+    padding: 7px 9px;
+    border-radius: 16px;
+  }
+
+  .login-streak-icon {
+    width: 40px;
+    height: 40px;
+    flex-basis: 40px;
+  }
+
+  .login-streak-copy p {
+    gap: 3px;
+    font-size: 11px;
+  }
+
+  .login-streak-status {
+    min-height: 32px;
+    padding: 0 10px;
+    font-size: 11px;
   }
 
   .resource-panel {
@@ -3912,7 +4030,7 @@ body:not(.admin-page) .profile-status-badge.is-premium:focus-visible {
   border-radius: 26px;
   background: #f5f5f7;
   color: #17171a;
-  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.2);
+  box-shadow: none;
 }
 
 .referral-dialog::backdrop {
@@ -3956,7 +4074,7 @@ body:not(.admin-page) .profile-status-badge.is-premium:focus-visible {
   font-size: 13px;
 }
 
-.referral-link-input:focus { border-color: #1688ed; box-shadow: 0 0 0 3px rgba(22, 136, 237, 0.12); }
+.referral-link-input:focus { border-color: #1688ed; box-shadow: none; }
 .referral-dialog-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 10px; }
 .referral-dialog-actions button {
   min-height: 44px;
@@ -5872,7 +5990,7 @@ body:not(.admin-page) .profile-status-badge.is-premium:focus-visible {
   border: 1px solid #e0e3e9;
   border-radius: 24px;
   background: rgba(255, 255, 255, 0.84);
-  box-shadow: 0 8px 24px rgba(32, 43, 60, 0.05);
+  box-shadow: none;
 }
 
 .wallet-promo-heading h2 {
@@ -5921,7 +6039,7 @@ body:not(.admin-page) .profile-status-badge.is-premium:focus-visible {
 
 .wallet-promo-input-row input:focus {
   border-color: #1688ed;
-  box-shadow: 0 0 0 3px rgba(22, 136, 237, 0.12);
+  box-shadow: none;
 }
 
 .wallet-promo-input-row input:disabled {
@@ -5968,7 +6086,7 @@ body:not(.admin-page) .profile-status-badge.is-premium:focus-visible {
   border-radius: 26px;
   background: #f0eff5;
   color: #202127;
-  box-shadow: 0 24px 80px rgba(14, 22, 40, 0.25);
+  box-shadow: none;
 }
 
 .wallet-promo-dialog[open] {
@@ -7245,7 +7363,7 @@ h6 {
   border-radius: 26px;
   background: #f5f5f7;
   color: #17171a;
-  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.2);
+  box-shadow: none;
   overflow: auto;
 }
 .starter-dialog:focus { outline: none; }
@@ -7291,7 +7409,7 @@ h6 {
   left: 50%;
   border: 1px solid rgb(255 255 255 / 90%);
   border-radius: 50%;
-  box-shadow: 0 0 12px rgb(22 131 244 / 16%), inset 0 0 12px rgb(255 255 255 / 35%);
+  box-shadow: none;
 }
 .starter-stage.is-revealed .starter-ring { opacity: 0 !important; transform: scale(0) !important; }
 .starter-rays {
@@ -7322,7 +7440,7 @@ h6 {
   margin: -23px;
   border-radius: 50%;
   background: radial-gradient(circle at 40% 35%, #fff, #a8d0ff 40%, #1683f4 82%);
-  box-shadow: 0 0 var(--starter-glow-blur, 32px) 10px rgb(22 131 244 / 48%);
+  box-shadow: none;
 }
 .starter-orbit-item {
   position: absolute;
@@ -7390,7 +7508,7 @@ h6 {
   margin: -66px;
   border: 2px solid #1683f4;
   border-radius: 34px;
-  box-shadow: 0 0 0 4px rgb(22 131 244 / 14%);
+  box-shadow: none;
   opacity: 0;
   pointer-events: none;
   transform: scale(.7);

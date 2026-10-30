@@ -161,7 +161,7 @@ body.admin-page {
 .admin-field select:focus,
 .admin-field textarea:focus {
   border-color: #669783;
-  box-shadow: 0 0 0 2px rgba(37, 108, 87, 0.12);
+  box-shadow: none;
 }
 
 .admin-price-note {

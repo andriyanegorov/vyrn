@@ -12,18 +12,18 @@
   <link rel="stylesheet" href="daily-tasks.css?v=daily-tasks-complete-v2">
   <script src="https://telegram.org/js/telegram-web-app.js"></script>
   <script src="supabase-client-config.js?v=wallet-balance-read-20261018" defer></script>
-  <script src="supabase-api.js?v=insufficient-stars-routing-v1" defer></script>
+  <script src="supabase-api.js?v=daily-login-streak-v1" defer></script>
   <script src="nav-transition.js?v=nav-unselected-fade-v1" defer></script>
-  <script src="script.js?v=custom-tgs-loop-v1" defer></script>
+  <script src="script.js?v=daily-login-streak-v1" defer></script>
   <script src="daily-tasks.js?v=daily-tasks-complete-v1" defer></script>
 </head>
 <body class="daily-tasks-screen">
   <header class="site-header">
     <a class="brand" href="index.html#home" aria-label="VYRN, главная">VYRN</a>
-    <div class="star-balance" aria-label="Баланс: 0 звёзд">
+    <a class="star-balance" href="wallet.html?openTopup=1" aria-label="Баланс: 0 звёзд">
       <img src="./assets/stars.png" alt="" aria-hidden="true">
       <span>0</span>
-    </div>
+    </a>
   </header>
   <main class="daily-tasks-page">
     <div class="daily-tasks-tabs" role="tablist" aria-label="Период заданий">

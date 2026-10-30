@@ -10,18 +10,18 @@
   <link rel="stylesheet" href="style.css?v=starter-gift-v5">
   <script src="https://telegram.org/js/telegram-web-app.js"></script>
   <script src="supabase-client-config.js?v=wallet-balance-read-20261018" defer></script>
-  <script src="supabase-api.js?v=starter-gift-v2" defer></script>
+  <script src="supabase-api.js?v=daily-login-streak-v1" defer></script>
   <script src="nav-transition.js?v=nav-unselected-fade-v1" defer></script>
-  <script src="script.js?v=custom-tgs-loop-v1" defer></script>
+  <script src="script.js?v=daily-login-streak-v1" defer></script>
   <script src="starter-gift.js?v=starter-gift-v8" defer></script>
 </head>
 <body>
   <header class="site-header">
     <a class="brand" href="#home" aria-label="VYRN, главная">VYRN</a>
-    <div class="star-balance" aria-label="Баланс: 0 звёзд">
+    <a class="star-balance" href="wallet.html?openTopup=1" aria-label="Баланс: 0 звёзд">
       <img src="./assets/stars.png" alt="" aria-hidden="true">
       <span>0</span>
-    </div>
+    </a>
   </header>
   <main id="home">
     <section class="welcome-hero" aria-labelledby="welcome-title">
@@ -30,6 +30,19 @@
         <p class="welcome-description">Коллекционируйте уникальные NFT, развивайте свою коллекцию и получайте награды.</p>
       </div>
       <img class="welcome-art" src="./assets/logo/mainlogo.png" alt="Коллекция VYRN: NFT-карты и сундук с сокровищами">
+    </section>
+    <section class="login-streak-card" aria-label="Серийчик" data-login-streak aria-busy="true">
+      <span class="login-streak-icon">
+        <img src="./assets/svg/fire1.svg" alt="" aria-hidden="true">
+      </span>
+      <div class="login-streak-copy">
+        <div class="login-streak-heading">
+          <h2>Серийчик</h2>
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m9 5 7 7-7 7" /></svg>
+        </div>
+        <p data-login-streak-details>Загрузка серии…</p>
+      </div>
+      <span class="login-streak-status" data-login-streak-status>Активен</span>
     </section>
     <section class="resource-panel" aria-label="Кошелёк">
       <header class="resource-panel-header">
