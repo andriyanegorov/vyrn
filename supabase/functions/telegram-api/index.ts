@@ -996,7 +996,35 @@ Deno.serve(async (request) => {
     const collectionNames = new Map<string, string>(
       collectionRows.data.map((row: { slug: string; name: string }) => [row.slug, row.name]),
     );
-    let sortedChosen: { slug: string; number: string; data: Record<string, unknown> } | null = null;
+    const loadUnreservedCandidates = async (
+      candidates: { slug: string; number: string }[],
+    ) => {
+      if (!candidates.length) return { candidates, error: null };
+      const filter = candidates.map(({ slug, number }) =>
+        `and(collection_slug.eq.${slug},gift_number.eq.${number})`
+      ).join(',');
+      const reservations = await supabase.from('starter_gift_inventory')
+        .select('collection_slug,gift_number').or(filter);
+      if (reservations.error) return { candidates: [], error: reservations.error };
+      const reservedKeys = new Set(reservations.data.map((gift: {
+        collection_slug: string;
+        gift_number: string;
+      }) => `${gift.collection_slug}-${gift.gift_number}`));
+      return {
+        candidates: candidates.filter(({ slug, number }) => !reservedKeys.has(`${slug}-${number}`)),
+        error: null,
+      };
+    };
+    const inventoryErrorResponse = (error: { code?: string; message: string }) => {
+      const missingTable = error.code === 'PGRST205' || error.code === '42P01';
+      return json({
+        error: missingTable
+          ? 'Стартовый подарок не установлен. Примените supabase/starter-gift.sql.'
+          : error.message,
+        code: error.code,
+      }, missingTable ? 503 : 500);
+    };
+    const eligibleCandidates: { slug: string; number: string; data: Record<string, unknown> }[] = [];
     const sortedDecoys: { collection_slug: string; gift_number: string }[] = [];
     let sortedChecked = 0;
     const listingFailures: string[] = [];
@@ -1012,7 +1040,7 @@ Deno.serve(async (request) => {
       }),
     );
     const seenCandidates = new Set<string>();
-    for (let pageIndex = 0; pageIndex < 5 && !sortedChosen; pageIndex += 1) {
+    for (let pageIndex = 0; pageIndex < 5 && !eligibleCandidates.length; pageIndex += 1) {
       const pageCandidates: StarterListingCandidate[] = [];
       const pageLength = Math.max(...listingStates.map((state) => state.gifts.length), 0);
       for (let index = 0; index < pageLength; index += 1) {
@@ -1026,8 +1054,15 @@ Deno.serve(async (request) => {
         }
       }
 
-      for (let start = 0; start < pageCandidates.length && !sortedChosen; start += 40) {
-        const batch = pageCandidates.slice(start, start + 40);
+      for (let start = 0; start < pageCandidates.length && !eligibleCandidates.length; start += 40) {
+        const available = await loadUnreservedCandidates(pageCandidates.slice(start, start + 40));
+        if (available.error) return inventoryErrorResponse(available.error);
+        const batch = available.candidates;
+        if (!batch.length) continue;
+        for (let index = batch.length - 1; index > 0; index -= 1) {
+          const swapIndex = Math.floor(Math.random() * (index + 1));
+          [batch[index], batch[swapIndex]] = [batch[swapIndex], batch[index]];
+        }
         try {
           const response = await fetch(`${supabaseUrl.replace(/\/$/, '')}/functions/v1/fragment-price`, {
             method: 'POST',
@@ -1063,13 +1098,13 @@ Deno.serve(async (request) => {
               || typeof price.stars !== 'number' || !Number.isFinite(price.stars) || price.stars <= 0
               || !price.traits || typeof price.traits !== 'object' || Array.isArray(price.traits)) continue;
             if (price.stars <= maxStars) {
-              sortedChosen = { ...candidate, data: price };
-              break;
+              eligibleCandidates.push({ ...candidate, data: price });
             }
           }
-          if (sortedChosen) {
+          if (eligibleCandidates.length) {
             sortedDecoys.push(...pageCandidates
-              .filter((candidate) => candidate.slug !== sortedChosen!.slug || candidate.number !== sortedChosen!.number)
+              .filter((candidate) => !eligibleCandidates.some((eligible) =>
+                eligible.slug === candidate.slug && eligible.number === candidate.number))
               .slice(0, 16)
               .map((candidate) => ({ collection_slug: candidate.slug, gift_number: candidate.number })));
           }
@@ -1079,7 +1114,7 @@ Deno.serve(async (request) => {
         }
       }
 
-      if (sortedChosen || pageIndex === 4) break;
+      if (eligibleCandidates.length || pageIndex === 4) break;
       await Promise.all(listingStates.map(async (state) => {
         const cursor = state.cursor;
         if (!cursor?.nextOffset || state.pagesLoaded >= 5) {
@@ -1107,7 +1142,6 @@ Deno.serve(async (request) => {
       [candidateSlugs[index], candidateSlugs[swapIndex]] = [candidateSlugs[swapIndex], candidateSlugs[index]];
     }
 
-    let chosen = sortedChosen;
     const decoys = sortedDecoys;
     let batchChecked = sortedChecked > 0;
     const sampledCandidates = (await Promise.all(candidateSlugs.slice(0, 6).map(async (slug) => {
@@ -1129,7 +1163,11 @@ Deno.serve(async (request) => {
         return [];
       }
     }))).flat();
-    if (!chosen && sampledCandidates.length) {
+    if (!eligibleCandidates.length && sampledCandidates.length) {
+      const available = await loadUnreservedCandidates(sampledCandidates);
+      if (available.error) return inventoryErrorResponse(available.error);
+      const candidatesToCheck = available.candidates;
+      if (candidatesToCheck.length) {
       const priceResponse = await fetch(`${supabaseUrl.replace(/\/$/, '')}/functions/v1/fragment-price`, {
         method: 'POST',
         headers: {
@@ -1138,7 +1176,7 @@ Deno.serve(async (request) => {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          gifts: sampledCandidates.map(({ slug, number }) => ({
+          gifts: candidatesToCheck.map(({ slug, number }) => ({
             collection_slug: slug,
             gift_number: number,
           })),
@@ -1158,26 +1196,27 @@ Deno.serve(async (request) => {
           item,
         ]),
       );
-      for (const candidate of sampledCandidates) {
+      for (const candidate of candidatesToCheck) {
         const price = priceByGift.get(`${candidate.slug}-${candidate.number}`);
         if (!price
           || typeof price.grams !== 'number' || !Number.isFinite(price.grams) || price.grams <= 0
           || typeof price.stars !== 'number' || !Number.isFinite(price.stars) || price.stars <= 0
           || !price.traits || typeof price.traits !== 'object' || Array.isArray(price.traits)) continue;
         if (price.stars <= maxStars) {
-          chosen = { ...candidate, data: price };
-          break;
+          eligibleCandidates.push({ ...candidate, data: price });
         }
       }
-      if (chosen) {
-        decoys.push(...sampledCandidates
-          .filter((candidate) => candidate.slug !== chosen!.slug || candidate.number !== chosen!.number)
+      if (eligibleCandidates.length) {
+        decoys.push(...candidatesToCheck
+          .filter((candidate) => !eligibleCandidates.some((eligible) =>
+            eligible.slug === candidate.slug && eligible.number === candidate.number))
           .slice(0, 16)
           .map((candidate) => ({ collection_slug: candidate.slug, gift_number: candidate.number })));
       }
+      }
     }
     for (const slug of candidateSlugs.slice(0, 6)) {
-      if (chosen || batchChecked) break;
+      if (eligibleCandidates.length >= 12 || batchChecked) break;
       try {
         const page = await fetch(`https://fragment.com/gifts/${slug}`, {
           headers: { 'User-Agent': 'Mozilla/5.0 VYRN Fragment catalog reader' },
@@ -1192,6 +1231,11 @@ Deno.serve(async (request) => {
           [numbers[index], numbers[swapIndex]] = [numbers[swapIndex], numbers[index]];
         }
         if (!numbers.length) continue;
+        const available = await loadUnreservedCandidates(
+          numbers.slice(0, 6).map((number) => ({ slug, number })),
+        );
+        if (available.error) return inventoryErrorResponse(available.error);
+        if (!available.candidates.length) continue;
 
         const priceResponse = await fetch(`${supabaseUrl.replace(/\/$/, '')}/functions/v1/fragment-price`, {
           method: 'POST',
@@ -1200,27 +1244,47 @@ Deno.serve(async (request) => {
             Authorization: `Bearer ${serviceRoleKey}`,
             'Content-Type': 'application/json',
           },
-          body: JSON.stringify({ collection_slug: slug, gift_number: numbers[0] }),
-          signal: AbortSignal.timeout(15_000),
+          body: JSON.stringify({
+            gifts: available.candidates.map(({ slug, number }) => ({
+              collection_slug: slug,
+              gift_number: number,
+            })),
+          }),
+          signal: AbortSignal.timeout(90_000),
         });
-        const fragmentData = await priceResponse.json().catch(() => null);
-        const priceOk = priceResponse.ok && fragmentData
-          && typeof fragmentData.grams === 'number' && fragmentData.grams > 0
-          && typeof fragmentData.stars === 'number' && fragmentData.stars > 0
-          && fragmentData.traits && typeof fragmentData.traits === 'object'
-          && !Array.isArray(fragmentData.traits);
-        if (priceOk && fragmentData.stars <= maxStars) {
-          chosen = { slug, number: numbers[0], data: fragmentData };
-          // Остальные подарки этой коллекции пойдут в рулетку как «пустышки».
-          for (const number of numbers.slice(1, 7)) decoys.push({ collection_slug: slug, gift_number: number });
-        } else {
-          for (const number of numbers.slice(0, 3)) decoys.push({ collection_slug: slug, gift_number: number });
+        const priceResult = await priceResponse.json().catch(() => null);
+        if (!priceResponse.ok || !Array.isArray(priceResult?.items)) {
+          listingFailures.push(priceResult?.error || 'Fragment price lookup failed.');
+          continue;
+        }
+        batchChecked = true;
+        const priceByGift = new Map<string, Record<string, unknown>>(
+          priceResult.items.map((item: Record<string, unknown>): [string, Record<string, unknown>] => [
+            `${item.collection_slug}-${item.gift_number}`,
+            item,
+          ]),
+        );
+        for (const candidate of available.candidates) {
+          const price = priceByGift.get(`${candidate.slug}-${candidate.number}`);
+          if (!price
+            || typeof price.grams !== 'number' || !Number.isFinite(price.grams) || price.grams <= 0
+            || typeof price.stars !== 'number' || !Number.isFinite(price.stars) || price.stars <= 0
+            || !price.traits || typeof price.traits !== 'object' || Array.isArray(price.traits)) continue;
+          if (price.stars <= maxStars) {
+            eligibleCandidates.push({ ...candidate, data: price });
+          }
+        }
+        if (eligibleCandidates.length) {
+          decoys.push(...available.candidates
+            .filter((candidate) => !eligibleCandidates.some((eligible) =>
+              eligible.slug === candidate.slug && eligible.number === candidate.number))
+            .map((candidate) => ({ collection_slug: candidate.slug, gift_number: candidate.number })));
         }
       } catch {
         continue;
       }
     }
-    if (!chosen) {
+    if (!eligibleCandidates.length) {
       return json({
         error: listingFailures.length && sortedChecked === 0 && !batchChecked
           ? `Не удалось загрузить объявления Fragment: ${listingFailures.join('; ')}`
@@ -1228,25 +1292,50 @@ Deno.serve(async (request) => {
       }, 503);
     }
 
-    const claimed = await supabase.rpc('claim_starter_gift', {
-      p_profile_id: profile.id,
-      p_collection_slug: chosen.slug,
-      p_collection_name: collectionNames.get(chosen.slug) || chosen.slug,
-      p_gift_number: chosen.number,
-      p_fragment_data: chosen.data,
-      p_launch_id: launchId,
-    });
-    if (claimed.error) {
-      if (claimed.error.code === 'PGRST202' || claimed.error.code === '42883') {
-        return json({
-          error: 'Стартовый подарок не установлен. Примените supabase/starter-gift.sql.',
-          code: claimed.error.code,
-        }, 503);
-      }
-      return json({ error: claimed.error.message, code: claimed.error.code }, 409);
+    for (let index = eligibleCandidates.length - 1; index > 0; index -= 1) {
+      const swapIndex = Math.floor(Math.random() * (index + 1));
+      [eligibleCandidates[index], eligibleCandidates[swapIndex]] =
+        [eligibleCandidates[swapIndex], eligibleCandidates[index]];
     }
-    if (claimed.data?.already_claimed) return json({ already_claimed: true });
-    return json({ ...claimed.data, roulette_visuals: decoys.slice(0, 16) });
+
+    for (const candidate of eligibleCandidates) {
+      const claimed = await supabase.rpc('claim_starter_gift', {
+        p_profile_id: profile.id,
+        p_collection_slug: candidate.slug,
+        p_collection_name: collectionNames.get(candidate.slug) || candidate.slug,
+        p_gift_number: candidate.number,
+        p_fragment_data: candidate.data,
+        p_launch_id: launchId,
+      });
+      if (claimed.error) {
+        if (claimed.error.code === 'PGRST202' || claimed.error.code === '42883') {
+          return json({
+            error: 'Стартовый подарок не установлен. Примените supabase/starter-gift.sql.',
+            code: claimed.error.code,
+          }, 503);
+        }
+        return json({ error: claimed.error.message, code: claimed.error.code }, 409);
+      }
+      if (claimed.data?.already_claimed) return json({ already_claimed: true });
+      if (claimed.data?.gift_unavailable) continue;
+      const visualCandidates = [
+        ...decoys,
+        ...eligibleCandidates
+          .filter((eligible) => eligible.slug !== candidate.slug || eligible.number !== candidate.number)
+          .map((eligible) => ({ collection_slug: eligible.slug, gift_number: eligible.number })),
+      ];
+      const uniqueVisuals = [...new Map(visualCandidates
+        .filter((visual) => visual.collection_slug !== candidate.slug || visual.gift_number !== candidate.number)
+        .map((visual) => [`${visual.collection_slug}-${visual.gift_number}`, visual])).values()];
+      for (let index = uniqueVisuals.length - 1; index > 0; index -= 1) {
+        const swapIndex = Math.floor(Math.random() * (index + 1));
+        [uniqueVisuals[index], uniqueVisuals[swapIndex]] = [uniqueVisuals[swapIndex], uniqueVisuals[index]];
+      }
+      return json({ ...claimed.data, roulette_visuals: uniqueVisuals.slice(0, 16) });
+    }
+    return json({
+      error: 'Не удалось найти свободный уникальный подарок. Попробуйте ещё раз позже.',
+    }, 503);
   }
 
   if (action === 'upgrade_roulette_pool') {

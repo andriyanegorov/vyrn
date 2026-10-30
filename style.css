@@ -7235,8 +7235,9 @@ h6 {
 
 /* Стартовый подарок: модалка с рулеткой при первом входе */
 .starter-dialog {
-  width: min(390px, calc(100vw - 32px));
+  width: min(420px, calc(100vw - 32px));
   max-width: none;
+  max-height: calc(100dvh - 24px);
   box-sizing: border-box;
   margin: auto;
   padding: 22px;
@@ -7245,6 +7246,7 @@ h6 {
   background: #f5f5f7;
   color: #17171a;
   box-shadow: 0 20px 60px rgba(0, 0, 0, 0.2);
+  overflow: auto;
 }
 .starter-dialog:focus { outline: none; }
 .starter-dialog::backdrop {
@@ -7253,7 +7255,7 @@ h6 {
   backdrop-filter: blur(3px);
 }
 .starter-header { display: flex; align-items: center; justify-content: space-between; gap: 16px; }
-.starter-header h2 { margin: 0; font-size: 21px; line-height: 1.25; }
+.starter-header h2 { margin: 0; font-size: 21px; font-weight: 700; line-height: 1.25; }
 .starter-close {
   display: grid;
   width: 38px;
@@ -7272,61 +7274,175 @@ h6 {
 .starter-close[hidden] { display: none; }
 .starter-text { margin: 12px 0 18px; color: #666872; font-size: 14px; line-height: 1.5; }
 
-.starter-reel {
+.starter-stage {
   position: relative;
-  height: 142px;
+  height: 262px;
+  overflow: hidden;
   border: 1px solid #e1e2e7;
   border-radius: 20px;
-  background: #fff;
+  background:
+    radial-gradient(ellipse at 76% 100%, rgb(255 255 255 / 38%), transparent 42%),
+    radial-gradient(ellipse at 2% 0%, rgb(126 159 255 / 30%), transparent 46%),
+    linear-gradient(115deg, #b5c4ff, #dedbff 52%, #c4d9ff);
 }
-.starter-viewport {
-  height: 100%;
-  overflow: hidden;
-  border-radius: 19px;
-  -webkit-mask-image: linear-gradient(90deg, transparent, #000 14%, #000 86%, transparent);
-  mask-image: linear-gradient(90deg, transparent, #000 14%, #000 86%, transparent);
+.starter-ring {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  border: 1px solid rgb(255 255 255 / 90%);
+  border-radius: 50%;
+  box-shadow: 0 0 12px rgb(22 131 244 / 16%), inset 0 0 12px rgb(255 255 255 / 35%);
 }
-.starter-track {
-  display: flex;
-  height: 100%;
-  align-items: center;
-  gap: 10px;
-  width: max-content;
+.starter-stage.is-revealed .starter-ring { opacity: 0 !important; transform: scale(0) !important; }
+.starter-rays {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 360px;
+  height: 360px;
+  margin: -180px;
+  opacity: .8;
+  animation: starter-rotate 18s linear infinite;
+}
+.starter-rays::before {
+  position: absolute;
+  inset: 0;
+  background: repeating-conic-gradient(var(--starter-ray, rgb(255 255 255 / 60%)) 0 3deg, transparent 3deg 17deg);
+  content: "";
+  -webkit-mask-image: radial-gradient(circle, #000, transparent 66%);
+  mask-image: radial-gradient(circle, #000, transparent 66%);
+}
+.starter-core {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  z-index: 3;
+  width: 46px;
+  height: 46px;
+  margin: -23px;
+  border-radius: 50%;
+  background: radial-gradient(circle at 40% 35%, #fff, #a8d0ff 40%, #1683f4 82%);
+  box-shadow: 0 0 var(--starter-glow-blur, 32px) 10px rgb(22 131 244 / 48%);
+}
+.starter-orbit-item {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  z-index: 2;
+  width: 0;
+  height: 0;
   will-change: transform;
 }
-.starter-track.is-moving { animation: starter-idle-scroll 1.6s linear infinite; }
-.starter-card {
-  display: grid;
-  width: 92px;
-  height: 116px;
-  flex: 0 0 92px;
-  place-items: center;
-  border-radius: 14px;
-  background: #eef1f5;
-  transition: transform 260ms ease;
+.starter-stage.is-revealed .starter-orbit-item:not(.is-winner) { opacity: 0 !important; }
+.starter-orbit-item img {
+  position: absolute;
+  top: -27px;
+  left: -27px;
+  width: 54px;
+  height: 54px;
+  box-sizing: border-box;
+  padding: 0;
+  border: 0;
+  border-radius: 25%;
+  background: transparent;
+  box-shadow: none;
+  object-fit: contain;
 }
-.starter-card img { width: 100%; height: 100%; box-sizing: border-box; padding: 8px; object-fit: contain; }
-.starter-card.is-blank { background: linear-gradient(100deg, #e9edf2, #f7f8fa 48%, #e9edf2); }
+.starter-stage.is-revealed .starter-orbit-item.is-winner {
+  z-index: 12;
+  transform: scale(0);
+  transition: transform 800ms cubic-bezier(.2, 1.4, .4, 1);
+}
+.starter-stage.is-revealed .starter-orbit-item.is-winner.is-visible { transform: scale(1); }
+.starter-stage.is-revealed .starter-orbit-item.is-winner::before {
+  position: absolute;
+  top: -110px;
+  left: -110px;
+  width: 220px;
+  height: 220px;
+  border-radius: 50%;
+  background: radial-gradient(circle, var(--starter-winner-color, #1683f4), transparent 68%);
+  content: "";
+  opacity: 0;
+  filter: blur(14px);
+  transition: opacity 500ms ease;
+}
+.starter-stage.is-revealed .starter-orbit-item.is-winner.is-visible::before { opacity: .5; }
+.starter-stage.is-revealed .starter-orbit-item.is-winner img {
+  top: -54px;
+  left: -54px;
+  width: 108px;
+  height: 108px;
+  padding: 0;
+  border-radius: 25%;
+  animation: starter-bob 3.2s ease-in-out infinite;
+  transition: top 500ms ease, left 500ms ease, width 500ms ease, height 500ms ease,
+    border-radius 500ms ease;
+}
 .starter-marker {
   position: absolute;
   top: 50%;
   left: 50%;
-  width: 100px;
-  height: 124px;
+  z-index: 11;
+  width: 132px;
+  height: 132px;
   box-sizing: border-box;
+  margin: -66px;
   border: 2px solid #1683f4;
-  border-radius: 16px;
+  border-radius: 34px;
   box-shadow: 0 0 0 4px rgb(22 131 244 / 14%);
-  transform: translate(-50%, -50%);
+  opacity: 0;
+  pointer-events: none;
+  transform: scale(.7);
+  transition: opacity 400ms 250ms, transform 500ms 250ms cubic-bezier(.2, 1.4, .4, 1);
+}
+.starter-marker.is-visible { opacity: 1; transform: scale(1); }
+.starter-flash {
+  position: absolute;
+  inset: 0;
+  z-index: 20;
+  background: radial-gradient(circle at 50% 50%, #fff, rgb(255 255 255 / 55%) 34%, transparent 66%);
+  opacity: 0;
   pointer-events: none;
 }
-.starter-reel.is-finished .starter-card:not(.is-winner) { opacity: 0.45; }
-.starter-reel.is-finished .starter-card.is-winner { transform: scale(1.04); }
+.starter-shock {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  z-index: 10;
+  width: 120px;
+  height: 120px;
+  margin: -60px;
+  border: 2px solid rgb(255 255 255 / 95%);
+  border-radius: 50%;
+  opacity: 0;
+  pointer-events: none;
+}
+.starter-shock.is-active { animation: starter-shockwave 1s ease-out; }
+.starter-particles {
+  position: absolute;
+  inset: 0;
+  z-index: 15;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+}
 
-.starter-result { display: grid; gap: 4px; margin-top: 16px; text-align: center; }
+.starter-result {
+  display: grid;
+  gap: 4px;
+  justify-items: center;
+  margin-top: 16px;
+  text-align: center;
+  opacity: 0;
+  transform: translateY(8px);
+  transition: opacity 450ms 200ms, transform 450ms 200ms;
+}
+.starter-result.is-visible { opacity: 1; transform: none; }
 .starter-result[hidden], .starter-error[hidden] { display: none; }
-.starter-result-name { font-size: 17px; line-height: 1.3; }
-.starter-result-meta { color: #666872; font-size: 13px; }
+.starter-result-name { font-size: 17px; font-weight: 600; line-height: 1.3; }
+.starter-result-meta { display: inline-flex; align-items: center; gap: 5px; color: #666872; font-size: 13px; }
+.starter-result-meta img { width: 14px; height: 14px; }
 .starter-error { margin: 14px 0 0; color: #c0392b; font-size: 13px; line-height: 1.45; text-align: center; }
 
 .starter-action {
@@ -7348,11 +7464,21 @@ h6 {
 .starter-action:disabled { opacity: 0.6; cursor: default; }
 .starter-action:focus-visible, .starter-close:focus-visible { outline: 2px solid #2586e8; outline-offset: 2px; }
 
-@keyframes starter-idle-scroll {
-  from { transform: translateX(0); }
-  to { transform: translateX(-408px); }
+@keyframes starter-rotate { to { transform: rotate(360deg); } }
+@keyframes starter-bob { 50% { transform: translateY(-6px); } }
+@keyframes starter-shockwave {
+  from { transform: scale(.3); opacity: .9; }
+  to { transform: scale(3); opacity: 0; }
 }
 @media (prefers-reduced-motion: reduce) {
-  .starter-track.is-moving { animation: none; }
-  .starter-card { transition: none; }
+  .starter-rays { animation-duration: 60s; }
+  .starter-stage.is-revealed .starter-orbit-item.is-winner img {
+    animation: none;
+    transition-duration: 180ms;
+  }
+  .starter-stage.is-revealed .starter-orbit-item.is-winner,
+  .starter-stage.is-revealed .starter-orbit-item.is-winner::before {
+    transition-duration: 180ms;
+  }
+  .starter-shock.is-active { animation-duration: 300ms; }
 }

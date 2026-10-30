@@ -44,6 +44,7 @@ begin
       'market_listings',
       'nft_transfers',
       'nft_auto_sales',
+      'starter_gift_inventory',
       'starter_gift_claims',
       'starter_gift_demo_claims',
       'anonymous_numbers',
