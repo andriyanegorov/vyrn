@@ -10,17 +10,8 @@
   const scope = isBrowserDemo ? 'demo' : String(tg.initDataUnsafe?.user?.id || '');
   if (!scope) return;
 
-  const DONE_KEY = `vyrn:starter-gift-done:${scope}`;
-  const NONE_KEY = `vyrn:starter-gift-none:${scope}`;
-  const SKIP_KEY = `vyrn:starter-gift-skip:${scope}`;
   const GIFT_BASE = 'https://nft.fragment.com/gift/';
   const STAR_IMAGE = './assets/stars.png';
-  const read = (storage, key) => {
-    try { return storage.getItem(key); } catch { return null; }
-  };
-  const write = (storage, key, value) => {
-    try { storage.setItem(key, value); } catch { /* Хранилище недоступно: окно покажется снова. */ }
-  };
   const createLaunchId = () => {
     const bytes = new Uint8Array(16);
     if (window.crypto?.getRandomValues) {
@@ -34,13 +25,6 @@
     return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20)}`;
   };
   const launchId = isBrowserDemo ? createLaunchId() : null;
-  const NONE_TTL = 12 * 60 * 60 * 1000;
-
-  if ((!isBrowserDemo && read(localStorage, DONE_KEY) === '1')
-    || (!isBrowserDemo && read(sessionStorage, SKIP_KEY) === '1')) return;
-  const lastNone = Number(read(localStorage, NONE_KEY) || 0);
-  if (!isBrowserDemo && lastNone && Date.now() - lastNone < NONE_TTL) return;
-
   const prefersReducedMotion = () => window.matchMedia?.('(prefers-reduced-motion: reduce)').matches === true;
   const rarityOf = (price) => {
     if (price >= 1000) return { name: 'Легендарный', color: '#d99200' };
@@ -107,9 +91,7 @@
       if (state === 'done') {
         event.preventDefault();
         finish();
-        return;
       }
-      if (!isBrowserDemo) write(sessionStorage, SKIP_KEY, '1');
     });
   };
 
@@ -437,14 +419,12 @@
     try {
       const result = await api.claimStarterGift(launchId);
       if (result?.already_claimed) {
-        if (!isBrowserDemo) write(localStorage, DONE_KEY, '1');
         dialog.close();
         if (isBrowserDemo) refreshDemoCollection();
         return;
       }
       if (!result?.item) throw new Error('Сервер не вернул подарок. Попробуйте ещё раз.');
       claimedItem = result.item;
-      if (!isBrowserDemo) write(localStorage, DONE_KEY, '1');
       await spin(result.item, result.roulette_visuals);
     } catch (error) {
       showError(error);
@@ -458,7 +438,6 @@
 
   const dismiss = () => {
     if (isBusy()) return;
-    if (!isBrowserDemo) write(sessionStorage, SKIP_KEY, '1');
     dialog.close();
   };
 
@@ -510,8 +489,6 @@
     if (status?.available === true) {
       open();
       if (isBrowserDemo) claim();
-    } else if (status?.available === false && !isBrowserDemo) {
-      write(localStorage, NONE_KEY, String(Date.now()));
     }
   }).catch((error) => {
     console.warn('Не удалось проверить стартовый подарок:', error);
