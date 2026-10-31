@@ -253,7 +253,6 @@
       if (!openedPrize || sellingPrize || String(event.data.itemId) !== String(openedPrize.item_id)) return;
       sellingPrize = true;
       try {
-        await window.VyrnApi.refreshNftPrice(openedPrize.item_id);
         const sold = await window.VyrnApi.autoSellNft(openedPrize.item_id);
         const sale = sold?.sale;
         if (!sale) throw new Error('Сервер не подтвердил продажу подарка.');

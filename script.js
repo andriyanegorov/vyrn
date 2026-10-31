@@ -1291,15 +1291,22 @@ const mapOwnedNft = (item) => {
 	const externalId = item.external_id || item.id.slice(0, 8);
 	const visualId = item.attributes?.crafting?.visual_external_id || externalId;
 	const collectionSlug = collection.slug || model.slug || '';
+	const isManualPrice = item.attributes?.fragment_price_manual === true;
 	return {
 		itemId: item.id,
 		slug: isCustomNft ? '' : collectionSlug,
 		id: externalId,
 		name: model.name || collection.name || 'NFT',
 		collectionName: collection.name || '',
-		fragmentPriceStars: Number(item.attributes?.custom_nft === true
+		fragmentPriceStars: Number(isCustomNft
 			? item.attributes.custom_price_stars
-			: model.attributes?.fragment_price_stars ?? item.attributes?.fragment_price_stars) || null,
+			: isManualPrice
+				? item.attributes?.fragment_price_stars
+				: item.attributes?.fragment_price_fragment_stars
+					?? item.attributes?.fragment_price_stars
+					?? model.attributes?.fragment_price_stars) || null,
+		isCustomNft,
+		isManualPrice,
 		previewUrl: !isCustomNft && collectionSlug && item.external_id
 			? getNftPreviewUrl(collectionSlug, visualId)
 			: model.preview_url || '',
@@ -2081,6 +2088,8 @@ if (nftGrid) {
 		card.dataset.nftCollection = gift.collectionName || 'VYRN';
 		card.dataset.nftFile = file;
 		card.dataset.nftFragmentPriceStars = gift.fragmentPriceStars ? String(gift.fragmentPriceStars) : '';
+		card.dataset.nftManualPrice = String(Boolean(gift.isManualPrice));
+		card.dataset.nftCustom = String(Boolean(gift.isCustomNft));
 		card.setAttribute('aria-label', `Открыть ${title}`);
 
 		const animationHost = document.createElement('div');
@@ -2305,6 +2314,8 @@ const renderSharedPlayerProfile = (profile, items = []) => {
 		card.dataset.nftCollection = gift.collectionName || 'VYRN';
 		card.dataset.nftFile = file;
 		card.dataset.nftFragmentPriceStars = gift.fragmentPriceStars ? String(gift.fragmentPriceStars) : '';
+		card.dataset.nftManualPrice = String(Boolean(gift.isManualPrice));
+		card.dataset.nftCustom = String(Boolean(gift.isCustomNft));
 		card.setAttribute('aria-label', `Открыть ${title}`);
 		const image = createNftPreviewImage(card.dataset.nftPreview, title, 'profile-nft-preview');
 		card.append(image);
@@ -2609,7 +2620,11 @@ if ((nftGrids.length || marketGrid) && nftModal && nftModalAnimation && nftModal
 		}
 		nftModalModel.textContent = model;
 		nftModalConfirm.textContent = confirmText || (onConfirm ? 'Подтвердить покупку' : 'OK');
-		nftModalPriceLabel.textContent = priceStars !== null ? 'Цена' : 'Ценность (FRAGMENT)';
+		nftModalPriceLabel.textContent = priceStars !== null
+			? 'Цена'
+			: card?.dataset.nftManualPrice === 'true' || card?.dataset.nftCustom === 'true'
+				? 'Установленная цена'
+				: 'Ценность (FRAGMENT)';
 		if (nftModalSellButton) {
 			const canManageListing = Boolean(card?.dataset.nftItemId);
 			const isListed = card?.dataset.nftListed === 'true';
@@ -2778,7 +2793,10 @@ if ((nftGrids.length || marketGrid) && nftModal && nftModalAnimation && nftModal
 		nftListingSubmit.disabled = true;
 		nftListingAutoSell.disabled = true;
 		try {
-			await window.VyrnApi.refreshNftPrice(activeNftCard.dataset.nftItemId);
+			if (activeNftCard.dataset.nftManualPrice !== 'true'
+				&& activeNftCard.dataset.nftCustom !== 'true') {
+				await window.VyrnApi.refreshNftPrice(activeNftCard.dataset.nftItemId);
+			}
 			const result = await window.VyrnApi.autoSellNft(activeNftCard.dataset.nftItemId);
 			const sale = result.sale;
 			activeNftCard.remove();
@@ -3848,6 +3866,8 @@ if (chatRows.length && conversationDialog) {
 						card.dataset.nftCollection = gift.collectionName || 'VYRN';
 						card.dataset.nftFile = file;
 						card.dataset.nftFragmentPriceStars = gift.fragmentPriceStars ? String(gift.fragmentPriceStars) : '';
+						card.dataset.nftManualPrice = String(Boolean(gift.isManualPrice));
+						card.dataset.nftCustom = String(Boolean(gift.isCustomNft));
 						card.setAttribute('aria-label', `Открыть ${title}`);
 						const image = createNftPreviewImage(card.dataset.nftPreview, title, 'profile-nft-preview');
 						card.append(image);
