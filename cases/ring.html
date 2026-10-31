@@ -26,10 +26,10 @@
     .result-price { display: inline-flex; align-items: center; gap: 5px; white-space: nowrap; font-size: 14px; font-weight: 700; }
     .result-price img { width: 18px; height: 18px; object-fit: contain; }
     .result-actions { display: flex; justify-content: center; gap: 10px; }
-    .result-action { display: inline-flex; min-width: 128px; min-height: 42px; align-items: center; justify-content: center; gap: 8px; padding: 0 16px; border: 1px solid rgba(255,255,255,.18); border-radius: 24px; color: #fff; font: 600 13px Manrope, Inter, system-ui, sans-serif; cursor: pointer; box-shadow: 0 5px 16px rgba(0,0,0,.2); }
+    .result-action { display: inline-flex; min-width: 128px; min-height: 42px; align-items: center; justify-content: center; gap: 8px; padding: 0 16px; border: 1px solid rgba(255,255,255,.18); border-radius: 24px; color: #fff; font: 13px Manrope, Inter, system-ui, sans-serif; cursor: pointer; box-shadow: 0 5px 16px rgba(0,0,0,.2); }
     .result-action:disabled { opacity: .58; cursor: default; }
-    .result-action svg { width: 16px; height: 16px; fill: currentColor; }
-    .result-action-sell { background: linear-gradient(110deg, #6655ee, #373ed1); }
+    .result-action img { width: 16px; height: 16px; object-fit: contain; }
+    .result-action-sell { background: linear-gradient(110deg, #00ff03, #00ad02); }
     .result-action-save { background: linear-gradient(110deg, #3298ff, #2369ef); }
     .result-message { min-height: 14px; font-size: 11px; }
     @media (max-width: 380px) { .result-action { min-width: 112px; padding: 0 11px; } }
@@ -49,11 +49,11 @@
       </div>
       <div class="result-actions">
         <button class="result-action result-action-sell" type="button" data-result-sell>
-          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 11.5V20a1 1 0 0 0 1 1h8.5a1 1 0 0 0 .7-.3l8-8a1 1 0 0 0 0-1.4l-7.5-7.5a1 1 0 0 0-.7-.3H4a1 1 0 0 0-1 1v7Zm5-3.5a1.5 1.5 0 1 1 0 3 1.5 1.5 0 0 1 0-3Z"/></svg>
+          <img src="../assets/svg/sell.svg" alt="" aria-hidden="true">
           <span>Продать</span>
         </button>
         <button class="result-action result-action-save" type="button" data-result-save>
-          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 3a2 2 0 0 0-2 2v17l8-4 8 4V5a2 2 0 0 0-2-2H6Z"/></svg>
+          <img src="../assets/svg/save.svg" alt="" aria-hidden="true">
           <span>Сохранить</span>
         </button>
       </div>
