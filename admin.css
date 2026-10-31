@@ -349,6 +349,142 @@ body.admin-page {
   margin-top: 18px;
 }
 
+.admin-case-section {
+  margin-top: 18px;
+}
+
+.admin-case-fields {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.admin-case-prize-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin: 20px 0 10px;
+}
+
+.admin-case-prize-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.admin-case-prize-heading h3 {
+  margin: 0;
+  font-size: 13px;
+}
+
+.admin-case-prize-actions .admin-button {
+  min-height: 34px;
+  padding: 0 12px;
+}
+
+.admin-case-prize-rows,
+.admin-case-list {
+  display: grid;
+  gap: 10px;
+}
+
+.admin-case-prize-row {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr)) auto;
+  align-items: end;
+  gap: 8px;
+  padding: 10px;
+  border: 1px solid #e6e9e8;
+  background: #fbfcfb;
+}
+
+.admin-case-prize-preview {
+  grid-column: 1 / -1;
+  width: 96px;
+  height: 96px;
+  border: 1px solid #e6e9e8;
+  border-radius: 8px;
+  object-fit: cover;
+  background: #edf4ef;
+}
+
+.admin-case-prize-preview[hidden] {
+  display: none;
+}
+
+.admin-case-prize-row .admin-field > span {
+  font-size: 9px;
+}
+
+.admin-case-prize-row .admin-field input {
+  height: 36px;
+  padding: 0 8px;
+  font-size: 11px;
+}
+
+.admin-case-prize-hint {
+  grid-column: 1 / -1;
+  margin: 0;
+  color: var(--admin-muted);
+  font-size: 10px;
+  line-height: 1.5;
+}
+
+.admin-case-remove-prize {
+  min-height: 36px;
+  padding: 0 10px;
+  background: var(--admin-red);
+}
+
+.admin-case-submit {
+  margin-top: 14px;
+}
+
+.admin-case-list {
+  margin-top: 14px;
+}
+
+.admin-case-item {
+  display: grid;
+  grid-template-columns: 52px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 12px;
+  padding: 12px;
+  border: 1px solid #e6e9e8;
+  background: #fff;
+}
+
+.admin-case-item-image {
+  width: 52px;
+  height: 52px;
+  border-radius: 6px;
+  object-fit: cover;
+  background: #edf4ef;
+}
+
+.admin-case-item-copy {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
+
+.admin-case-item-copy strong {
+  font-size: 12px;
+}
+
+.admin-case-item-copy span {
+  color: var(--admin-muted);
+  font-size: 10px;
+}
+
+.admin-case-delete {
+  min-height: 34px;
+  padding: 0 12px;
+  background: var(--admin-red);
+}
+
 .admin-random-fields {
   display: grid;
   grid-template-columns: repeat(5, minmax(0, 1fr));
@@ -906,6 +1042,10 @@ body.admin-page {
   .admin-promo-form {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
+
+  .admin-case-prize-row {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
 }
 
 @media (max-width: 520px) {
@@ -971,6 +1111,21 @@ body.admin-page {
 
   .admin-promo-form {
     grid-template-columns: 1fr;
+  }
+
+  .admin-case-fields,
+  .admin-case-prize-row {
+    grid-template-columns: 1fr;
+  }
+
+  .admin-case-prize-heading {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .admin-case-prize-actions {
+    width: 100%;
+    justify-content: flex-start;
   }
 
   .admin-task-count-form {

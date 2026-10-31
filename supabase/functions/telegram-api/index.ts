@@ -512,6 +512,33 @@ Deno.serve(async (request) => {
   };
 
   const action = input.action;
+  if (action === 'open_case') {
+    if (!isBrowserDemo) {
+      if (typeof input.initData !== 'string' || !botToken) {
+        return json({ error: 'Для открытия кейсов откройте VYRN внутри Telegram.' }, 401);
+      }
+      const verified = await verifyTelegramInitData(input.initData, botToken);
+      if (!verified.user || String(verified.user.id) !== telegramId) {
+        return json({ error: 'Не удалось подтвердить аккаунт Telegram. Переоткройте приложение.' }, 401);
+      }
+    }
+    const caseId = typeof input.case_id === 'string' ? input.case_id : '';
+    if (!isUuid(caseId)) return json({ error: 'Выберите кейс для открытия.' }, 400);
+    const opened = await supabase.rpc('open_case', {
+      p_profile_id: profile.id,
+      p_case_id: caseId,
+    });
+    if (opened.error) {
+      const missingFunction = opened.error.code === 'PGRST202' || opened.error.code === '42883';
+      return json({
+        error: missingFunction
+          ? 'Система кейсов не установлена. Примените supabase/cases.sql.'
+          : opened.error.message,
+      }, missingFunction ? 503 : 400);
+    }
+    return json({ result: opened.data });
+  }
+
   if (action === 'redeem_promo_code') {
     if (!isBrowserDemo) {
       if (typeof input.initData !== 'string' || !botToken) {

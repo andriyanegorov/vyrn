@@ -8,9 +8,9 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Inter:wght@400;500;600;700&family=Manrope:wght@400;500;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="style.css?v=premium-badge-click-v1">
-  <link rel="stylesheet" href="admin.css?v=admin-project-wipe-v1">
+  <link rel="stylesheet" href="admin.css?v=admin-case-auto-odds-v1">
   <script src="supabase-client-config.js?v=admin-panel-number-media-20261018" defer></script>
-  <script src="admin.js?v=admin-project-wipe-v1" defer></script>
+  <script src="admin.js?v=admin-case-auto-odds-v1" defer></script>
 </head>
 <body class="admin-page">
   <header class="admin-header">
@@ -303,6 +303,42 @@
           <button class="admin-button admin-promo-copy-button" type="button">Скопировать коды</button>
           <button class="admin-button admin-promo-download-button" type="button">Скачать .txt</button>
         </div>
+      </div>
+    </section>
+    <section class="admin-section admin-case-section" aria-labelledby="case-heading">
+      <div class="admin-section-heading">
+        <span class="admin-step">07</span>
+        <div><h2 id="case-heading">Кейсы</h2><p>Создание кейсов, настройка подарков, шансов и ценности</p></div>
+      </div>
+      <form class="admin-case-form">
+        <div class="admin-case-fields">
+          <label class="admin-field">
+            <span>Название кейса</span>
+            <input class="admin-case-title" type="text" maxlength="80" placeholder="Например, Ледяной" required>
+          </label>
+          <label class="admin-field">
+            <span>Цена открытия, Stars</span>
+            <input class="admin-case-price" type="number" min="1" max="1000000" step="1" value="50" required>
+          </label>
+          <label class="admin-field">
+            <span>Описание</span>
+            <input class="admin-case-description" type="text" maxlength="240" placeholder="Что скрывает кейс?">
+          </label>
+        </div>
+        <div class="admin-case-prize-heading">
+          <h3>Подарки и шансы</h3>
+          <div class="admin-case-prize-actions">
+            <button class="admin-button admin-case-auto-odds" type="button">Рассчитать автошансы 50/50</button>
+            <button class="admin-button admin-case-add-prize" type="button">Добавить подарок</button>
+          </div>
+        </div>
+        <div class="admin-case-prize-rows" aria-live="polite"></div>
+        <p class="admin-price-note">Вставь ссылку на подарок с Fragment: его изображение и анимация будут показаны в кейсе. Рекомендация цены на маркете равна указанной ценности в Stars. Автошансы делят шанс поровну между призами дешевле кейса и призами не дешевле его; внутри групп более дорогой приз получает меньший шанс. Игроку выдаётся NFT с тем же изображением и случайным номером.</p>
+        <button class="admin-button admin-case-submit" type="submit">Создать кейс</button>
+      </form>
+      <p class="admin-status admin-case-status" role="status" hidden></p>
+      <div class="admin-case-list" aria-live="polite">
+        <p class="admin-empty-result">Загружаем кейсы…</p>
       </div>
     </section>
     <section class="admin-section admin-danger-section" aria-labelledby="delete-all-nfts-heading">

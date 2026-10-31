@@ -292,7 +292,7 @@ Deno.serve(async (request) => {
         if (!response.ok
           || typeof price?.grams !== 'number' || !Number.isFinite(price.grams) || price.grams <= 0
           || typeof price?.stars !== 'number' || !Number.isSafeInteger(price.stars)
-          || price.stars !== Math.max(1, Math.round(price.grams / 10 * 80))) {
+          || price.stars !== Math.max(1, Math.round(price.grams / 10 * 8))) {
           priceFailures++;
           return null;
         }

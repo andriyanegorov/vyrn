@@ -189,6 +189,16 @@ xmasstocking|Xmas Stockings
   const promoCodes = document.querySelector('.admin-promo-codes');
   const promoCopyButton = document.querySelector('.admin-promo-copy-button');
   const promoDownloadButton = document.querySelector('.admin-promo-download-button');
+  const adminCaseForm = document.querySelector('.admin-case-form');
+  const adminCaseTitle = document.querySelector('.admin-case-title');
+  const adminCaseDescription = document.querySelector('.admin-case-description');
+  const adminCasePrice = document.querySelector('.admin-case-price');
+  const adminCasePrizeRows = document.querySelector('.admin-case-prize-rows');
+  const adminCaseAddPrizeButton = document.querySelector('.admin-case-add-prize');
+  const adminCaseAutoOddsButton = document.querySelector('.admin-case-auto-odds');
+  const adminCaseSubmitButton = document.querySelector('.admin-case-submit');
+  const adminCaseList = document.querySelector('.admin-case-list');
+  const adminCaseStatus = document.querySelector('.admin-case-status');
   let selectedPlayer = null;
   let giftPreviewUrl = '';
   let priceRequestId = 0;
@@ -373,6 +383,243 @@ xmasstocking|Xmas Stockings
     }
     if (!response.ok) throw new Error(data?.error || `Не удалось создать промокоды (${response.status}).`);
     return data;
+  };
+
+  const adminCaseRequest = async (payload) => {
+    if (!config.url || !config.anonKey || config.url.includes('YOUR_PROJECT_REF') || config.anonKey.includes('YOUR_SUPABASE')) {
+      throw new Error('Проверь URL и anon key в supabase-client-config.js.');
+    }
+    let response;
+    try {
+      response = await fetch(`${config.url.replace(/\/$/, '')}/functions/v1/admin-cases`, {
+        method: 'POST',
+        headers: {
+          apikey: config.anonKey,
+          Authorization: `Bearer ${config.anonKey}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          ...payload,
+          ...(payload.action === 'list' ? {} : { password: passwordInput.value })
+        })
+      });
+    } catch {
+      throw new Error('Edge Function admin-cases не опубликована или не отвечает.');
+    }
+    const data = await response.json().catch(() => null);
+    if (response.status === 404) {
+      throw new Error('Функция admin-cases не опубликована. Разверните её по инструкции в README.');
+    }
+    if (!response.ok) throw new Error(data?.error || `Не удалось изменить кейсы (${response.status}).`);
+    return data;
+  };
+
+  const getFragmentGift = (value) => {
+    try {
+      const url = new URL(value.trim());
+      const match = url.pathname.match(/^\/gift\/([a-z0-9]+)-(\d{1,12})\/?$/i);
+      if (url.protocol !== 'https:' || !['fragment.com', 'www.fragment.com'].includes(url.hostname.toLowerCase())
+        || (url.port !== '' && url.port !== '443')
+        || url.username !== '' || url.password !== ''
+        || url.search !== '' || url.hash !== ''
+        || !match || Number(match[2]) < 1) return null;
+      const slug = match[1].toLowerCase();
+      const collection = collections.find((item) => item.slug === slug);
+      const giftNumber = String(Number(match[2]));
+      return {
+        slug,
+        collectionName: collection?.name || slug.replace(/([a-z])([A-Z])/g, '$1 $2'),
+        giftNumber,
+        fragmentUrl: `https://fragment.com/gift/${slug}-${giftNumber}`,
+        previewUrl: `https://nft.fragment.com/gift/${slug}-${giftNumber}.webp`,
+        animationUrl: `https://nft.fragment.com/gift/${slug}-${giftNumber}.tgs`
+      };
+    } catch {
+      return null;
+    }
+  };
+
+  const updateCasePrizeHints = () => {
+    const rows = [...adminCasePrizeRows.children];
+    const totalWeight = rows.reduce((total, row) => {
+      const weight = Number(row.querySelector('[name="weight"]').value);
+      return total + (Number.isSafeInteger(weight) && weight > 0 ? weight : 0);
+    }, 0);
+    const casePrice = Number(adminCasePrice.value);
+    rows.forEach((row) => {
+      const value = Number(row.querySelector('[name="value_stars"]').value);
+      const weight = Number(row.querySelector('[name="weight"]').value);
+      const hint = row.querySelector('.admin-case-prize-hint');
+      const chance = totalWeight > 0 && Number.isSafeInteger(weight) && weight > 0
+        ? new Intl.NumberFormat('ru-RU', { maximumFractionDigits: 2 }).format(weight / totalWeight * 100)
+        : '—';
+      const priceHint = Number.isSafeInteger(value) && value > 0
+        ? `Рекомендованная цена на маркете: ${value.toLocaleString('ru-RU')} Stars`
+        : 'Укажи ценность, чтобы получить рекомендацию цены';
+      const tier = Number.isSafeInteger(value) && value > 0 && Number.isSafeInteger(casePrice) && casePrice > 0
+        ? value >= casePrice ? 'не дешевле кейса' : 'дешевле кейса'
+        : 'группа не определена';
+      hint.textContent = `Шанс: ${chance}% · ${tier}. ${priceHint}.`;
+    });
+  };
+
+  const assignInverseWeights = (rows, budget) => {
+    const inverseTotal = rows.reduce((total, row) => {
+      return total + 1 / Number(row.querySelector('[name="value_stars"]').value);
+    }, 0);
+    const orderedRows = [...rows].sort((first, second) =>
+      Number(first.querySelector('[name="value_stars"]').value)
+        - Number(second.querySelector('[name="value_stars"]').value)
+    );
+    let assignedWeight = 0;
+    orderedRows.forEach((row) => {
+      const value = Number(row.querySelector('[name="value_stars"]').value);
+      const weight = Math.floor(budget * (1 / value) / inverseTotal);
+      row.querySelector('[name="weight"]').value = String(weight);
+      assignedWeight += weight;
+    });
+    const remainder = budget - assignedWeight;
+    if (remainder < 0 || remainder >= orderedRows.length) {
+      throw new Error('Не удалось точно распределить веса. Проверь ценности предметов.');
+    }
+    const cheapestWeight = orderedRows[0].querySelector('[name="weight"]');
+    cheapestWeight.value = String(Number(cheapestWeight.value) + remainder);
+  };
+
+  const addCasePrizeRow = (values = {}) => {
+    const row = document.createElement('div');
+    row.className = 'admin-case-prize-row';
+    const preview = document.createElement('img');
+    preview.className = 'admin-case-prize-preview';
+    preview.alt = 'Предпросмотр NFT с Fragment';
+    preview.hidden = true;
+    row.append(preview);
+    const fields = [
+      ['Ссылка на NFT Fragment', 'fragment_url', values.fragment_url || '', 'url', 1000, true],
+      ['Название подарка', 'name', values.name || '', 'text', 100, true],
+      ['Ценность, Stars', 'value_stars', values.value_stars || '', 'number', 1000000000, true],
+      ['Вес / шанс', 'weight', values.weight || 50, 'number', 100000, true]
+    ];
+    fields.forEach(([label, name, value, type, maximum, required]) => {
+      const field = document.createElement('label');
+      field.className = 'admin-field';
+      const caption = document.createElement('span');
+      caption.textContent = label;
+      const input = document.createElement('input');
+      input.type = type;
+      input.name = name;
+      input.value = value;
+      if (type === 'text') input.maxLength = maximum;
+      input.required = required;
+      if (type === 'number') {
+        input.min = '1';
+        input.max = String(maximum);
+        input.step = '1';
+      }
+      if (name === 'fragment_url') {
+        input.placeholder = 'https://fragment.com/gift/plushpepe-1234';
+        input.addEventListener('input', () => {
+          const gift = getFragmentGift(input.value);
+          const nameInput = row.querySelector('[name="name"]');
+          if (!gift) {
+            preview.hidden = true;
+            preview.removeAttribute('src');
+            row.dataset.collectionSlug = '';
+            row.dataset.collectionName = '';
+            row.dataset.previewUrl = '';
+            row.dataset.animationUrl = '';
+            return;
+          }
+          preview.src = gift.previewUrl;
+          preview.hidden = false;
+          row.dataset.collectionSlug = gift.slug;
+          row.dataset.collectionName = gift.collectionName;
+          row.dataset.previewUrl = gift.previewUrl;
+          row.dataset.animationUrl = gift.animationUrl;
+          if (!nameInput.value.trim()) nameInput.value = gift.collectionName;
+        });
+      }
+      if (name === 'value_stars' || name === 'weight') {
+        input.addEventListener('input', updateCasePrizeHints);
+      }
+      field.append(caption, input);
+      row.append(field);
+    });
+    const hint = document.createElement('p');
+    hint.className = 'admin-case-prize-hint';
+    row.append(hint);
+    const removeButton = document.createElement('button');
+    removeButton.className = 'admin-button admin-case-remove-prize';
+    removeButton.type = 'button';
+    removeButton.textContent = 'Удалить';
+    removeButton.addEventListener('click', () => {
+      row.remove();
+      updateCasePrizeHints();
+    });
+    row.append(removeButton);
+    adminCasePrizeRows.append(row);
+    if (values.fragment_url) {
+      row.querySelector('[name="fragment_url"]').dispatchEvent(new Event('input'));
+    }
+    updateCasePrizeHints();
+  };
+
+  const renderAdminCases = (items) => {
+    adminCaseList.replaceChildren();
+    if (!items.length) {
+      const empty = document.createElement('p');
+      empty.className = 'admin-empty-result';
+      empty.textContent = 'Кейсов пока нет.';
+      adminCaseList.append(empty);
+      return;
+    }
+    items.forEach((item) => {
+      const row = document.createElement('article');
+      row.className = 'admin-case-item';
+      const image = document.createElement('img');
+      image.className = 'admin-case-item-image';
+      image.src = item.cover_url || './assets/placeholder.png';
+      image.alt = '';
+      image.onerror = () => {
+        image.onerror = null;
+        image.src = './assets/placeholder.png';
+      };
+      const copy = document.createElement('div');
+      copy.className = 'admin-case-item-copy';
+      const title = document.createElement('strong');
+      title.textContent = item.title;
+      const details = document.createElement('span');
+      details.textContent = `${Number(item.price_stars).toLocaleString('ru-RU')} Stars · ${item.prizes.length} подарка`;
+      copy.append(title, details);
+      const removeButton = document.createElement('button');
+      removeButton.type = 'button';
+      removeButton.className = 'admin-button admin-case-delete';
+      removeButton.textContent = 'Удалить';
+      removeButton.addEventListener('click', async () => {
+        if (!passwordInput.value) {
+          showStatus(adminCaseStatus, 'Сначала введи пароль администратора.', true);
+          passwordInput.focus();
+          return;
+        }
+        removeButton.disabled = true;
+        try {
+          await adminCaseRequest({ action: 'delete', id: item.id });
+          showStatus(adminCaseStatus, `Кейс «${item.title}» удалён.`);
+          await refreshAdminCases();
+        } catch (error) {
+          showStatus(adminCaseStatus, error.message, true);
+          removeButton.disabled = false;
+        }
+      });
+      row.append(image, copy, removeButton);
+      adminCaseList.append(row);
+    });
+  };
+
+  const refreshAdminCases = async () => {
+    const data = await adminCaseRequest({ action: 'list' });
+    if (!Array.isArray(data.cases)) throw new Error('Сервер вернул некорректный список кейсов.');
+    renderAdminCases(data.cases);
   };
 
   const renderTaskDefinitions = (tasks) => {
@@ -1130,6 +1377,104 @@ xmasstocking|Xmas Stockings
   };
   randomMarketButton.addEventListener('click', () => runRandomGiftAction('market'));
   randomPlayerButton.addEventListener('click', () => runRandomGiftAction('player'));
+  adminCaseAddPrizeButton.addEventListener('click', () => {
+    if (adminCasePrizeRows.children.length >= 20) {
+      showStatus(adminCaseStatus, 'В кейсе можно настроить не более 20 подарков.', true);
+      return;
+    }
+    addCasePrizeRow();
+  });
+  adminCaseAutoOddsButton.addEventListener('click', () => {
+    const rows = [...adminCasePrizeRows.children];
+    const casePrice = Number(adminCasePrice.value);
+    const invalidPrize = rows.some((row) => {
+      const value = Number(row.querySelector('[name="value_stars"]').value);
+      return !Number.isSafeInteger(value) || value < 1;
+    });
+    if (!Number.isSafeInteger(casePrice) || casePrice < 1) {
+      showStatus(adminCaseStatus, 'Укажи целую цену открытия кейса в Stars.', true);
+      return;
+    }
+    if (invalidPrize) {
+      showStatus(adminCaseStatus, 'Укажи ценность каждого подарка в целых Stars перед расчётом шансов.', true);
+      return;
+    }
+    const atLeastCasePrice = rows.filter((row) =>
+      Number(row.querySelector('[name="value_stars"]').value) >= casePrice
+    );
+    const belowCasePrice = rows.filter((row) =>
+      Number(row.querySelector('[name="value_stars"]').value) < casePrice
+    );
+    if (!atLeastCasePrice.length || !belowCasePrice.length) {
+      showStatus(adminCaseStatus, 'Для шанса 50/50 нужны подарки и дешевле, и не дешевле цены открытия кейса.', true);
+      return;
+    }
+    try {
+      assignInverseWeights(atLeastCasePrice, 50000);
+      assignInverseWeights(belowCasePrice, 50000);
+      updateCasePrizeHints();
+      showStatus(adminCaseStatus, 'Автошансы рассчитаны: 50% на призы не дешевле кейса и 50% на призы дешевле. Более дорогие предметы внутри каждой группы имеют меньший шанс.');
+    } catch (error) {
+      showStatus(adminCaseStatus, error.message, true);
+    }
+  });
+  adminCasePrice.addEventListener('input', updateCasePrizeHints);
+  adminCaseForm.addEventListener('submit', async (event) => {
+    event.preventDefault();
+    if (!passwordInput.value) {
+      showStatus(adminCaseStatus, 'Сначала введи пароль администратора.', true);
+      passwordInput.focus();
+      return;
+    }
+    if (adminCasePrizeRows.children.length < 2) {
+      showStatus(adminCaseStatus, 'Добавь не менее двух подарков в кейс.', true);
+      return;
+    }
+    if (!adminCaseForm.reportValidity()) return;
+    if ([...adminCasePrizeRows.children].some((row) =>
+      !getFragmentGift(row.querySelector('[name="fragment_url"]').value)
+    )) {
+      showStatus(adminCaseStatus, 'В каждой награде укажи действующую ссылку вида https://fragment.com/gift/collection-123.', true);
+      return;
+    }
+    const prizes = [...adminCasePrizeRows.children].map((row) => {
+      const value = (name) => row.querySelector(`[name="${name}"]`).value.trim();
+      const gift = getFragmentGift(value('fragment_url'));
+      return {
+        name: value('name'),
+        fragment_url: gift.fragmentUrl,
+        collection_name: gift.collectionName,
+        collection_slug: gift.slug,
+        value_stars: Number(value('value_stars')),
+        weight: Number(value('weight')),
+        preview_url: gift.previewUrl,
+        animation_url: gift.animationUrl
+      };
+    });
+    adminCaseSubmitButton.disabled = true;
+    showStatus(adminCaseStatus, 'Создаём кейс…');
+    try {
+      const created = await adminCaseRequest({
+        action: 'create',
+        case: {
+          title: adminCaseTitle.value.trim(),
+          description: adminCaseDescription.value.trim(),
+          price_stars: Number(adminCasePrice.value),
+          prizes
+        }
+      });
+      showStatus(adminCaseStatus, `Кейс «${created.case.title}» создан.`);
+      adminCaseForm.reset();
+      adminCasePrizeRows.replaceChildren();
+      addCasePrizeRow();
+      addCasePrizeRow();
+      await refreshAdminCases();
+    } catch (error) {
+      showStatus(adminCaseStatus, error.message, true);
+    } finally {
+      adminCaseSubmitButton.disabled = false;
+    }
+  });
   syncCatalogButton.addEventListener('click', async () => {
     if (!passwordInput.value) {
       showStatus(catalogStatus, 'Сначала введи пароль администратора.', true);
@@ -1164,9 +1509,12 @@ xmasstocking|Xmas Stockings
     showStatus(deleteAllStatus, '');
     showStatus(wipeProjectStatus, '');
     showStatus(taskStatus, '');
+    showStatus(adminCaseStatus, '');
     updateCustomNftGrantButton();
   });
 
+  addCasePrizeRow();
+  addCasePrizeRow();
   renderCollections();
   renderRandomCollections();
   randomPlayerButton.disabled = true;
@@ -1176,5 +1524,9 @@ xmasstocking|Xmas Stockings
     renderCollections();
   }).catch((error) => {
     showStatus(catalogStatus, `Сохранённый список из базы недоступен: ${error.message}`, true);
+  });
+  refreshAdminCases().catch((error) => {
+    showStatus(adminCaseStatus, error.message, true);
+    adminCaseList.replaceChildren();
   });
 })();

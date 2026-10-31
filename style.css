@@ -480,6 +480,7 @@ display: flex;
 .home-action-icon.is-market { background: #10b98d; }
 .home-action-icon.is-tournament { background: #ff9e26; }
 .home-action-icon.is-anonymous-number { background: #1683f4; }
+.home-action-icon.is-cases { background: #6259e8; }
 
 .home-action-icon svg {
   width: 28px;

@@ -1,0 +1,69 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#10172a">
+  <title>Кейсы | VYRN</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Manrope:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../style.css?v=cases-section-v1">
+  <link rel="stylesheet" href="cases.css?v=case-fullscreen-fit-v5">
+  <script src="https://telegram.org/js/telegram-web-app.js"></script>
+  <script src="../supabase-client-config.js?v=cases-section-v1" defer></script>
+  <script src="../supabase-api.js?v=cases-section-v1" defer></script>
+  <script src="../nav-transition.js?v=nav-unselected-fade-v1" defer></script>
+  <script src="cases.js?v=case-fullscreen-fit-v5" defer></script>
+</head>
+<body class="cases-page">
+  <header class="site-header">
+    <a class="brand" href="../index.html#home" aria-label="VYRN, главная">VYRN</a>
+    <a class="star-balance" href="../wallet.html?openTopup=1" aria-label="Баланс: — звёзд">
+      <img src="../assets/stars.png" alt="" aria-hidden="true">
+      <span data-cases-balance>—</span>
+    </a>
+  </header>
+
+  <main class="cases-layout">
+
+    <p class="cases-status" data-cases-status role="status" aria-live="polite">Загружаем кейсы…</p>
+
+    <section class="cases-grid" data-cases-grid aria-label="Доступные кейсы" aria-busy="true"></section>
+
+    <section class="case-opening" data-case-opening hidden aria-labelledby="selected-case-title">
+      <div class="case-opening-heading">
+        <div>
+          <h2 id="selected-case-title" data-selected-case-title></h2>
+          <p data-selected-case-description></p>
+        </div>
+        <button class="case-close-button" type="button" data-close-case aria-label="Закрыть кейс">×</button>
+      </div>
+      <div class="case-ring-frame">
+        <iframe src="ring.html?v=case-fullscreen-fit-v5" title="Анимация прокрутки кейса «Кольцо»" loading="eager"></iframe>
+      </div>
+      <button class="case-open-button" type="button" data-open-case disabled>Открыть за <img src="../assets/stars.png" alt="" aria-hidden="true"> —</button>
+      <div class="case-prize-list" data-prize-list aria-label="Предметы внутри кейса"></div>
+    </section>
+  </main>
+  <nav class="bottom-nav" aria-label="Основная навигация">
+    <span class="nav-indicator is-hidden" aria-hidden="true"></span>
+    <a class="nav-button" href="../index.html#home">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m3 10 9-7 9 7M5 9v11h14V9M9 20v-6h6v6" /></svg>
+      <span>Главное</span>
+    </a>
+    <a class="nav-button" href="../market.html">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 10h18l-1.5-6h-15L3 10Zm0 0v10h18V10M8 20v-6h8v6" /></svg>
+      <span>Рынок</span>
+    </a>
+    <a class="nav-button" href="../chats.html">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 11.5a7.5 7.5 0 0 1-7.5 7.5H6l-3 2v-5.5A7.5 7.5 0 1 1 20 11.5Z" /></svg>
+      <span>Чаты</span>
+    </a>
+    <a class="nav-button" href="../profile.html">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="8" r="4" /><path d="M4 21a8 8 0 0 1 16 0" /></svg>
+      <span>Профиль</span>
+    </a>
+  </nav>
+</body>
+</html>

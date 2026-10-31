@@ -1,0 +1,341 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <style>
+    * { box-sizing: border-box; }
+    html, body { width: 100%; height: 100%; margin: 0; overflow: hidden; }
+    body { display: grid; place-items: center; background: #0b0d16; font-family: Manrope, Inter, system-ui, sans-serif; }
+    .stage { position: relative; width: 100%; height: 100%; min-height: 260px; overflow: hidden; perspective: 800px; background: radial-gradient(ellipse at 50% 60%, #26356b, #0b0d16 75%); }
+    .ring { position: absolute; left: 50%; top: 46%; width: 0; height: 0; transform-style: preserve-3d; }
+    .floor { position: absolute; left: 50%; bottom: 16px; width: min(260px, 72vw); height: 44px; margin-left: max(-130px, -36vw); border-radius: 50%; background: radial-gradient(rgba(108,178,255,.55), transparent 70%); }
+    .card { position: absolute; left: 50%; top: 50%; display: grid; width: 84px; height: 108px; margin: -54px 0 0 -42px; place-items: center; overflow: hidden; border: 1px solid rgba(255,255,255,.24); border-radius: 16px; background: radial-gradient(circle at 50% 38%, #344d7b, #121b31 80%); box-shadow: 0 8px 18px -8px rgba(0,0,0,.7); color: #fff; }
+    .card::before { position: absolute; inset: 0; background-image: radial-gradient(rgba(255,255,255,.2) 1.6px, transparent 2.2px); background-size: 15px 15px; content: ""; -webkit-mask: radial-gradient(circle at 50% 40%, transparent 26%, #000 100%); mask: radial-gradient(circle at 50% 40%, transparent 26%, #000 100%); pointer-events: none; }
+    .card-art { position: relative; display: grid; width: 100%; height: 100%; place-items: center; }
+    .card-art img { width: 100%; height: 100%; object-fit: cover; }
+    .card small { position: absolute; right: 2px; bottom: 7px; left: 2px; overflow: hidden; color: rgba(255,255,255,.9); font-size: 9px; font-weight: 700; text-align: center; text-overflow: ellipsis; white-space: nowrap; }
+    .card.is-winner { box-shadow: 0 0 0 3px #fff, 0 0 34px 8px rgba(100,160,255,.9); }
+    .pointer { position: absolute; z-index: 20; top: 8px; left: 50%; width: 24px; height: 30px; transform: translateX(-50%); clip-path: polygon(50% 100%, 0 0, 100% 0); background: linear-gradient(#fff, #83b9ff); filter: drop-shadow(0 2px 6px #000); opacity: 1; transition: transform .45s ease, opacity .35s ease; }
+    .stage.has-result .pointer { transform: translate(-50%, -22px); opacity: 0; }
+    .result-overlay { position: absolute; z-index: 30; top: 8px; left: 50%; display: grid; width: min(320px, calc(100% - 24px)); justify-items: center; gap: 10px; transform: translate(-50%, -10px); color: #fff; text-align: center; text-shadow: 0 2px 10px rgba(0,0,0,.4); opacity: 0; visibility: hidden; transition: opacity .35s ease, transform .4s ease, visibility 0s linear .4s; }
+    .stage.has-result .result-overlay { transform: translate(-50%, 0); opacity: 1; visibility: visible; transition-delay: 0s; }
+    .result-title { display: flex; max-width: 100%; align-items: center; justify-content: center; gap: 8px; font-size: clamp(14px, 4vw, 19px); font-weight: 700; }
+    .result-title-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .result-title-dot { color: #62a0ff; font-size: 24px; line-height: 1; }
+    .result-price { display: inline-flex; align-items: center; gap: 5px; white-space: nowrap; font-size: 14px; font-weight: 700; }
+    .result-price img { width: 18px; height: 18px; object-fit: contain; }
+    .result-actions { display: flex; justify-content: center; gap: 10px; }
+    .result-action { display: inline-flex; min-width: 128px; min-height: 42px; align-items: center; justify-content: center; gap: 8px; padding: 0 16px; border: 1px solid rgba(255,255,255,.18); border-radius: 24px; color: #fff; font: 600 13px Manrope, Inter, system-ui, sans-serif; cursor: pointer; box-shadow: 0 5px 16px rgba(0,0,0,.2); }
+    .result-action:disabled { opacity: .58; cursor: default; }
+    .result-action svg { width: 16px; height: 16px; fill: currentColor; }
+    .result-action-sell { background: linear-gradient(110deg, #6655ee, #373ed1); }
+    .result-action-save { background: linear-gradient(110deg, #3298ff, #2369ef); }
+    .result-message { min-height: 14px; font-size: 11px; }
+    @media (max-width: 380px) { .result-action { min-width: 112px; padding: 0 11px; } }
+    @media (prefers-reduced-motion: reduce) { .card { transition-duration: .01ms !important; } }
+  </style>
+</head>
+<body>
+  <div class="stage" aria-label="Анимация прокрутки кольца">
+    <div class="floor"></div>
+    <div class="pointer"></div>
+    <div class="ring"></div>
+    <div class="result-overlay" data-result-overlay aria-live="polite">
+      <div class="result-title">
+        <span class="result-title-name" data-result-name></span>
+        <span class="result-title-dot" aria-hidden="true">•</span>
+        <span class="result-price"><img src="../assets/stars.png" alt="" aria-hidden="true"><span data-result-price></span></span>
+      </div>
+      <div class="result-actions">
+        <button class="result-action result-action-sell" type="button" data-result-sell>
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 11.5V20a1 1 0 0 0 1 1h8.5a1 1 0 0 0 .7-.3l8-8a1 1 0 0 0 0-1.4l-7.5-7.5a1 1 0 0 0-.7-.3H4a1 1 0 0 0-1 1v7Zm5-3.5a1.5 1.5 0 1 1 0 3 1.5 1.5 0 0 1 0-3Z"/></svg>
+          <span>Продать</span>
+        </button>
+        <button class="result-action result-action-save" type="button" data-result-save>
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 3a2 2 0 0 0-2 2v17l8-4 8 4V5a2 2 0 0 0-2-2H6Z"/></svg>
+          <span>Сохранить</span>
+        </button>
+      </div>
+      <div class="result-message" data-result-message></div>
+    </div>
+  </div>
+  <script>
+    (() => {
+      const stage = document.querySelector('.stage');
+      const ring = document.querySelector('.ring');
+      const resultOverlay = document.querySelector('[data-result-overlay]');
+      const resultName = document.querySelector('[data-result-name]');
+      const resultPrice = document.querySelector('[data-result-price]');
+      const resultMessage = document.querySelector('[data-result-message]');
+      const resultSellButton = document.querySelector('[data-result-sell]');
+      const resultSaveButton = document.querySelector('[data-result-save]');
+      const reduceMotion = matchMedia('(prefers-reduced-motion: reduce)').matches;
+      let items = [];
+      let cards = [];
+      let angle = 0;
+      let previousTime = performance.now();
+      let spinning = false;
+      let stopping = false;
+      let preparing = false;
+      let prepareTimer = 0;
+      let pendingStop = null;
+      let pendingResult = null;
+      let resultItemId = '';
+      let stopStarted = 0;
+      let stopFrom = 0;
+      let stopTo = 0;
+      let winnerIndex = -1;
+      let spinVelocity = 0;
+      let idleMode = false;
+      const slowSpinSpeed = reduceMotion ? 18 : 36;
+      const fastSpinSpeed = reduceMotion ? 150 : 260;
+      const parentOrigin = location.origin === 'null' ? '*' : location.origin;
+      const notifyParent = (message) => parent.postMessage(message, parentOrigin);
+
+      const makeCard = (item) => {
+        const element = document.createElement('div');
+        const art = document.createElement('span');
+        const number = document.createElement('small');
+        element.className = 'card';
+        art.className = 'card-art';
+        const image = document.createElement('img');
+        image.src = item.preview_url || '../assets/placeholder.png';
+        image.alt = '';
+        image.onerror = () => {
+          image.onerror = null;
+          image.src = '../assets/placeholder.png';
+        };
+        art.append(image);
+        number.textContent = `#${item.gift_number || Math.floor(Math.random() * 90000) + 1000}`;
+        element.append(art, number);
+        ring.append(element);
+        return element;
+      };
+
+      const renderCards = (source = items) => {
+        ring.replaceChildren();
+        cards = source.map(makeCard);
+        const step = 360 / Math.max(cards.length, 1);
+        cards.forEach((card, index) => {
+          card.style.transform = `rotateY(${index * step}deg) translateZ(170px)`;
+          card.style.opacity = '1';
+        });
+      };
+
+      const hideResult = () => {
+        stage.classList.remove('has-result');
+        resultMessage.textContent = '';
+        resultSellButton.disabled = false;
+        resultSaveButton.disabled = false;
+        resultSellButton.querySelector('span').textContent = 'Продать';
+        resultSaveButton.querySelector('span').textContent = 'Сохранить';
+        resultItemId = '';
+      };
+
+      const showResult = (result) => {
+        if (!result?.name || !result.itemId) return;
+        resultItemId = String(result.itemId);
+        resultName.textContent = result.name;
+        resultPrice.textContent = Number(result.valueStars).toLocaleString('ru-RU');
+        resultMessage.textContent = '';
+        stage.classList.add('has-result');
+      };
+
+      const frame = (time) => {
+        const delta = Math.min((time - previousTime) / 1000, 0.05);
+        previousTime = time;
+
+        if (stopping) {
+          const duration = reduceMotion ? 100 : 4200;
+          const progress = Math.min(1, (time - stopStarted) / duration);
+          const eased = 1 - Math.pow(1 - progress, 4);
+          angle = stopFrom + (stopTo - stopFrom) * eased;
+
+          if (progress >= 1) {
+            stopping = false;
+            spinning = false;
+            idleMode = false;
+            cards.forEach((card, index) => {
+              card.style.transition = 'transform .6s, opacity .5s';
+              if (index === winnerIndex) {
+                card.style.opacity = '1';
+                card.style.transform = `rotateY(${index * (360 / cards.length)}deg) translateZ(205px) scale(1.1)`;
+                card.classList.add('is-winner');
+              } else {
+                card.style.opacity = '.12';
+              }
+            });
+            showResult(pendingResult);
+            pendingResult = null;
+            notifyParent({ type: 'ring:finished' });
+          }
+        } else if (spinning) {
+          if (spinVelocity < fastSpinSpeed) {
+            spinVelocity = Math.min(fastSpinSpeed, spinVelocity + slowSpinSpeed * delta * 6);
+          }
+          angle -= spinVelocity * delta;
+        } else if (idleMode) {
+          angle -= slowSpinSpeed * delta;
+        }
+
+        ring.style.transform = `translateZ(-40px) rotateX(-12deg) rotateY(${angle}deg)`;
+
+        if (spinning || stopping || idleMode) {
+          cards.forEach((card, index) => {
+            const radians = (index * (360 / cards.length) + angle) * Math.PI / 180;
+            card.style.opacity = String(.3 + .7 * (Math.cos(radians) + 1) / 2);
+          });
+        }
+
+        requestAnimationFrame(frame);
+      };
+
+      const reset = () => {
+        window.clearTimeout(prepareTimer);
+        hideResult();
+        items = [];
+        angle = 0;
+        spinning = false;
+        stopping = false;
+        preparing = false;
+        pendingStop = null;
+        pendingResult = null;
+        winnerIndex = -1;
+        spinVelocity = 0;
+        idleMode = false;
+        renderCards([]);
+      };
+
+      const startStop = (data) => {
+        winnerIndex = items.findIndex((item) => item.id === data.winnerId);
+        if (winnerIndex < 0) return;
+        const step = 360 / cards.length;
+        stopFrom = angle;
+        const extraTurns = Math.ceil((Math.abs(angle) + 1440) / 360);
+        stopTo = -(winnerIndex * step + extraTurns * 360);
+        stopStarted = performance.now();
+        pendingResult = data.result || null;
+        spinning = false;
+        stopping = true;
+        spinVelocity = fastSpinSpeed;
+        if (data.giftNumber) {
+          cards[winnerIndex].querySelector('small').textContent = `#${data.giftNumber}`;
+        }
+      };
+
+      window.addEventListener('message', (event) => {
+        if (event.origin !== location.origin || event.source !== parent || !event.data) return;
+
+        if (event.data.type === 'ring:hello') notifyParent({ type: 'ring:ready' });
+        if (event.data.type === 'ring:reset') reset();
+
+        if (event.data.type === 'ring:preview') {
+          if (!Array.isArray(event.data.items) || event.data.items.length < 2) return;
+          hideResult();
+          pendingResult = null;
+          items = event.data.items;
+          renderCards(items);
+          angle = 0;
+          spinVelocity = 0;
+          stopping = false;
+          spinning = false;
+          idleMode = true;
+          cards.forEach((card) => {
+            card.classList.remove('is-winner');
+            card.style.transition = '';
+            card.style.opacity = '';
+          });
+        }
+
+        if (event.data.type === 'ring:start') {
+          if (!Array.isArray(event.data.items) || event.data.items.length < 2) return;
+          hideResult();
+          window.clearTimeout(prepareTimer);
+          items = event.data.items;
+          const needsRender = items.length !== cards.length;
+          if (needsRender) {
+            renderCards(items);
+            angle = 0;
+          }
+          pendingStop = null;
+          winnerIndex = -1;
+          stopping = false;
+          spinning = false;
+          preparing = true;
+          idleMode = false;
+          const step = 360 / cards.length;
+          const prepareDuration = reduceMotion ? 20 : 500;
+          cards.forEach((card, index) => {
+            card.classList.remove('is-winner');
+            card.style.transition = `transform ${prepareDuration}ms ease, opacity ${prepareDuration}ms ease`;
+            card.style.transform = `rotateY(${index * step}deg) translateZ(170px)`;
+            const radians = (index * step + angle) * Math.PI / 180;
+            card.style.opacity = String(.3 + .7 * (Math.cos(radians) + 1) / 2);
+          });
+          prepareTimer = window.setTimeout(() => {
+            preparing = false;
+            spinning = true;
+            spinVelocity = 0;
+            cards.forEach((card) => {
+              card.style.transition = '';
+            });
+            if (pendingStop) {
+              const data = pendingStop;
+              pendingStop = null;
+              startStop(data);
+            }
+          }, prepareDuration);
+        }
+
+        if (event.data.type === 'ring:stop') {
+          if (preparing) {
+            pendingStop = event.data;
+          } else if (spinning) {
+            startStop(event.data);
+          }
+        }
+
+        if (event.data.type === 'ring:saved') {
+          resultMessage.textContent = 'Подарок сохранен в коллекции';
+          resultSellButton.disabled = true;
+          resultSaveButton.disabled = true;
+          resultSaveButton.querySelector('span').textContent = 'Сохранено';
+        }
+
+        if (event.data.type === 'ring:sold') {
+          resultMessage.textContent = `Продано за ${Number(event.data.amount).toLocaleString('ru-RU')} звёзд`;
+          resultSellButton.disabled = true;
+          resultSaveButton.disabled = true;
+          resultSellButton.querySelector('span').textContent = 'Продано';
+        }
+
+        if (event.data.type === 'ring:sell-error') {
+          resultMessage.textContent = event.data.message || 'Не удалось продать подарок';
+          resultSellButton.disabled = false;
+          resultSaveButton.disabled = false;
+        }
+      });
+
+      resultSellButton.addEventListener('click', () => {
+        if (!resultItemId || resultSellButton.disabled) return;
+        resultSellButton.disabled = true;
+        resultSaveButton.disabled = true;
+        resultMessage.textContent = 'Продаем подарок…';
+        notifyParent({ type: 'ring:sell', itemId: resultItemId });
+      });
+
+      resultSaveButton.addEventListener('click', () => {
+        if (!resultItemId || resultSaveButton.disabled) return;
+        resultSellButton.disabled = true;
+        resultSaveButton.disabled = true;
+        resultMessage.textContent = 'Сохраняем подарок…';
+        notifyParent({ type: 'ring:save', itemId: resultItemId });
+      });
+
+      requestAnimationFrame(frame);
+      notifyParent({ type: 'ring:ready' });
+    })();
+  </script>
+</body>
+</html>

@@ -280,6 +280,7 @@
     upgradeRoulettePool: () => mutate('upgrade_roulette_pool'),
     starterGiftStatus: (launchId) => request('starter_gift_status', launchId ? { launch_id: launchId } : {}),
     claimStarterGift: (launchId) => mutate('claim_starter_gift', launchId ? { launch_id: launchId } : {}),
+    openCase: (caseId) => mutate('open_case', { case_id: caseId }),
     craftNfts: (nftItemIds) => mutate('craft_nfts', { nft_item_ids: nftItemIds }),
     refreshNftPrice: (nftItemId) => mutate('refresh_nft_price', { nft_item_id: nftItemId }),
     updateNftPrice: (nftItemId, priceStars) => mutate('update_nft_price', { nft_item_id: nftItemId, price_stars: priceStars }),

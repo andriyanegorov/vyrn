@@ -27,7 +27,7 @@ const readFragmentGift = (html: string) => {
   );
   const rawPrice = decodeHtml(priceField?.[1]?.replace(/<[^>]*>/g, ' ') || '')
     .replace(/[,\s]/g, '');
-  const tons = /^\d+(?:\.\d+)?$/.test(rawPrice) ? Number(rawPrice) : NaN;
+  const grams = /^\d+(?:\.\d+)?$/.test(rawPrice) ? Number(rawPrice) : NaN;
 
   const traits: Record<string, { name: string; rarity_percent: number | null }> = {};
   for (const [, row] of html.matchAll(/<tr\b[^>]*>([\s\S]*?)<\/tr>/gi)) {
@@ -41,7 +41,7 @@ const readFragmentGift = (html: string) => {
     traits[label] = { name, rarity_percent: Number.isFinite(rarity) ? rarity : null };
   }
 
-  return { grams: Number.isFinite(tons) && tons > 0 ? tons : null, traits };
+  return { grams: Number.isFinite(grams) && grams > 0 ? grams : null, traits };
 };
 
 const fetchFragmentGift = async (slug: string, number: string) => {
@@ -54,7 +54,7 @@ const fetchFragmentGift = async (slug: string, number: string) => {
   if (gift === null || gift.grams === null) throw new Error('Цена этого подарка не найдена на Fragment.');
   return {
     grams: gift.grams,
-    stars: Math.max(1, Math.round(gift.grams / 10 * 80)),
+    stars: Math.max(1, Math.round(gift.grams / 10 * 8)),
     traits: gift.traits,
   };
 };

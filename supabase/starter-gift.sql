@@ -115,7 +115,7 @@ begin
       v_slug,
       new.external_id,
       new.owner_profile_id,
-      new.attributes ->> 'starter_gift' = 'true'
+      coalesce(new.attributes ->> 'starter_gift' = 'true', false)
     );
   end if;
 
