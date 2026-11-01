@@ -1,4 +1,18 @@
 const routeTransitionKey = 'vyrn:section-transition';
+const assetCalloutStyles = document.createElement('style');
+assetCalloutStyles.textContent = 'img, svg { -webkit-touch-callout: none; -webkit-user-select: none; user-select: none; -webkit-user-drag: none; }';
+document.head.append(assetCalloutStyles);
+document.addEventListener('contextmenu', (event) => {
+	const target = event.target;
+	if (!(target instanceof Element)) return;
+	const media = target.closest('img, svg, picture');
+	const mediaLink = target.closest('a[href]')?.querySelector('img, svg, picture');
+	if (media || mediaLink) event.preventDefault();
+});
+document.addEventListener('dragstart', (event) => {
+	const target = event.target;
+	if (target instanceof Element && target.closest('img, svg, picture')) event.preventDefault();
+});
 const routeNavigation = [...document.querySelectorAll('.bottom-nav .nav-button')];
 const getNavigationItem = (pathname) => routeNavigation.find((item) => {
 	const href = item.getAttribute('href');

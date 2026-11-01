@@ -1,4 +1,18 @@
 (() => {
+  const assetCalloutStyles = document.createElement('style');
+  assetCalloutStyles.textContent = 'img, svg { -webkit-touch-callout: none; -webkit-user-select: none; user-select: none; -webkit-user-drag: none; }';
+  document.head.append(assetCalloutStyles);
+  document.addEventListener('contextmenu', (event) => {
+    const target = event.target;
+    if (!(target instanceof Element)) return;
+    const media = target.closest('img, svg, picture');
+    const mediaLink = target.closest('a[href]')?.querySelector('img, svg, picture');
+    if (media || mediaLink) event.preventDefault();
+  });
+  document.addEventListener('dragstart', (event) => {
+    const target = event.target;
+    if (target instanceof Element && target.closest('img, svg, picture')) event.preventDefault();
+  });
   const config = window.VYRN_SUPABASE_CONFIG || {};
   let collections = `
 algorithmcup|Algorithm Cups
