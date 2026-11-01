@@ -102,23 +102,33 @@
 
   const renderCases = () => {
     grid.replaceChildren();
+    const groups = new Map();
     cases.forEach((item) => {
-      const card = makeElement('button', 'case-card');
-      card.type = 'button';
-      card.setAttribute('aria-label', `${item.title}, ${Number(item.price_stars).toLocaleString('ru-RU')} Stars`);
-      const art = makeElement('span', 'case-card-art');
-      const image = document.createElement('img');
-      image.className = 'case-cover-image';
-      setNftImage(image, item.cover_url || item.prizes[0]?.preview_url);
-      art.append(image);
-      const copy = makeElement('span', 'case-card-copy');
-      copy.append(
-        makeElement('strong', '', item.title),
-        makeStars(item.price_stars)
-      );
-      card.append(art, copy);
-      card.addEventListener('click', () => selectCase(item));
-      grid.append(card);
+      const type = typeof item.case_type === 'string' ? item.case_type.trim() : '';
+      const groupName = type || 'Без типа';
+      if (!groups.has(groupName)) groups.set(groupName, []);
+      groups.get(groupName).push(item);
+    });
+    groups.forEach((items, groupName) => {
+      grid.append(makeElement('h2', 'case-type-heading', groupName));
+      items.forEach((item) => {
+        const card = makeElement('button', 'case-card');
+        card.type = 'button';
+        card.setAttribute('aria-label', `${item.title}, ${Number(item.price_stars).toLocaleString('ru-RU')} Stars`);
+        const art = makeElement('span', 'case-card-art');
+        const image = document.createElement('img');
+        image.className = 'case-cover-image';
+        setNftImage(image, item.cover_url || item.prizes[0]?.preview_url);
+        art.append(image);
+        const copy = makeElement('span', 'case-card-copy');
+        copy.append(
+          makeElement('strong', '', item.title),
+          makeStars(item.price_stars)
+        );
+        card.append(art, copy);
+        card.addEventListener('click', () => selectCase(item));
+        grid.append(card);
+      });
     });
     grid.setAttribute('aria-busy', 'false');
   };

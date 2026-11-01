@@ -21,7 +21,12 @@ as $$
       profiles.show_on_top,
       coalesce(stars_wallet.balance, 0)::numeric as stars_balance,
       coalesce(sum(
-        coalesce(
+        case
+          when items.attributes ->> 'fragment_price_crafted_target' = 'true'
+            and length(items.attributes ->> 'fragment_price_stars') <= 32
+            and items.attributes ->> 'fragment_price_stars' ~ '^[0-9]+(\.[0-9]+)?$'
+            then nullif((items.attributes ->> 'fragment_price_stars')::numeric, 0)
+          else coalesce(
           case
             when length(items.attributes ->> 'fragment_price_fragment_stars') <= 32
               and items.attributes ->> 'fragment_price_fragment_stars' ~ '^[0-9]+(\.[0-9]+)?$'
@@ -36,6 +41,7 @@ as $$
           end,
           0::numeric
         )
+        end
       ), 0::numeric) as collection_value
     from public.profiles as profiles
     left join public.wallets as stars_wallet

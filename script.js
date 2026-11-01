@@ -1288,25 +1288,26 @@ const mapOwnedNft = (item) => {
 	const model = item.nft_models || {};
 	const collection = model.nft_collections || {};
 	const isCustomNft = item.attributes?.custom_nft === true;
-	const externalId = item.external_id || item.id.slice(0, 8);
-	const visualId = item.attributes?.crafting?.visual_external_id || externalId;
+	const visualId = item.attributes?.crafting?.visual_external_id || item.external_id || item.id.slice(0, 8);
 	const collectionSlug = collection.slug || model.slug || '';
 	const isManualPrice = item.attributes?.fragment_price_manual === true;
+	const isCraftTargetPrice = item.attributes?.fragment_price_crafted_target === true;
 	return {
 		itemId: item.id,
 		slug: isCustomNft ? '' : collectionSlug,
-		id: externalId,
+		id: visualId,
 		name: model.name || collection.name || 'NFT',
 		collectionName: collection.name || '',
 		fragmentPriceStars: Number(isCustomNft
 			? item.attributes.custom_price_stars
-			: isManualPrice
+			: isManualPrice || isCraftTargetPrice
 				? item.attributes?.fragment_price_stars
 				: item.attributes?.fragment_price_fragment_stars
 					?? item.attributes?.fragment_price_stars
 					?? model.attributes?.fragment_price_stars) || null,
 		isCustomNft,
 		isManualPrice,
+		isCraftTargetPrice,
 		previewUrl: !isCustomNft && collectionSlug && item.external_id
 			? getNftPreviewUrl(collectionSlug, visualId)
 			: model.preview_url || '',
@@ -1322,7 +1323,9 @@ const getSavedFragmentValue = (item) => {
 	const attributes = item.attributes || {};
 	const value = attributes.custom_nft === true
 		? attributes.custom_price_stars
-		: (attributes.fragment_price_fragment_stars
+		: (attributes.fragment_price_crafted_target === true
+			? attributes.fragment_price_stars
+			: attributes.fragment_price_fragment_stars
 			?? (attributes.fragment_price_manual === true || attributes.fragment_price_crafted_total === true
 			? null
 			: attributes.fragment_price_stars));
@@ -1353,7 +1356,9 @@ const renderProfileCollectionValue = async (container, items, { manageSkeleton =
 		const giftNumber = item.attributes?.crafting?.visual_external_id || item.external_id;
 		const savedPrice = getSavedFragmentValue(item);
 		if (savedPrice !== null) prices.set(index, savedPrice);
-		if (/^[a-z0-9]+$/.test(slug) && /^\d{1,12}$/.test(String(giftNumber || ''))) {
+		if (item.attributes?.fragment_price_crafted_target !== true
+			&& /^[a-z0-9]+$/.test(slug)
+			&& /^\d{1,12}$/.test(String(giftNumber || ''))) {
 			requests.push({ index, collection_slug: slug, gift_number: String(giftNumber) });
 		}
 	});
@@ -1401,7 +1406,6 @@ const renderProfileCollectionValue = async (container, items, { manageSkeleton =
 		const unvaluedCount = items.length - valuedCount;
 		const freshCount = freshPrices.size;
 		if (unvaluedCount > 0) {
-			detailElement.textContent = `Оценено ${valuedCount} из ${items.length} NFT · ${unvaluedCount} без данных`;
 		} else if (freshCount === 0 && valuedCount > 0) {
 			detailElement.textContent = '';
 		} else if (freshCount < items.length) {
@@ -1771,9 +1775,8 @@ if (marketGrid) {
 					const model = nft.nft_models || {};
 					const collectionInfo = model.nft_collections || {};
 					const isCustomNft = nft.attributes?.custom_nft === true;
-					const itemId = nft.external_id || nft.id || entry.nft_item_id;
-					const visualId = nft.attributes?.crafting?.visual_external_id || nft.external_id || itemId;
-					const title = `${model.name || 'NFT'} #${itemId}`;
+					const visualId = nft.attributes?.crafting?.visual_external_id || nft.external_id || nft.id || entry.nft_item_id;
+					const title = `${model.name || 'NFT'} #${visualId}`;
 					const imageSource = !isCustomNft && collectionInfo.slug && nft.external_id
 						? getNftPreviewUrl(collectionInfo.slug, visualId)
 						: model.preview_url || (!isCustomNft && model.slug && itemId ? getNftPreviewUrl(model.slug, itemId) : './assets/placeholder.png');
@@ -2089,6 +2092,7 @@ if (nftGrid) {
 		card.dataset.nftFile = file;
 		card.dataset.nftFragmentPriceStars = gift.fragmentPriceStars ? String(gift.fragmentPriceStars) : '';
 		card.dataset.nftManualPrice = String(Boolean(gift.isManualPrice));
+		card.dataset.nftCraftTargetPrice = String(Boolean(gift.isCraftTargetPrice));
 		card.dataset.nftCustom = String(Boolean(gift.isCustomNft));
 		card.setAttribute('aria-label', `Открыть ${title}`);
 
@@ -2315,6 +2319,7 @@ const renderSharedPlayerProfile = (profile, items = []) => {
 		card.dataset.nftFile = file;
 		card.dataset.nftFragmentPriceStars = gift.fragmentPriceStars ? String(gift.fragmentPriceStars) : '';
 		card.dataset.nftManualPrice = String(Boolean(gift.isManualPrice));
+		card.dataset.nftCraftTargetPrice = String(Boolean(gift.isCraftTargetPrice));
 		card.dataset.nftCustom = String(Boolean(gift.isCustomNft));
 		card.setAttribute('aria-label', `Открыть ${title}`);
 		const image = createNftPreviewImage(card.dataset.nftPreview, title, 'profile-nft-preview');
@@ -2622,9 +2627,11 @@ if ((nftGrids.length || marketGrid) && nftModal && nftModalAnimation && nftModal
 		nftModalConfirm.textContent = confirmText || (onConfirm ? 'Подтвердить покупку' : 'OK');
 		nftModalPriceLabel.textContent = priceStars !== null
 			? 'Цена'
-			: card?.dataset.nftManualPrice === 'true' || card?.dataset.nftCustom === 'true'
-				? 'Установленная цена'
-				: 'Ценность (FRAGMENT)';
+			: card?.dataset.nftCraftTargetPrice === 'true'
+				? 'Ценность'
+				: card?.dataset.nftManualPrice === 'true' || card?.dataset.nftCustom === 'true'
+					? 'Ценность'
+					: 'Ценность';
 		if (nftModalSellButton) {
 			const canManageListing = Boolean(card?.dataset.nftItemId);
 			const isListed = card?.dataset.nftListed === 'true';
@@ -2794,6 +2801,7 @@ if ((nftGrids.length || marketGrid) && nftModal && nftModalAnimation && nftModal
 		nftListingAutoSell.disabled = true;
 		try {
 			if (activeNftCard.dataset.nftManualPrice !== 'true'
+				&& activeNftCard.dataset.nftCraftTargetPrice !== 'true'
 				&& activeNftCard.dataset.nftCustom !== 'true') {
 				await window.VyrnApi.refreshNftPrice(activeNftCard.dataset.nftItemId);
 			}
@@ -3140,6 +3148,7 @@ if (chatRows.length && conversationDialog) {
 	let remoteSavedChatId;
 	let remoteProfileId;
 	let activeServerChatId;
+	let portalCanManage = false;
 	const conversationThreads = [
 		[
 			{ text: 'Добро пожаловать в VYRN — Портал. Здесь будут публиковаться новости и обновления проекта.', time: '12:00' }
@@ -3159,23 +3168,29 @@ if (chatRows.length && conversationDialog) {
 	let selectedGiftItem;
 	let giftPickerRequestId = 0;
 	const pendingRemoteMessages = new Map();
-	const formatRemoteMessages = (messages) => messages.map((message) => ({
-		id: message.id,
-		text: message.body,
-		time: new Intl.DateTimeFormat('ru-RU', { hour: '2-digit', minute: '2-digit' }).format(new Date(message.created_at)),
-		createdAt: message.created_at,
-		outgoing: message.sender_profile_id === remoteProfileId,
-		senderName: message.profiles ? getProfileDisplayName(message.profiles) : '',
-		senderAvatar: message.profiles?.avatar_url || '',
-		senderProfileId: message.profiles?.id || message.sender_profile_id,
-		senderProfile: message.profiles || null,
-		gift: message.gift_offer || null
-	}));
+	const formatRemoteMessages = (messages) => messages.map((message) => {
+		const outgoing = message.sender_profile_id === remoteProfileId;
+		const isPortalChat = chatRows[activeChatIndex]?.dataset.chatType === 'channel';
+		return {
+			id: message.id,
+			text: message.body,
+			time: new Intl.DateTimeFormat('ru-RU', { hour: '2-digit', minute: '2-digit' }).format(new Date(message.created_at)),
+			createdAt: message.created_at,
+			outgoing,
+			canDelete: message.kind === 'text' && (isPortalChat ? portalCanManage : outgoing),
+			senderName: message.profiles ? getProfileDisplayName(message.profiles) : '',
+			senderAvatar: message.profiles?.avatar_url || '',
+			senderProfileId: message.profiles?.id || message.sender_profile_id,
+			senderProfile: message.profiles || null,
+			gift: message.gift_offer || null
+		};
+	});
 	const getMessageListKey = (messages) => JSON.stringify(messages.map((message) => ({
 		id: message.id || null,
 		text: message.text,
 		time: message.time,
 		outgoing: message.outgoing,
+		canDelete: message.canDelete || false,
 		senderName: message.senderName || '',
 		senderAvatar: message.senderAvatar || '',
 		senderStatus: message.senderProfile?.status || '',
@@ -3265,11 +3280,41 @@ if (chatRows.length && conversationDialog) {
 			unreadBadge.setAttribute('aria-label', `${unreadCount} непрочитанных сообщений`);
 		}
 	};
+	const applyPortalChat = (result) => {
+		const portalIndex = chatRows.findIndex((row) => row.dataset.chatType === 'channel');
+		if (portalIndex < 0) return;
+		const portalRow = chatRows[portalIndex];
+		const portalMember = result.chats.find((member) => member.chats?.chat_type === 'channel');
+		portalRow.dataset.chatId = result.portal_chat_id || portalMember?.chat_id || '';
+		portalCanManage = result.portal_can_manage === true;
+		playerProfiles[portalIndex] = {
+			...playerProfiles[portalIndex],
+			canSend: portalCanManage,
+			notice: portalCanManage ? '' : 'Канал доступен только для чтения'
+		};
+		if (portalMember) updateChatRowSummary(portalRow, portalMember);
+		if (activeChatIndex === portalIndex) {
+			activeServerChatId = portalRow.dataset.chatId || undefined;
+			conversationReadonlyNotice.hidden = portalCanManage;
+			conversationComposer.classList.toggle('conversation-readonly', !portalCanManage);
+			conversationAttach.hidden = !portalCanManage;
+			conversationAttach.disabled = !portalCanManage;
+			conversationInputShell.hidden = !portalCanManage;
+			conversationInput.disabled = !portalCanManage;
+			conversationSend.hidden = !portalCanManage;
+			conversationSend.disabled = !portalCanManage;
+			if (activeServerChatId) {
+				refreshActiveMessages().catch(() => {});
+				startMessageRefresh();
+			}
+		}
+	};
 	const refreshChatList = async (refreshedResult = null) => {
 		if (document.hidden || !window.VyrnApi || !chatsPage || conversationDialog?.open || chatListRefreshInFlight) return;
 		chatListRefreshInFlight = true;
 		try {
 			const result = refreshedResult || await window.VyrnApi.chats();
+			applyPortalChat(result);
 			result.chats.filter((member) => member.chats?.chat_type === 'direct' && member.peer).forEach((member) => {
 				const row = addRemoteChatRow(member.chat_id, member.peer, member);
 				updateChatRowSummary(row, member);
@@ -3289,6 +3334,7 @@ if (chatRows.length && conversationDialog) {
 	if (canUseSupabaseAccount()) {
 		window.VyrnApi.chats().then(async (result) => {
 			remoteProfileId = result.current_profile_id;
+			applyPortalChat(result);
 			result.chats.filter((member) => member.chats?.chat_type === 'direct' && member.peer).forEach((member) => {
 				const row = addRemoteChatRow(member.chat_id, member.peer, member);
 				updateChatRowSummary(row, member);
@@ -3342,8 +3388,9 @@ if (chatRows.length && conversationDialog) {
 			const row = document.createElement('article');
 			const isAnimatedMessage = animateLatest && index === messages.length - 1;
 			row.className = `conversation-message${message.outgoing ? ' is-outgoing' : ' is-incoming'}${message.gift ? ' is-gift-message' : ''}${isAnimatedMessage ? ' is-appearance-pending' : ''}`;
-			row.tabIndex = message.outgoing ? 0 : -1;
-			if (message.outgoing) {
+			const canDeleteMessage = message.canDelete === true || message.outgoing === true;
+			row.tabIndex = canDeleteMessage ? 0 : -1;
+			if (canDeleteMessage) {
 				row.setAttribute('aria-label', `Сообщение: ${message.text}`);
 				row.setAttribute('aria-haspopup', 'menu');
 			}
@@ -3353,10 +3400,9 @@ if (chatRows.length && conversationDialog) {
 
 			const bubble = message.gift ? null : document.createElement('div');
 			if (bubble) bubble.className = 'conversation-bubble';
-			if (message.outgoing && bubble) {
+			if (canDeleteMessage && bubble) {
 				const requestDelete = () => {
-					const canDelete = activeChatIndex === favoritesChatIndex || Boolean(activeServerChatId);
-					if (!canDelete || !messageActionMenu.hidden) {
+					if (!messageActionMenu.hidden) {
 						return;
 					}
 					pendingDeleteIndex = index;
@@ -3448,8 +3494,8 @@ if (chatRows.length && conversationDialog) {
 				const nftModel = nftItem.nft_models || {};
 				const nftCollection = nftModel.nft_collections || {};
 				const isCustomNft = nftItem.attributes?.custom_nft === true;
-				const nftId = nftItem.external_id || offer.nft_item_id.slice(0, 8);
-				const nftVisualId = nftItem.attributes?.crafting?.visual_external_id || nftItem.external_id;
+				const nftVisualId = nftItem.attributes?.crafting?.visual_external_id || nftItem.external_id || offer.nft_item_id.slice(0, 8);
+				const nftId = nftVisualId;
 				const nftTitle = `${nftModel.name || nftCollection.name || 'NFT'} #${nftId}`;
 				const nftPreview = !isCustomNft && nftCollection.slug && nftItem.external_id
 					? getNftPreviewUrl(nftCollection.slug, nftVisualId)
@@ -3867,6 +3913,7 @@ if (chatRows.length && conversationDialog) {
 						card.dataset.nftFile = file;
 						card.dataset.nftFragmentPriceStars = gift.fragmentPriceStars ? String(gift.fragmentPriceStars) : '';
 						card.dataset.nftManualPrice = String(Boolean(gift.isManualPrice));
+						card.dataset.nftCraftTargetPrice = String(Boolean(gift.isCraftTargetPrice));
 						card.dataset.nftCustom = String(Boolean(gift.isCustomNft));
 						card.setAttribute('aria-label', `Открыть ${title}`);
 						const image = createNftPreviewImage(card.dataset.nftPreview, title, 'profile-nft-preview');

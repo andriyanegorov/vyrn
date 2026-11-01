@@ -44,17 +44,21 @@ const readFragmentGift = (html: string) => {
   return { grams: Number.isFinite(grams) && grams > 0 ? grams : null, traits };
 };
 
-const fetchFragmentGift = async (slug: string, number: string) => {
+const fetchFragmentGiftDetails = async (slug: string, number: string) => {
   const response = await fetch(`https://fragment.com/gift/${slug}-${number}`, {
     headers: { 'User-Agent': 'Mozilla/5.0 VYRN Fragment price reader' },
     signal: AbortSignal.timeout(15_000),
   });
   if (!response.ok) throw new Error(`Fragment returned ${response.status}`);
-  const gift = readFragmentGift(await response.text());
+  return readFragmentGift(await response.text());
+};
+
+const fetchFragmentGift = async (slug: string, number: string) => {
+  const gift = await fetchFragmentGiftDetails(slug, number);
   if (gift === null || gift.grams === null) throw new Error('Цена этого подарка не найдена на Fragment.');
   return {
     grams: gift.grams,
-    stars: Math.max(1, Math.round(gift.grams / 10 * 8)),
+    stars: Math.max(1, Math.round(gift.grams * 0.8)),
     traits: gift.traits,
   };
 };
@@ -98,15 +102,27 @@ Deno.serve(async (request) => {
       !/^[a-z0-9]+$/.test(slug) || !/^\d{1,12}$/.test(number) || Number(number) <= 0)) {
       return json({ error: 'Invalid Fragment gift collection or number in batch.' }, 400);
     }
-
+    if (input.metadata_only === true) {
+      return json({
+        items: gifts.map(({ slug, number }) => ({
+          collection_slug: slug,
+          gift_number: number,
+          grams: null,
+          stars: null,
+          traits: {},
+        })),
+      });
+    }
     const items = await mapLimit(gifts, 8, async ({ slug, number }) => {
       try {
-        const details = await fetchFragmentGift(slug, number);
+        const details = input.traits_only === true
+          ? await fetchFragmentGiftDetails(slug, number)
+          : await fetchFragmentGift(slug, number);
         return {
           collection_slug: slug,
           gift_number: number,
-          grams: details.grams,
-          stars: details.stars,
+          grams: input.traits_only === true ? null : details.grams,
+          stars: input.traits_only === true ? null : details.stars,
           traits: details.traits,
         };
       } catch (error) {
@@ -124,6 +140,15 @@ Deno.serve(async (request) => {
   const number = typeof input.gift_number === 'string' ? input.gift_number.trim() : String(input.gift_number || '').trim();
   if (!/^[a-z0-9]+$/.test(slug) || !/^\d{1,12}$/.test(number) || Number(number) <= 0) {
     return json({ error: 'Invalid Fragment gift collection or number' }, 400);
+  }
+
+  if (input.traits_only === true) {
+    try {
+      const details = await fetchFragmentGiftDetails(slug, number);
+      return json({ traits: details.traits });
+    } catch {
+      return json({ error: 'Не удалось получить характеристики Fragment.' }, 502);
+    }
   }
 
   try {

@@ -26,9 +26,16 @@ const getCraftChance=({attributes={}}={})=>{
 };
 const mapNft=item=>{
   const model=item.nft_models||{},collection=model.nft_collections||{};
-  const id=item.external_id||item.id.slice(0,8);
-  const slug=collection.slug||'';
   const visualId=item.attributes?.crafting?.visual_external_id||item.external_id;
+  const id=visualId||item.id.slice(0,8);
+  const slug=collection.slug||'';
+  const attributes={...(item.attributes||{})};
+  const fragmentPrice=Number(attributes.fragment_price_fragment_stars);
+  const savedPrice=Number(attributes.fragment_price_stars);
+  const effectivePrice=attributes.fragment_price_manual===true||attributes.fragment_price_crafted_target===true
+    ?savedPrice
+    :Number.isFinite(fragmentPrice)&&fragmentPrice>0?fragmentPrice:savedPrice;
+  if(Number.isFinite(effectivePrice)&&effectivePrice>0)attributes.fragment_price_stars=effectivePrice;
   return {
     itemId:item.id,
     modelId:model.id||'',
@@ -43,7 +50,7 @@ const mapNft=item=>{
     modelSlug:model.slug||'',
     collectionName:collection.name||'VYRN',
     collectionSlug:slug,
-    attributes:item.attributes||{},
+    attributes,
     pct:getCraftChance(item),
     isListed:(item.market_listings||[]).some(listing=>listing.status==='active')
   };
@@ -142,6 +149,8 @@ async function loadInventory(notify=true){
   }
 }
 async function refreshFragmentPrice(g){
+  const savedPrice=Number(g.attributes.fragment_price_stars);
+  if(Number.isFinite(savedPrice)&&savedPrice>0)return;
   if(g.priceRefreshStarted)return;
   g.priceRefreshStarted=true;
   g.priceLoading=true;
@@ -440,7 +449,10 @@ function showResult(ok,g,chance,consumedNft,inputTotal,inputCount){
   const value=g.attributes.fragment_price_stars;
   const rows=[
     ['Коллекция',g.collectionName],
-    [g.attributes.fragment_price_crafted_total===true?'Цена (сумма входных NFT)':'Ценность (FRAGMENT)',value!==undefined&&value!==null&&value!==''&&Number.isFinite(Number(value))?fmt(Number(value)):'Не указана',value!==undefined&&value!==null&&value!==''&&Number.isFinite(Number(value))],
+    [g.attributes.fragment_price_crafted_target===true?'Оценка крафта (2× сумма входных NFT)':g.attributes.fragment_price_crafted_total===true?'Цена (сумма входных NFT)':'Ценность (FRAGMENT)',value!==undefined&&value!==null&&value!==''&&Number.isFinite(Number(value))?fmt(Number(value)):'Не указана',value!==undefined&&value!==null&&value!==''&&Number.isFinite(Number(value))],
+    ...(g.attributes.fragment_price_crafted_target===true&&Number.isFinite(Number(g.attributes.fragment_price_fragment_stars))
+      ?[['Текущая цена Fragment',fmt(Number(g.attributes.fragment_price_fragment_stars)),true]]
+      :[]),
     ['Фон',g.attributes.fragment_traits?.backdrop?.name||'Не указан'],
     ['Эффект / символ',[
       g.attributes.fragment_traits?.model?.name,

@@ -353,6 +353,50 @@ body.admin-page {
   margin-top: 18px;
 }
 
+.admin-portal-section {
+  margin-top: 18px;
+}
+
+.admin-portal-form {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  gap: 8px;
+  align-items: end;
+}
+
+.admin-portal-manager-list {
+  display: grid;
+  gap: 8px;
+  margin-top: 14px;
+}
+
+.admin-portal-manager {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 12px;
+  padding: 12px;
+  border: 1px solid var(--admin-line);
+  background: #fbfcfa;
+}
+
+.admin-portal-manager-copy {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+  font-size: 12px;
+}
+
+.admin-portal-manager-copy span {
+  color: var(--admin-muted);
+  font-family: "DM Mono", monospace;
+  font-size: 11px;
+}
+
+.admin-portal-remove-button {
+  min-height: 36px;
+}
+
 .admin-case-fields {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -442,6 +486,18 @@ body.admin-page {
   margin-top: 14px;
 }
 
+.admin-case-cancel-edit {
+  margin: 14px 0 0 8px;
+  background: #717987;
+}
+
+.admin-case-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
 .admin-case-list {
   margin-top: 14px;
 }
@@ -483,6 +539,11 @@ body.admin-page {
   min-height: 34px;
   padding: 0 12px;
   background: var(--admin-red);
+}
+
+.admin-case-edit {
+  min-height: 34px;
+  padding: 0 12px;
 }
 
 .admin-random-fields {
@@ -1114,8 +1175,23 @@ body.admin-page {
   }
 
   .admin-case-fields,
+  .admin-portal-form,
   .admin-case-prize-row {
     grid-template-columns: 1fr;
+  }
+
+  .admin-case-item {
+    grid-template-columns: 44px minmax(0, 1fr);
+  }
+
+  .admin-case-item-image {
+    width: 44px;
+    height: 44px;
+  }
+
+  .admin-case-actions {
+    grid-column: 1 / -1;
+    justify-content: flex-start;
   }
 
   .admin-case-prize-heading {

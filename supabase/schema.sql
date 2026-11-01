@@ -208,7 +208,8 @@
     end if;
 
     if nft_item.attributes->>'custom_nft' is distinct from 'true'
-      and nft_item.attributes->>'fragment_price_manual' is distinct from 'true' then
+      and nft_item.attributes->>'fragment_price_manual' is distinct from 'true'
+      and nft_item.attributes->>'fragment_price_crafted_target' is distinct from 'true' then
       if coalesce(nft_item.attributes->>'fragment_traits_updated_at', '') !~ '^[0-9]{4}-[0-9]{2}-[0-9]{2}T' then
         raise exception 'Обновите оценку NFT Fragment перед автопродажей';
       end if;
@@ -227,6 +228,8 @@
 
     if nft_item.attributes->>'custom_nft' = 'true' then
       price_text := nft_item.attributes->>'custom_price_stars';
+    elsif nft_item.attributes->>'fragment_price_crafted_target' = 'true' then
+      price_text := nft_item.attributes->>'fragment_price_stars';
     elsif nft_item.attributes->>'fragment_price_manual' = 'true' then
       price_text := nft_item.attributes->>'fragment_price_stars';
     elsif nft_item.attributes ? 'fragment_price_fragment_stars' then

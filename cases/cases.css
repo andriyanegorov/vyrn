@@ -69,6 +69,28 @@ body.cases-page.has-case-modal {
   gap: 14px;
 }
 
+.case-type-heading {
+  display: flex;
+  grid-column: 1 / -1;
+  align-items: center;
+  gap: 14px;
+  margin: 10px 0 2px;
+  color: #777d8c;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: .12em;
+  text-align: center;
+  text-transform: uppercase;
+}
+
+.case-type-heading::before,
+.case-type-heading::after {
+  height: 1px;
+  flex: 1;
+  background: #dfe3ec;
+  content: "";
+}
+
 .case-card {
   display: grid;
   min-height: 220px;

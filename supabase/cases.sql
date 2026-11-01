@@ -2,6 +2,7 @@ create table if not exists public.case_catalog (
   id uuid primary key default gen_random_uuid(),
   slug text not null unique,
   title text not null,
+  case_type text not null default '',
   description text not null default '',
   cover_emoji text not null default '🎁',
   cover_url text,
@@ -13,6 +14,7 @@ create table if not exists public.case_catalog (
 );
 
 alter table public.case_catalog add column if not exists cover_url text;
+alter table public.case_catalog add column if not exists case_type text not null default '';
 alter table public.case_catalog enable row level security;
 revoke all on public.case_catalog from public, anon, authenticated;
 
@@ -140,7 +142,7 @@ prize_rows as (
     cases.price_stars,
     gifts.*,
     selected.position,
-    round(gifts.market_gram / 10 * 8)::bigint as value_stars
+    round(gifts.market_gram * 0.8)::bigint as value_stars
   from case_definitions as cases
   cross join lateral unnest(cases.gift_keys) with ordinality as selected(gift_key, position)
   join market_gifts as gifts on gifts.gift_key = selected.gift_key
@@ -224,15 +226,7 @@ select
   true
 from case_definitions as cases
 join catalog_prizes as prizes on prizes.case_slug = cases.slug
-on conflict (slug) do update
-  set title = excluded.title,
-      description = excluded.description,
-      cover_emoji = excluded.cover_emoji,
-      cover_url = excluded.cover_url,
-      price_stars = excluded.price_stars,
-      prizes = excluded.prizes,
-      enabled = true,
-      updated_at = now();
+on conflict (slug) do nothing;
 
 with normalized_prizes as (
   select
@@ -272,6 +266,11 @@ with normalized_prizes as (
   from public.case_catalog as catalog
   cross join lateral jsonb_array_elements(catalog.prizes)
     with ordinality as prize(value, position)
+  where catalog.slug in (
+    'crystal', 'sweet', 'starlight', 'royal', 'legendary',
+    'ice-mix', 'berry-burst', 'starry-night', 'winter-box', 'lucky-70',
+    'aurora', 'wish-casket', 'diamond-vault', 'astral-jackpot', 'vyrn-legend'
+  )
   group by catalog.id
 )
 update public.case_catalog as catalog

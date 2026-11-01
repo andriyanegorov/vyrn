@@ -64,7 +64,7 @@ Deno.serve(async (request) => {
 
   if (action === 'list') {
     const result = await supabase.from('case_catalog')
-      .select('id,slug,title,description,cover_url,price_stars,prizes,enabled')
+      .select('id,slug,title,case_type,description,cover_url,price_stars,prizes,enabled')
       .eq('enabled', true)
       .order('created_at', { ascending: true });
     if (result.error) {
@@ -92,6 +92,7 @@ Deno.serve(async (request) => {
     ? input.case as Record<string, unknown>
     : {};
   const title = typeof source.title === 'string' ? source.title.trim() : '';
+  const caseType = typeof source.case_type === 'string' ? source.case_type.trim() : '';
   const description = typeof source.description === 'string' ? source.description.trim() : '';
   const price = Number(source.price_stars);
   const slugSource = typeof source.slug === 'string' ? source.slug : title;
@@ -103,10 +104,10 @@ Deno.serve(async (request) => {
     .slice(0, 40);
   const prizes = Array.isArray(source.prizes) ? source.prizes as CasePrize[] : [];
 
-  if (title.length < 2 || title.length > 80 || description.length > 240
+  if (title.length < 2 || title.length > 80 || caseType.length > 60 || description.length > 240
     || !Number.isSafeInteger(price) || price < 1 || price > 1000000
     || prizes.length < 2 || prizes.length > 20) {
-    return json({ error: 'Проверь название, цену и добавь от 2 до 20 подарков.' }, 400);
+    return json({ error: 'Проверь название, тип (не более 60 символов), цену и добавь от 2 до 20 подарков.' }, 400);
   }
 
   const cleanPrizes: CasePrize[] = [];
@@ -165,6 +166,7 @@ Deno.serve(async (request) => {
   const payload = {
     ...(action === 'update' ? {} : { slug: `${slugBase || 'case'}-${crypto.randomUUID().slice(0, 8)}` }),
     title,
+    case_type: caseType,
     description,
     cover_url: cleanPrizes[0].preview_url,
     price_stars: price,
@@ -174,9 +176,9 @@ Deno.serve(async (request) => {
   };
   const result = action === 'create'
     ? await supabase.from('case_catalog').insert(payload)
-      .select('id,slug,title,description,cover_url,price_stars,prizes,enabled').single()
+      .select('id,slug,title,case_type,description,cover_url,price_stars,prizes,enabled').single()
     : await supabase.from('case_catalog').update(payload).eq('id', caseId)
-      .select('id,slug,title,description,cover_url,price_stars,prizes,enabled').maybeSingle();
+      .select('id,slug,title,case_type,description,cover_url,price_stars,prizes,enabled').maybeSingle();
   if (result.error) return json({ error: result.error.message }, 500);
   if (!result.data) return json({ error: 'Кейс не найден.' }, 404);
   return json({ case: result.data });

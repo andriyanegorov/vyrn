@@ -133,12 +133,20 @@ const readFragmentGiftNumbers = (html: string, collectionSlug: string) => {
 };
 
 type StarterListingFilter = 'sale' | 'auction';
-type StarterListingCandidate = { slug: string; number: string };
+type StarterListingCandidate = { slug: string; number: string; grams: number | null };
+type FragmentPriceEntry = {
+  collection_slug: string;
+  gift_number: string;
+  grams: number | null;
+  stars: number | null;
+  traits: object;
+};
 type StarterListingCursor = {
   apiUrl: URL;
   nextOffset: number | null;
   cookie: string;
   pageUrl: string;
+  collectionSlug: string;
 };
 type StarterListingState = {
   filter: StarterListingFilter;
@@ -151,7 +159,11 @@ const getFragmentAttribute = (attributes: string, name: string) =>
   attributes.match(new RegExp(`\\b${name}\\s*=\\s*["']([^"']*)["']`, 'i'))?.[1]
     ?.replace(/&amp;/gi, '&') || '';
 
-const parseStarterListings = (html: string, filter: StarterListingFilter): StarterListingCandidate[] => {
+const parseStarterListings = (
+  html: string,
+  filter: StarterListingFilter,
+  collectionSlug: string,
+): StarterListingCandidate[] => {
   const gifts: StarterListingCandidate[] = [];
   const cards = html.matchAll(/<a\b([^>]*\bclass=["'][^"']*\btm-grid-item\b[^"']*["'][^>]*)>([\s\S]*?)<\/a>/gi);
   for (const [, attributes, contents] of cards) {
@@ -164,11 +176,20 @@ const parseStarterListings = (html: string, filter: StarterListingFilter): Start
     }
     const match = path.match(/^\/gift\/([a-z0-9]+)-(\d{1,12})$/);
     if (!match || Number(match[2]) <= 0) continue;
+    if (collectionSlug && match[1] !== collectionSlug) continue;
     const statusHtml = contents.match(/<div\b[^>]*\bclass=["'][^"']*\btm-grid-item-status\b[^"']*["'][^>]*>([\s\S]*?)<\/div>/i)?.[1] || '';
     const statusWide = statusHtml.match(/<span\b[^>]*\bclass=["'][^"']*\bwide-only\b[^"']*["'][^>]*>([\s\S]*?)<\/span>/i)?.[1] || statusHtml;
     const status = statusWide.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim().toLowerCase();
     if ((filter === 'sale' && status !== 'for sale') || (filter === 'auction' && status !== 'on auction')) continue;
-    gifts.push({ slug: match[1], number: match[2] });
+    const rawGrams = contents.match(
+      /<div\b[^>]*\bclass=["'][^"']*\btm-grid-item-value\b[^"']*\bicon-ton\b[^"']*["'][^>]*>([\s\S]*?)<\/div>/i,
+    )?.[1]?.replace(/<[^>]*>/g, ' ').replace(/[,\s]/g, '') || '';
+    const grams = /^\d+(?:\.\d+)?$/.test(rawGrams) ? Number(rawGrams) : NaN;
+    gifts.push({
+      slug: match[1],
+      number: match[2],
+      grams: Number.isFinite(grams) && grams > 0 ? grams : null,
+    });
   }
   return gifts;
 };
@@ -181,8 +202,11 @@ const extractFragmentNextOffset = (html: string) => {
 const fetchStarterListingPage = async (
   filter: StarterListingFilter,
   cursor?: StarterListingCursor,
+  collectionSlug = '',
 ): Promise<{ gifts: StarterListingCandidate[]; cursor: StarterListingCursor }> => {
-  const pageUrl = cursor?.pageUrl || `https://fragment.com/gifts?filter=${filter}&sort=price_asc`;
+  const listingCollectionSlug = cursor?.collectionSlug || collectionSlug;
+  const collectionPath = listingCollectionSlug ? `/${listingCollectionSlug}` : '';
+  const pageUrl = cursor?.pageUrl || `https://fragment.com/gifts${collectionPath}?filter=${filter}&sort=price_asc`;
   const headers = { 'User-Agent': 'Mozilla/5.0 VYRN starter gift reader' };
   if (!cursor) {
     const response = await fetch(pageUrl, { headers, signal: AbortSignal.timeout(15_000) });
@@ -202,12 +226,13 @@ const fetchStarterListingPage = async (
       throw new Error('Fragment returned an unsafe listings API address.');
     }
     return {
-      gifts: parseStarterListings(html, filter),
+      gifts: parseStarterListings(html, filter, listingCollectionSlug),
       cursor: {
         apiUrl,
         nextOffset: extractFragmentNextOffset(html),
         cookie: response.headers.get('set-cookie')?.split(';')[0] || '',
         pageUrl,
+        collectionSlug: listingCollectionSlug,
       },
     };
   }
@@ -215,7 +240,7 @@ const fetchStarterListingPage = async (
   if (cursor.nextOffset === null) return { gifts: [], cursor };
   const body = new URLSearchParams({
     type: 'gifts',
-    collection: '',
+    collection: cursor.collectionSlug,
     sort: 'price_asc',
     filter,
     view: '',
@@ -246,12 +271,50 @@ const fetchStarterListingPage = async (
   }
   const nextOffset = extractFragmentNextOffset(result.foot);
   return {
-    gifts: parseStarterListings(result.body, filter),
+    gifts: parseStarterListings(result.body, filter, cursor.collectionSlug),
     cursor: {
       ...cursor,
       nextOffset: nextOffset !== null && nextOffset > cursor.nextOffset ? nextOffset : null,
     },
   };
+};
+
+const findClosestFragmentListing = async (
+  collectionSlug: string,
+  targetGrams: number,
+  excludedGiftNumbers: Set<string>,
+  requireAtLeast = false,
+): Promise<StarterListingCandidate[]> => {
+  const candidates: StarterListingCandidate[] = [];
+  for (const filter of ['sale', 'auction'] as const) {
+    let page = await fetchStarterListingPage(filter, undefined, collectionSlug);
+    for (let pagesLoaded = 0; pagesLoaded < 30; pagesLoaded++) {
+      candidates.push(...page.gifts.filter((gift) =>
+        gift.grams !== null
+        && (!requireAtLeast || gift.grams >= targetGrams)
+        && !excludedGiftNumbers.has(gift.number)
+      ));
+      if (page.gifts.some((gift) =>
+        gift.grams !== null && gift.grams >= targetGrams && !excludedGiftNumbers.has(gift.number)
+      )) break;
+      if (page.cursor.nextOffset === null) break;
+      if (pagesLoaded === 29) {
+        throw new Error('Не удалось определить ближайшую цену Fragment в пределах поиска.');
+      }
+      page = await fetchStarterListingPage(filter, page.cursor);
+    }
+  }
+
+  const uniqueCandidates = new Map(
+    candidates.map((candidate) => [`${candidate.slug}-${candidate.number}`, candidate]),
+  );
+  const closest = [...uniqueCandidates.values()]
+    .sort((left, right) => requireAtLeast
+      ? (left.grams || 0) - (right.grams || 0)
+      : Math.abs((left.grams || 0) - targetGrams) - Math.abs((right.grams || 0) - targetGrams))
+    .slice(0, 40);
+  if (!closest.length) throw new Error('В этой коллекции не найдено подарков с доступной ценой Fragment.');
+  return closest;
 };
 
 Deno.serve(async (request) => {
@@ -890,6 +953,9 @@ Deno.serve(async (request) => {
       .eq('id', itemId).eq('owner_profile_id', profile.id).maybeSingle();
     if (ownedItem.error) return json({ error: ownedItem.error.message }, 500);
     if (!ownedItem.data?.external_id) return json({ error: 'NFT not found or has no Fragment serial number' }, 404);
+    if (ownedItem.data.attributes?.fragment_price_manual === true) {
+      return json({ item: ownedItem.data });
+    }
 
     const collectionSlug = ownedItem.data.nft_models?.nft_collections?.slug;
     const fragmentGiftNumber = ownedItem.data.attributes?.crafting?.visual_external_id || ownedItem.data.external_id;
@@ -926,10 +992,14 @@ Deno.serve(async (request) => {
 
     const attributes = {
       ...(ownedItem.data.attributes || {}),
-      fragment_price_grams: fragmentData.grams,
+      fragment_price_grams: ownedItem.data.attributes?.fragment_price_crafted_target === true
+        ? ownedItem.data.attributes.fragment_price_grams
+        : fragmentData.grams,
+      fragment_price_fragment_grams: fragmentData.grams,
       fragment_price_fragment_stars: fragmentData.stars,
       fragment_price_stars: ownedItem.data.attributes?.fragment_price_manual === true
         || ownedItem.data.attributes?.fragment_price_crafted_total === true
+        || ownedItem.data.attributes?.fragment_price_crafted_target === true
         ? ownedItem.data.attributes.fragment_price_stars
         : fragmentData.stars,
       fragment_traits: fragmentData.traits,
@@ -968,6 +1038,7 @@ Deno.serve(async (request) => {
         fragment_price_stars: priceStars,
         fragment_price_manual: true,
         fragment_price_crafted_total: false,
+        fragment_price_crafted_target: false,
       },
     }).eq('id', itemId).eq('owner_profile_id', profile.id).select('id,attributes').maybeSingle();
     if (savedItem.error) return json({ error: savedItem.error.message }, 500);
@@ -1452,9 +1523,10 @@ Deno.serve(async (request) => {
       ? model.nft_collections[0]
       : model?.nft_collections;
     const collectionSlug = collection?.slug;
+    const visualExternalId = ownedItem.data.attributes?.crafting?.visual_external_id || ownedItem.data.external_id;
     if (typeof collectionSlug !== 'string'
       || !/^[a-z0-9]+$/.test(collectionSlug)
-      || !/^\d{1,12}$/.test(ownedItem.data.external_id || '')) {
+      || !/^\d{1,12}$/.test(visualExternalId || '')) {
       return json({ error: 'NFT has invalid Fragment collection data' }, 409);
     }
 
@@ -1475,28 +1547,60 @@ Deno.serve(async (request) => {
       String(item.external_id || ''),
     ]));
 
-    let collectionResponse: Response;
+    const sourceAttributes = ownedItem.data.attributes || {};
+    const useSavedPrice = sourceAttributes.fragment_price_manual === true
+      || sourceAttributes.fragment_price_crafted_target === true;
+    const sourcePriceStars = Number(useSavedPrice
+      ? sourceAttributes.fragment_price_stars
+      : sourceAttributes.fragment_price_fragment_stars ?? sourceAttributes.fragment_price_stars);
+    if (!Number.isFinite(sourcePriceStars) || sourcePriceStars <= 0) {
+      return json({ error: 'Сначала обновите цену NFT на Fragment, затем повторите улучшение.' }, 409);
+    }
+    const sourcePriceGrams = Number(useSavedPrice
+      ? sourceAttributes.fragment_price_crafted_target === true
+        ? sourceAttributes.fragment_price_grams ?? sourcePriceStars / 0.8
+        : sourcePriceStars / 0.8
+      : sourceAttributes.fragment_price_fragment_grams
+        ?? sourceAttributes.fragment_price_grams
+        ?? sourcePriceStars / 0.8);
+    if (!Number.isFinite(sourcePriceGrams) || sourcePriceGrams <= 0) {
+      return json({ error: 'Не удалось определить текущую цену NFT. Обновите цену Fragment и повторите улучшение.' }, 409);
+    }
+    const minimumListingGrams = Math.max(
+      sourcePriceGrams,
+      (Math.ceil(sourcePriceStars) - 0.5) / 0.8,
+    );
+
+    let outputCandidates: StarterListingCandidate[];
     try {
-      collectionResponse = await fetch(`https://fragment.com/gifts/${collectionSlug}`, {
-        headers: { 'User-Agent': 'Mozilla/5.0 VYRN Fragment catalog reader' },
-        signal: AbortSignal.timeout(15_000),
-      });
-    } catch {
-      return json({ error: 'Не удалось загрузить список подарков этой коллекции с Fragment.' }, 502);
+      outputCandidates = await findClosestFragmentListing(
+        collectionSlug,
+        minimumListingGrams,
+        usedVisualIds,
+        true,
+      );
+    } catch (error) {
+      const noEligibleListings = error instanceof Error
+        && error.message === 'В этой коллекции не найдено подарков с доступной ценой Fragment.';
+      return json({
+        error: noEligibleListings
+          ? 'На Fragment не найден другой подарок с ценой не ниже исходного. NFT не изменена.'
+          : error instanceof Error
+            ? error.message
+            : 'Не удалось подобрать подарок Fragment не дешевле исходного NFT.',
+      }, noEligibleListings ? 409 : 502);
     }
-    if (!collectionResponse.ok) {
-      return json({ error: `Fragment вернул HTTP ${collectionResponse.status} для этой коллекции.` }, 502);
+    outputCandidates = outputCandidates.filter((candidate) =>
+      (candidate.grams || 0) >= sourcePriceGrams
+      && Math.max(1, Math.round((candidate.grams || 0) * 0.8)) >= sourcePriceStars
+    );
+    if (!outputCandidates.length) {
+      return json({
+        error: 'На Fragment не найден другой подарок с ценой не ниже исходного. NFT не изменена.',
+      }, 409);
     }
-    const contentLength = Number(collectionResponse.headers.get('content-length') || 0);
-    if (contentLength > 8_000_000) return json({ error: 'Ответ Fragment слишком большой.' }, 502);
-    const collectionHtml = await collectionResponse.text();
-    if (collectionHtml.length > 8_000_000) return json({ error: 'Ответ Fragment слишком большой.' }, 502);
-    const availableVisualIds = readFragmentGiftNumbers(collectionHtml, collectionSlug)
-      .filter((giftNumber) => !usedVisualIds.has(giftNumber));
-    if (!availableVisualIds.length) {
-      return json({ error: 'Fragment не вернул другой подарок для этой коллекции. NFT не изменена.' }, 502);
-    }
-    const outputVisualExternalId = availableVisualIds[Math.floor(Math.random() * availableVisualIds.length)];
+    const availableVisualIds = outputCandidates.map((candidate) => candidate.number);
+    const outputVisualExternalId = outputCandidates[0].number;
 
     const rouletteGiftNumbers = availableVisualIds.filter((giftNumber) => giftNumber !== outputVisualExternalId);
     for (let index = rouletteGiftNumbers.length - 1; index > 0; index -= 1) {
@@ -1522,7 +1626,7 @@ Deno.serve(async (request) => {
             Authorization: `Bearer ${serviceRoleKey}`,
             'Content-Type': 'application/json',
           },
-          body: JSON.stringify({ gifts: rouletteGiftIds }),
+          body: JSON.stringify({ gifts: rouletteGiftIds, traits_only: true }),
           signal: AbortSignal.timeout(18_000),
         });
         if (!response.ok) return [];
@@ -1555,25 +1659,29 @@ Deno.serve(async (request) => {
         body: JSON.stringify({
           collection_slug: collectionSlug,
           gift_number: outputVisualExternalId,
+          traits_only: true,
         }),
         signal: AbortSignal.timeout(20_000),
       });
     } catch {
       return json({ error: 'Не удалось получить характеристики подарка с Fragment. NFT не изменена.' }, 502);
     }
-    const outputFragmentData = await outputFragmentResponse.json().catch(() => null);
+    const outputFragmentDetails = await outputFragmentResponse.json().catch(() => null);
     if (!outputFragmentResponse.ok
-      || !outputFragmentData
-      || typeof outputFragmentData.grams !== 'number'
-      || typeof outputFragmentData.stars !== 'number'
-      || !outputFragmentData.traits
-      || typeof outputFragmentData.traits !== 'object'
-      || Array.isArray(outputFragmentData.traits)) {
+      || !outputFragmentDetails
+      || !outputFragmentDetails.traits
+      || typeof outputFragmentDetails.traits !== 'object'
+      || Array.isArray(outputFragmentDetails.traits)) {
       return json({
-        error: outputFragmentData?.error || 'Fragment не вернул цену и характеристики подарка. NFT не изменена.',
+        error: outputFragmentDetails?.error || 'Fragment не вернул характеристики подарка. NFT не изменена.',
       }, outputFragmentResponse.ok ? 502 : outputFragmentResponse.status);
     }
 
+    const outputFragmentData = {
+      grams: outputCandidates[0].grams!,
+      stars: Math.max(1, Math.round(outputCandidates[0].grams! * 0.8)),
+      traits: outputFragmentDetails.traits,
+    };
     const rouletteTraits = await rouletteTraitsPromise;
     const result = await supabase.rpc('upgrade_nft', {
       p_profile_id: profile.id,
@@ -1625,32 +1733,47 @@ Deno.serve(async (request) => {
     if (typeof collectionSlug !== 'string' || !/^[a-z0-9]+$/.test(collectionSlug)) {
       return json({ error: 'NFT has invalid Fragment collection data' }, 409);
     }
-    const selectedVisualIds = new Set(selectedItems.data.map((item: any) =>
-      String(item.attributes?.crafting?.visual_external_id || item.external_id || '')
-    ));
+    const storedInputPrices = selectedItems.data.map((item: any) => {
+      const attributes = item.attributes || {};
+      const manualPrice = Number(attributes.fragment_price_stars);
+      if (attributes.fragment_price_manual === true || attributes.fragment_price_crafted_target === true) {
+        return Number.isFinite(manualPrice) && manualPrice > 0 ? manualPrice : null;
+      }
+      const fragmentPrice = Number(attributes.fragment_price_fragment_stars);
+      if (Number.isFinite(fragmentPrice) && fragmentPrice > 0) return fragmentPrice;
+      return Number.isFinite(manualPrice) && manualPrice > 0 ? manualPrice : null;
+    });
+    if (storedInputPrices.some((price) => price === null)) {
+      return json({ error: 'У каждого выбранного NFT должна быть сохранена цена перед крафтом.' }, 409);
+    }
+    const inputTotalStars = storedInputPrices.reduce((sum, price) => sum + (price || 0), 0);
+    const targetStars = Math.max(1, Math.round(inputTotalStars * 2));
+    const targetGrams = targetStars / 0.8;
+    if (!Number.isFinite(targetGrams) || targetGrams <= 0) {
+      return json({ error: 'Не удалось рассчитать целевую цену результата крафта.' }, 409);
+    }
 
-    let collectionResponse: Response;
+    const ownedCollectionItems = await supabase.from('nft_items')
+      .select('external_id,attributes,nft_models!inner(nft_collections!inner(slug))')
+      .eq('owner_profile_id', profile.id)
+      .eq('nft_models.nft_collections.slug', collectionSlug);
+    if (ownedCollectionItems.error) {
+      return json({ error: ownedCollectionItems.error.message }, 500);
+    }
+    const usedVisualIds = new Set(ownedCollectionItems.data.flatMap((item: any) => [
+      String(item.attributes?.crafting?.visual_external_id || item.external_id || ''),
+      String(item.external_id || ''),
+    ]));
+
+    let outputCandidates: StarterListingCandidate[];
     try {
-      collectionResponse = await fetch(`https://fragment.com/gifts/${collectionSlug}`, {
-        headers: { 'User-Agent': 'Mozilla/5.0 VYRN Fragment catalog reader' },
-        signal: AbortSignal.timeout(15_000),
-      });
-    } catch {
-      return json({ error: 'Не удалось загрузить список подарков этой коллекции с Fragment.' }, 502);
+      outputCandidates = await findClosestFragmentListing(collectionSlug, targetGrams, usedVisualIds);
+    } catch (error) {
+      return json({
+        error: error instanceof Error ? error.message : 'Не удалось подобрать подарок по цене Fragment.',
+      }, 502);
     }
-    if (!collectionResponse.ok) {
-      return json({ error: `Fragment вернул HTTP ${collectionResponse.status} для этой коллекции.` }, 502);
-    }
-    const contentLength = Number(collectionResponse.headers.get('content-length') || 0);
-    if (contentLength > 8_000_000) return json({ error: 'Ответ Fragment слишком большой.' }, 502);
-    const collectionHtml = await collectionResponse.text();
-    if (collectionHtml.length > 8_000_000) return json({ error: 'Ответ Fragment слишком большой.' }, 502);
-    const availableVisualIds = readFragmentGiftNumbers(collectionHtml, collectionSlug)
-      .filter((giftNumber) => !selectedVisualIds.has(giftNumber));
-    if (!availableVisualIds.length) {
-      return json({ error: 'Fragment не вернул другой подарок для этой коллекции. Список NFT не изменён.' }, 502);
-    }
-    const outputVisualExternalId = availableVisualIds[Math.floor(Math.random() * availableVisualIds.length)];
+
     let outputFragmentResponse: Response;
     try {
       outputFragmentResponse = await fetch(`${supabaseUrl.replace(/\/$/, '')}/functions/v1/fragment-price`, {
@@ -1661,32 +1784,60 @@ Deno.serve(async (request) => {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          collection_slug: collectionSlug,
-          gift_number: outputVisualExternalId,
+          gifts: outputCandidates.map((candidate) => ({
+            collection_slug: candidate.slug,
+            gift_number: candidate.number,
+          })),
         }),
-        signal: AbortSignal.timeout(20_000),
+        signal: AbortSignal.timeout(35_000),
       });
     } catch {
-      return json({ error: 'Не удалось получить характеристики выбранного подарка с Fragment. NFT не изменены.' }, 502);
+      return json({ error: 'Не удалось получить цены и характеристики подарков с Fragment. NFT не изменены.' }, 502);
     }
     const outputFragmentData = await outputFragmentResponse.json().catch(() => null);
-    if (!outputFragmentResponse.ok
-      || !outputFragmentData
-      || typeof outputFragmentData.grams !== 'number'
-      || typeof outputFragmentData.stars !== 'number'
-      || !outputFragmentData.traits
-      || typeof outputFragmentData.traits !== 'object'
-      || Array.isArray(outputFragmentData.traits)) {
+    if (!outputFragmentResponse.ok || !Array.isArray(outputFragmentData?.items)) {
       return json({
-        error: outputFragmentData?.error || 'Fragment не вернул цену и характеристики выбранного подарка. NFT не изменены.',
+        error: outputFragmentData?.error || 'Fragment не вернул цены и характеристики подарков. NFT не изменены.',
       }, outputFragmentResponse.ok ? 502 : outputFragmentResponse.status);
     }
+    const validOutputGifts = (outputFragmentData.items as unknown[])
+      .filter((entry): entry is FragmentPriceEntry => {
+        if (typeof entry !== 'object' || entry === null || Array.isArray(entry)) return false;
+        const gift = entry as Record<string, unknown>;
+        return gift.collection_slug === collectionSlug
+          && typeof gift.gift_number === 'string'
+          && outputCandidates.some((candidate) => candidate.number === gift.gift_number)
+          && typeof gift.grams === 'number' && Number.isFinite(gift.grams) && gift.grams > 0
+          && typeof gift.stars === 'number' && Number.isSafeInteger(gift.stars) && gift.stars > 0
+          && typeof gift.traits === 'object' && gift.traits !== null && !Array.isArray(gift.traits);
+      });
+    const pricedOutputGifts = validOutputGifts
+      .sort((left, right) => Math.abs((left.stars || 0) - targetStars) - Math.abs((right.stars || 0) - targetStars));
+    const selectedOutputGift = pricedOutputGifts[0];
+    if (!selectedOutputGift) {
+      const failedGift = (outputFragmentData.items as unknown[]).find((entry) =>
+        typeof entry === 'object' && entry !== null && 'error' in entry && typeof entry.error === 'string'
+      );
+      return json({
+        error: failedGift && typeof failedGift.error === 'string'
+          ? `Не удалось получить цену ни одного из ${outputCandidates.length} ближайших подарков Fragment: ${failedGift.error}. NFT не изменены.`
+          : `Fragment не вернул доступную цену ни одного из ${outputCandidates.length} ближайших подарков. Крафт не выполнен, NFT не изменены.`,
+      }, failedGift && typeof failedGift.error === 'string' ? 502 : 409);
+    }
+    const outputVisualExternalId = selectedOutputGift.gift_number;
+    const outputFragmentDataForCraft = {
+      grams: targetGrams,
+      stars: targetStars,
+      fragment_grams: selectedOutputGift.grams,
+      fragment_stars: selectedOutputGift.stars,
+      traits: selectedOutputGift.traits,
+    };
 
     const result = await supabase.rpc('craft_nfts', {
       p_profile_id: profile.id,
       p_nft_item_ids: input.nft_item_ids,
       p_output_visual_external_id: outputVisualExternalId,
-      p_output_fragment_data: outputFragmentData,
+      p_output_fragment_data: outputFragmentDataForCraft,
     });
     if (result.error) {
       if (result.error.code === 'PGRST202' || result.error.code === '42883') {
@@ -1700,7 +1851,14 @@ Deno.serve(async (request) => {
         code: result.error.code,
       }, 409);
     }
-    return json(result.data);
+    return json({
+      ...result.data,
+      target_stars: targetStars,
+      target_grams: targetGrams,
+      output_price_stars: selectedOutputGift.stars,
+      output_price_grams: selectedOutputGift.grams,
+      crafted_value_stars: targetStars,
+    });
   }
 
   if (action === 'profile_nfts') {
@@ -1814,6 +1972,27 @@ Deno.serve(async (request) => {
   }
 
   if (action === 'chats') {
+    const portalChat = await supabase.rpc('ensure_portal_chat', { p_profile_id: profile.id });
+    if (portalChat.error) {
+      const missingFunction = portalChat.error.code === 'PGRST202' || portalChat.error.code === '42883';
+      return json({
+        error: missingFunction
+          ? 'Общий канал не установлен. Примените supabase/portal-channel.sql.'
+          : portalChat.error.message,
+      }, missingFunction ? 503 : 500);
+    }
+    const portalManager = await supabase.from('portal_channel_managers')
+      .select('telegram_id')
+      .eq('telegram_id', profile.telegram_id)
+      .maybeSingle();
+    if (portalManager.error) {
+      const missingTable = portalManager.error.code === 'PGRST205' || portalManager.error.code === '42P01';
+      return json({
+        error: missingTable
+          ? 'Общий канал не установлен. Примените supabase/portal-channel.sql.'
+          : portalManager.error.message,
+      }, missingTable ? 503 : 500);
+    }
     const result = await supabase.from('chat_members').select('chat_id,last_read_at,chats!inner(id,chat_type,title,created_at)')
       .eq('profile_id', profile.id).order('joined_at', { ascending: false });
     if (result.error) return json({ error: result.error.message }, 500);
@@ -1839,7 +2018,12 @@ Deno.serve(async (request) => {
         unread_count: unreadMessages.count || 0,
       };
     }));
-    return json({ chats, current_profile_id: profile.id });
+    return json({
+      chats,
+      current_profile_id: profile.id,
+      portal_chat_id: portalChat.data,
+      portal_can_manage: Boolean(portalManager.data),
+    });
   }
 
   if (action === 'messages') {
@@ -1899,9 +2083,22 @@ Deno.serve(async (request) => {
   if (action === 'send_message') {
     if (typeof input.chat_id !== 'string' || typeof input.body !== 'string' || !input.body.trim() || input.body.length > 4096) return json({ error: 'Invalid message' }, 400);
     const membership = await supabase.from('chat_members').select('chat_id').eq('chat_id', input.chat_id).eq('profile_id', profile.id).maybeSingle();
+    if (membership.error) return json({ error: membership.error.message }, 500);
     if (!membership.data) return json({ error: 'Chat not found' }, 404);
+    const chat = await supabase.from('chats').select('chat_type').eq('id', input.chat_id).maybeSingle();
+    if (chat.error) return json({ error: chat.error.message }, 500);
+    if (!chat.data) return json({ error: 'Chat not found' }, 404);
+    if (chat.data.chat_type === 'channel') {
+      const portalManager = await supabase.from('portal_channel_managers')
+        .select('telegram_id')
+        .eq('telegram_id', profile.telegram_id)
+        .maybeSingle();
+      if (portalManager.error) return json({ error: portalManager.error.message }, 500);
+      if (!portalManager.data) return json({ error: 'У вас нет права писать в VYRN — Портал.' }, 403);
+    }
     const result = await supabase.from('messages').insert({ chat_id: input.chat_id, sender_profile_id: profile.id, body: input.body.trim() }).select('*').single();
     if (result.error) return json({ error: result.error.message }, 500);
+    if (chat.data.chat_type === 'channel') return json({ message: result.data });
 
     const recipient = await supabase.from('chat_members')
       .select('profiles!inner(telegram_id)')
@@ -1983,8 +2180,8 @@ Deno.serve(async (request) => {
 
   if (action === 'delete_message') {
     if (typeof input.message_id !== 'string') return json({ error: 'Message ID is required' }, 400);
-    const message = await supabase.from('messages').select('id,chat_id')
-      .eq('id', input.message_id).eq('sender_profile_id', profile.id)
+    const message = await supabase.from('messages').select('id,chat_id,sender_profile_id')
+      .eq('id', input.message_id)
       .eq('kind', 'text').is('deleted_at', null).maybeSingle();
     if (message.error) return json({ error: message.error.message }, 500);
     if (!message.data) return json({ error: 'Message not found' }, 404);
@@ -1992,8 +2189,27 @@ Deno.serve(async (request) => {
       .eq('chat_id', message.data.chat_id).eq('profile_id', profile.id).maybeSingle();
     if (membership.error) return json({ error: membership.error.message }, 500);
     if (!membership.data) return json({ error: 'Message not found' }, 404);
+    const chat = await supabase.from('chats').select('chat_type').eq('id', message.data.chat_id).maybeSingle();
+    if (chat.error) return json({ error: chat.error.message }, 500);
+    if (!chat.data) return json({ error: 'Message not found' }, 404);
+    let canManagePortal = false;
+    if (chat.data.chat_type === 'channel') {
+      const portalManager = await supabase.from('portal_channel_managers')
+        .select('telegram_id')
+        .eq('telegram_id', profile.telegram_id)
+        .maybeSingle();
+      if (portalManager.error) return json({ error: portalManager.error.message }, 500);
+      canManagePortal = Boolean(portalManager.data);
+    }
+    if (chat.data.chat_type === 'channel' && !canManagePortal) {
+      return json({ error: 'У вас нет права управлять сообщениями VYRN — Портала.' }, 403);
+    }
+    if (chat.data.chat_type !== 'channel' && message.data.sender_profile_id !== profile.id) {
+      return json({ error: 'Вы можете удалять только свои сообщения.' }, 403);
+    }
     const result = await supabase.from('messages').update({ deleted_at: new Date().toISOString() })
-      .eq('id', message.data.id).eq('chat_id', message.data.chat_id).eq('sender_profile_id', profile.id)
+      .eq('id', message.data.id).eq('chat_id', message.data.chat_id)
+      .eq('sender_profile_id', message.data.sender_profile_id)
       .eq('kind', 'text')
       .is('deleted_at', null).select('id').maybeSingle();
     return result.error ? json({ error: result.error.message }, 500) : result.data ? json({ ok: true }) : json({ error: 'Message not found' }, 404);

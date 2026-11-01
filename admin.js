@@ -192,14 +192,23 @@ xmasstocking|Xmas Stockings
   const adminCaseForm = document.querySelector('.admin-case-form');
   const adminCaseTitle = document.querySelector('.admin-case-title');
   const adminCaseDescription = document.querySelector('.admin-case-description');
+  const adminCaseType = document.querySelector('.admin-case-type');
   const adminCasePrice = document.querySelector('.admin-case-price');
   const adminCasePrizeRows = document.querySelector('.admin-case-prize-rows');
   const adminCaseAddPrizeButton = document.querySelector('.admin-case-add-prize');
   const adminCaseAutoOddsButton = document.querySelector('.admin-case-auto-odds');
   const adminCaseSubmitButton = document.querySelector('.admin-case-submit');
+  const adminCaseCancelEditButton = document.querySelector('.admin-case-cancel-edit');
   const adminCaseList = document.querySelector('.admin-case-list');
   const adminCaseStatus = document.querySelector('.admin-case-status');
+  const portalForm = document.querySelector('.admin-portal-form');
+  const portalTelegramIdInput = document.querySelector('.admin-portal-telegram-id');
+  const portalAddButton = document.querySelector('.admin-portal-add-button');
+  const portalRefreshButton = document.querySelector('.admin-portal-refresh-button');
+  const portalStatus = document.querySelector('.admin-portal-status');
+  const portalManagerList = document.querySelector('.admin-portal-manager-list');
   let selectedPlayer = null;
+  let editingCaseId = null;
   let giftPreviewUrl = '';
   let priceRequestId = 0;
 
@@ -331,6 +340,74 @@ xmasstocking|Xmas Stockings
       throw new Error(message);
     }
     return data;
+  };
+
+  const renderPortalManagers = (managers) => {
+    portalManagerList.replaceChildren();
+    if (!managers.length) {
+      const empty = document.createElement('p');
+      empty.className = 'admin-empty-result';
+      empty.textContent = 'Пока никому не выдан доступ к управлению каналом.';
+      portalManagerList.append(empty);
+      return;
+    }
+    managers.forEach((manager) => {
+      const row = document.createElement('article');
+      row.className = 'admin-portal-manager';
+      const copy = document.createElement('div');
+      copy.className = 'admin-portal-manager-copy';
+      const title = document.createElement('strong');
+      title.textContent = manager.nickname
+        ? `${manager.nickname}${manager.username ? ` · @${manager.username}` : ''}`
+        : 'Игрок не найден';
+      const telegramId = document.createElement('span');
+      telegramId.textContent = `Telegram ID ${manager.telegram_id}`;
+      copy.append(title, telegramId);
+      const removeButton = document.createElement('button');
+      removeButton.className = 'admin-button admin-portal-remove-button';
+      removeButton.type = 'button';
+      removeButton.textContent = 'Убрать доступ';
+      removeButton.addEventListener('click', async () => {
+        if (!passwordInput.value) {
+          showStatus(portalStatus, 'Сначала введи пароль администратора.', true);
+          passwordInput.focus();
+          return;
+        }
+        if (!window.confirm(`Убрать право управлять порталом у Telegram ID ${manager.telegram_id}?`)) return;
+        removeButton.disabled = true;
+        try {
+          await rpc('admin_remove_portal_manager', {
+            p_password: passwordInput.value,
+            p_telegram_id: manager.telegram_id
+          });
+          await loadPortalManagers();
+          showStatus(portalStatus, `Доступ для Telegram ID ${manager.telegram_id} удалён.`);
+        } catch (error) {
+          showStatus(portalStatus, error.message, true);
+          removeButton.disabled = false;
+        }
+      });
+      row.append(copy, removeButton);
+      portalManagerList.append(row);
+    });
+  };
+  const loadPortalManagers = async () => {
+    if (!passwordInput.value) {
+      showStatus(portalStatus, 'Сначала введи пароль администратора.', true);
+      passwordInput.focus();
+      return;
+    }
+    portalRefreshButton.disabled = true;
+    showStatus(portalStatus, 'Загружаем список пользователей…');
+    try {
+      const managers = await rpc('admin_list_portal_managers', {
+        p_password: passwordInput.value
+      });
+      renderPortalManagers(managers);
+      showStatus(portalStatus, `${managers.length} пользователей могут управлять каналом.`);
+    } finally {
+      portalRefreshButton.disabled = false;
+    }
   };
 
   const taskManagerRequest = async (payload) => {
@@ -489,6 +566,7 @@ xmasstocking|Xmas Stockings
   const addCasePrizeRow = (values = {}) => {
     const row = document.createElement('div');
     row.className = 'admin-case-prize-row';
+    if (typeof values.id === 'string') row.dataset.prizeId = values.id;
     const preview = document.createElement('img');
     preview.className = 'admin-case-prize-preview';
     preview.alt = 'Предпросмотр NFT с Fragment';
@@ -564,6 +642,34 @@ xmasstocking|Xmas Stockings
     updateCasePrizeHints();
   };
 
+  const resetAdminCaseForm = () => {
+    editingCaseId = null;
+    adminCaseForm.reset();
+    adminCasePrizeRows.replaceChildren();
+    addCasePrizeRow();
+    addCasePrizeRow();
+    adminCaseSubmitButton.textContent = 'Создать кейс';
+    adminCaseCancelEditButton.hidden = true;
+  };
+
+  const editAdminCase = (item) => {
+    if (!Array.isArray(item.prizes) || item.prizes.length < 2) {
+      showStatus(adminCaseStatus, 'Не удалось открыть кейс для редактирования: список подарков повреждён.', true);
+      return;
+    }
+    editingCaseId = item.id;
+    adminCaseTitle.value = item.title;
+    adminCaseDescription.value = item.description || '';
+    adminCaseType.value = item.case_type || '';
+    adminCasePrice.value = String(item.price_stars);
+    adminCasePrizeRows.replaceChildren();
+    item.prizes.forEach((prize) => addCasePrizeRow(prize));
+    adminCaseSubmitButton.textContent = 'Сохранить изменения';
+    adminCaseCancelEditButton.hidden = false;
+    showStatus(adminCaseStatus, `Редактирование кейса «${item.title}».`);
+    adminCaseForm.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  };
+
   const renderAdminCases = (items) => {
     adminCaseList.replaceChildren();
     if (!items.length) {
@@ -589,8 +695,15 @@ xmasstocking|Xmas Stockings
       const title = document.createElement('strong');
       title.textContent = item.title;
       const details = document.createElement('span');
-      details.textContent = `${Number(item.price_stars).toLocaleString('ru-RU')} Stars · ${item.prizes.length} подарка`;
+      details.textContent = `${item.case_type || 'Без типа'} · ${Number(item.price_stars).toLocaleString('ru-RU')} Stars · ${item.prizes.length} подарка`;
       copy.append(title, details);
+      const actions = document.createElement('div');
+      actions.className = 'admin-case-actions';
+      const editButton = document.createElement('button');
+      editButton.type = 'button';
+      editButton.className = 'admin-button admin-case-edit';
+      editButton.textContent = 'Редактировать';
+      editButton.addEventListener('click', () => editAdminCase(item));
       const removeButton = document.createElement('button');
       removeButton.type = 'button';
       removeButton.className = 'admin-button admin-case-delete';
@@ -604,6 +717,7 @@ xmasstocking|Xmas Stockings
         removeButton.disabled = true;
         try {
           await adminCaseRequest({ action: 'delete', id: item.id });
+          if (editingCaseId === item.id) resetAdminCaseForm();
           showStatus(adminCaseStatus, `Кейс «${item.title}» удалён.`);
           await refreshAdminCases();
         } catch (error) {
@@ -611,7 +725,8 @@ xmasstocking|Xmas Stockings
           removeButton.disabled = false;
         }
       });
-      row.append(image, copy, removeButton);
+      actions.append(editButton, removeButton);
+      row.append(image, copy, actions);
       adminCaseList.append(row);
     });
   };
@@ -1384,6 +1499,10 @@ xmasstocking|Xmas Stockings
     }
     addCasePrizeRow();
   });
+  adminCaseCancelEditButton.addEventListener('click', () => {
+    resetAdminCaseForm();
+    showStatus(adminCaseStatus, 'Редактирование отменено.');
+  });
   adminCaseAutoOddsButton.addEventListener('click', () => {
     const rows = [...adminCasePrizeRows.children];
     const casePrice = Number(adminCasePrice.value);
@@ -1441,6 +1560,7 @@ xmasstocking|Xmas Stockings
       const value = (name) => row.querySelector(`[name="${name}"]`).value.trim();
       const gift = getFragmentGift(value('fragment_url'));
       return {
+        ...(row.dataset.prizeId ? { id: row.dataset.prizeId } : {}),
         name: value('name'),
         fragment_url: gift.fragmentUrl,
         collection_name: gift.collectionName,
@@ -1452,22 +1572,24 @@ xmasstocking|Xmas Stockings
       };
     });
     adminCaseSubmitButton.disabled = true;
-    showStatus(adminCaseStatus, 'Создаём кейс…');
+    const action = editingCaseId ? 'update' : 'create';
+    showStatus(adminCaseStatus, action === 'update' ? 'Сохраняем изменения…' : 'Создаём кейс…');
     try {
-      const created = await adminCaseRequest({
-        action: 'create',
+      const result = await adminCaseRequest({
+        action,
         case: {
+          ...(editingCaseId ? { id: editingCaseId } : {}),
           title: adminCaseTitle.value.trim(),
           description: adminCaseDescription.value.trim(),
+          case_type: adminCaseType.value.trim(),
           price_stars: Number(adminCasePrice.value),
           prizes
         }
       });
-      showStatus(adminCaseStatus, `Кейс «${created.case.title}» создан.`);
-      adminCaseForm.reset();
-      adminCasePrizeRows.replaceChildren();
-      addCasePrizeRow();
-      addCasePrizeRow();
+      resetAdminCaseForm();
+      showStatus(adminCaseStatus, action === 'update'
+        ? `Кейс «${result.case.title}» обновлён.`
+        : `Кейс «${result.case.title}» создан.`);
       await refreshAdminCases();
     } catch (error) {
       showStatus(adminCaseStatus, error.message, true);
@@ -1501,6 +1623,38 @@ xmasstocking|Xmas Stockings
     giftPriceInput.dataset.source = 'manual';
     grantButton.disabled = !selectedPlayer || !giftPreviewUrl || !Number.isSafeInteger(Number(giftPriceInput.value)) || Number(giftPriceInput.value) <= 0;
   });
+  portalRefreshButton.addEventListener('click', () => {
+    loadPortalManagers().catch((error) => showStatus(portalStatus, error.message, true));
+  });
+  portalForm.addEventListener('submit', async (event) => {
+    event.preventDefault();
+    if (!passwordInput.value) {
+      showStatus(portalStatus, 'Сначала введи пароль администратора.', true);
+      passwordInput.focus();
+      return;
+    }
+    const telegramId = Number(portalTelegramIdInput.value);
+    if (!Number.isSafeInteger(telegramId) || telegramId <= 0) {
+      showStatus(portalStatus, 'Введи корректный положительный Telegram ID.', true);
+      portalTelegramIdInput.focus();
+      return;
+    }
+    portalAddButton.disabled = true;
+    showStatus(portalStatus, 'Выдаём доступ…');
+    try {
+      await rpc('admin_add_portal_manager', {
+        p_password: passwordInput.value,
+        p_telegram_id: telegramId
+      });
+      portalTelegramIdInput.value = '';
+      await loadPortalManagers();
+      showStatus(portalStatus, `Доступ к управлению порталом выдан для Telegram ID ${telegramId}.`);
+    } catch (error) {
+      showStatus(portalStatus, error.message, true);
+    } finally {
+      portalAddButton.disabled = false;
+    }
+  });
   passwordInput.addEventListener('input', () => {
     showStatus(playerStatus, '');
     showStatus(grantStatus, '');
@@ -1510,6 +1664,7 @@ xmasstocking|Xmas Stockings
     showStatus(wipeProjectStatus, '');
     showStatus(taskStatus, '');
     showStatus(adminCaseStatus, '');
+    showStatus(portalStatus, '');
     updateCustomNftGrantButton();
   });
 

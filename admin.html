@@ -8,9 +8,9 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Inter:wght@400;500;600;700&family=Manrope:wght@400;500;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="style.css?v=premium-badge-click-v1">
-  <link rel="stylesheet" href="admin.css?v=admin-case-auto-odds-v1">
+  <link rel="stylesheet" href="admin.css?v=portal-channel-managers-v1">
   <script src="supabase-client-config.js?v=admin-panel-number-media-20261018" defer></script>
-  <script src="admin.js?v=admin-case-auto-odds-v1" defer></script>
+  <script src="admin.js?v=portal-channel-managers-v1" defer></script>
 </head>
 <body class="admin-page">
   <header class="admin-header">
@@ -308,7 +308,7 @@
     <section class="admin-section admin-case-section" aria-labelledby="case-heading">
       <div class="admin-section-heading">
         <span class="admin-step">07</span>
-        <div><h2 id="case-heading">Кейсы</h2><p>Создание кейсов, настройка подарков, шансов и ценности</p></div>
+        <div><h2 id="case-heading">Кейсы</h2><p>Создание и редактирование кейсов, типы, подарки и шансы</p></div>
       </div>
       <form class="admin-case-form">
         <div class="admin-case-fields">
@@ -324,6 +324,10 @@
             <span>Описание</span>
             <input class="admin-case-description" type="text" maxlength="240" placeholder="Что скрывает кейс?">
           </label>
+          <label class="admin-field">
+            <span>Тип кейса</span>
+            <input class="admin-case-type" type="text" maxlength="60" placeholder="Например, Ледяные кейсы">
+          </label>
         </div>
         <div class="admin-case-prize-heading">
           <h3>Подарки и шансы</h3>
@@ -335,10 +339,30 @@
         <div class="admin-case-prize-rows" aria-live="polite"></div>
         <p class="admin-price-note">Вставь ссылку на подарок с Fragment: его изображение и анимация будут показаны в кейсе. Рекомендация цены на маркете равна указанной ценности в Stars. Автошансы делят шанс поровну между призами дешевле кейса и призами не дешевле его; внутри групп более дорогой приз получает меньший шанс. Игроку выдаётся NFT с тем же изображением и случайным номером.</p>
         <button class="admin-button admin-case-submit" type="submit">Создать кейс</button>
+        <button class="admin-button admin-case-cancel-edit" type="button" hidden>Отменить редактирование</button>
       </form>
       <p class="admin-status admin-case-status" role="status" hidden></p>
       <div class="admin-case-list" aria-live="polite">
         <p class="admin-empty-result">Загружаем кейсы…</p>
+      </div>
+    </section>
+    <section class="admin-section admin-portal-section" aria-labelledby="portal-heading">
+      <div class="admin-section-heading">
+        <span class="admin-step">08</span>
+        <div><h2 id="portal-heading">VYRN — Портал</h2><p>Доступ к публикации и удалению сообщений в общем канале по Telegram ID</p></div>
+      </div>
+      <form class="admin-portal-form">
+        <label class="admin-field">
+          <span>Telegram ID пользователя</span>
+          <input class="admin-portal-telegram-id" type="number" min="1" max="9007199254740991" step="1" inputmode="numeric" placeholder="Например, 123456789" required>
+        </label>
+        <button class="admin-button admin-portal-add-button" type="submit">Разрешить управление</button>
+        <button class="admin-button admin-portal-refresh-button" type="button">Обновить список</button>
+      </form>
+      <p class="admin-price-note">Пользователи из списка смогут писать в канал и удалять любые текстовые сообщения. Для остальных канал останется доступен только для чтения. Доступ проверяется сервером по Telegram ID.</p>
+      <p class="admin-status admin-portal-status" role="status" hidden></p>
+      <div class="admin-portal-manager-list" aria-live="polite">
+        <p class="admin-empty-result">Введите пароль администратора и нажмите «Обновить список».</p>
       </div>
     </section>
     <section class="admin-section admin-danger-section" aria-labelledby="delete-all-nfts-heading">

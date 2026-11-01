@@ -13,12 +13,23 @@ set search_path = ''
 as $$
 declare
   fragment_price numeric;
+  fragment_price_text text;
 begin
-  if coalesce(p_attributes ->> 'fragment_price_stars', '') !~ '^[0-9]+(\.[0-9]+)?$' then
+  if p_attributes ->> 'fragment_price_manual' = 'true'
+    or p_attributes ->> 'fragment_price_crafted_target' = 'true' then
+    fragment_price_text := p_attributes ->> 'fragment_price_stars';
+  elsif coalesce(p_attributes ->> 'fragment_price_fragment_stars', '') ~ '^[0-9]+(\.[0-9]+)?$'
+    and (p_attributes ->> 'fragment_price_fragment_stars')::numeric > 0 then
+    fragment_price_text := p_attributes ->> 'fragment_price_fragment_stars';
+  else
+    fragment_price_text := p_attributes ->> 'fragment_price_stars';
+  end if;
+
+  if coalesce(fragment_price_text, '') !~ '^[0-9]+(\.[0-9]+)?$' then
     return 18;
   end if;
 
-  fragment_price := (p_attributes ->> 'fragment_price_stars')::numeric;
+  fragment_price := fragment_price_text::numeric;
   if fragment_price <= 100 then
     return 18;
   elsif fragment_price <= 200 then
@@ -162,7 +173,8 @@ begin
     raise exception 'Remove NFTs from the market before crafting';
   end if;
 
-  select models.collection_id, collections.slug, collections.name, items.external_id
+  select models.collection_id, collections.slug, collections.name,
+    coalesce(items.attributes -> 'crafting' ->> 'visual_external_id', items.external_id)
   into v_collection_id, v_collection_slug, v_collection_name, v_base_external_id
   from public.nft_items as items
   join public.nft_models as models on models.id = items.model_id
@@ -198,12 +210,27 @@ begin
   if (p_output_fragment_data ->> 'grams')::numeric <= 0 then
     raise exception 'Fragment output price or traits are invalid';
   end if;
-
   if jsonb_typeof(p_output_fragment_data -> 'stars') is distinct from 'number' then
     raise exception 'Fragment output price or traits are invalid';
   end if;
-  if (p_output_fragment_data ->> 'stars')::numeric <= 0 then
+  if (p_output_fragment_data ->> 'stars')::numeric <= 0
+    or (p_output_fragment_data ->> 'stars')::numeric <> greatest(
+      1,
+      round((p_output_fragment_data ->> 'grams')::numeric * 0.8)
+    ) then
     raise exception 'Fragment output price or traits are invalid';
+  end if;
+  if jsonb_typeof(p_output_fragment_data -> 'fragment_grams') is distinct from 'number'
+    or jsonb_typeof(p_output_fragment_data -> 'fragment_stars') is distinct from 'number' then
+    raise exception 'Fragment market price or traits are invalid';
+  end if;
+  if (p_output_fragment_data ->> 'fragment_grams')::numeric <= 0
+    or (p_output_fragment_data ->> 'fragment_stars')::numeric <= 0
+    or (p_output_fragment_data ->> 'fragment_stars')::numeric <> greatest(
+      1,
+      round((p_output_fragment_data ->> 'fragment_grams')::numeric * 0.8)
+    ) then
+    raise exception 'Fragment market price or traits are invalid';
   end if;
 
   v_output_traits := p_output_fragment_data -> 'traits';
@@ -212,16 +239,25 @@ begin
   into v_input_price_sum, v_priced_input_count
   from (
     select case
-      when items.attributes ->> 'fragment_price_stars' ~ '^[0-9]+(\.[0-9]+)?$'
+      when items.attributes ->> 'fragment_price_manual' = 'true'
+        or items.attributes ->> 'fragment_price_crafted_target' = 'true'
         then case
-          when (items.attributes ->> 'fragment_price_stars')::numeric > 0
+          when items.attributes ->> 'fragment_price_stars' ~ '^[0-9]+(\.[0-9]+)?$'
+            and (items.attributes ->> 'fragment_price_stars')::numeric > 0
           then (items.attributes ->> 'fragment_price_stars')::numeric
           else null
         end
       when items.attributes ->> 'fragment_price_fragment_stars' ~ '^[0-9]+(\.[0-9]+)?$'
+        and (items.attributes ->> 'fragment_price_fragment_stars')::numeric > 0
         then case
           when (items.attributes ->> 'fragment_price_fragment_stars')::numeric > 0
           then (items.attributes ->> 'fragment_price_fragment_stars')::numeric
+          else null
+        end
+      when items.attributes ->> 'fragment_price_stars' ~ '^[0-9]+(\.[0-9]+)?$'
+        then case
+          when (items.attributes ->> 'fragment_price_stars')::numeric > 0
+          then (items.attributes ->> 'fragment_price_stars')::numeric
           else null
         end
       else null
@@ -231,6 +267,10 @@ begin
   ) as prices;
   if v_priced_input_count <> item_count then
     raise exception 'Every selected NFT must have a valid price before crafting';
+  end if;
+  if (p_output_fragment_data ->> 'stars')::numeric <> greatest(1, round(v_input_price_sum * 2))
+    or (p_output_fragment_data ->> 'grams')::numeric <> (p_output_fragment_data ->> 'stars')::numeric / 0.8 then
+    raise exception 'Crafted result value must equal twice the input value and follow the Stars to GRAM conversion';
   end if;
 
   select least(100::numeric, sum(public.crafting_chance(items.attributes)))
@@ -266,15 +306,16 @@ begin
     returning id into v_result_model_id;
 
     v_result_attributes := jsonb_strip_nulls(jsonb_build_object(
-      'fragment_price_stars', case
-        when v_priced_input_count = item_count then to_jsonb(v_input_price_sum)
-        else null
-      end,
+      'fragment_price_stars', p_output_fragment_data -> 'stars',
       'fragment_price_grams', p_output_fragment_data -> 'grams',
-      'fragment_price_fragment_stars', p_output_fragment_data -> 'stars'
+      'fragment_price_fragment_stars', p_output_fragment_data -> 'fragment_stars',
+      'fragment_price_fragment_grams', p_output_fragment_data -> 'fragment_grams'
     )) || jsonb_build_object(
-      'fragment_price_crafted_total', v_priced_input_count = item_count,
+      'fragment_price_crafted_total', false,
+      'fragment_price_crafted_target', true,
+      'fragment_price_manual', false,
       'fragment_traits', v_output_traits,
+      'fragment_traits_updated_at', now(),
       'crafting', jsonb_build_object(
         'crafted_at', now(),
         'input_item_ids', to_jsonb(p_nft_item_ids),
@@ -287,7 +328,7 @@ begin
     insert into public.nft_items (model_id, external_id, owner_profile_id, attributes)
     values (
       v_result_model_id,
-      v_base_external_id,
+      'craft-' || gen_random_uuid()::text,
       p_profile_id,
       v_result_attributes
     )

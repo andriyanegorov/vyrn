@@ -20,6 +20,9 @@ declare
   v_visual_external_id text;
   v_attributes jsonb;
   v_updated_item jsonb;
+  v_minimum_stars numeric;
+  v_minimum_grams numeric;
+  v_price_text text;
 begin
   if p_profile_id is null or p_nft_item_id is null then
     raise exception 'Player and NFT are required';
@@ -72,8 +75,61 @@ begin
   if jsonb_typeof(p_output_fragment_data -> 'stars') is distinct from 'number' then
     raise exception 'Fragment output price or traits are invalid';
   end if;
-  if (p_output_fragment_data ->> 'stars')::numeric <= 0 then
+  if (p_output_fragment_data ->> 'stars')::numeric <= 0
+    or (p_output_fragment_data ->> 'stars')::numeric <> greatest(
+      1,
+      round((p_output_fragment_data ->> 'grams')::numeric * 0.8)
+    ) then
     raise exception 'Fragment output price or traits are invalid';
+  end if;
+
+  if v_item.attributes ->> 'fragment_price_manual' = 'true'
+    or v_item.attributes ->> 'fragment_price_crafted_target' = 'true' then
+    v_price_text := v_item.attributes ->> 'fragment_price_stars';
+  else
+    v_price_text := coalesce(
+      v_item.attributes ->> 'fragment_price_fragment_stars',
+      v_item.attributes ->> 'fragment_price_stars'
+    );
+  end if;
+  if v_price_text is null
+    or length(v_price_text) > 32
+    or v_price_text !~ '^[0-9]+(\.[0-9]+)?$'
+    or v_price_text::numeric <= 0 then
+    raise exception 'Update the NFT Fragment price before upgrading';
+  end if;
+  v_minimum_stars := v_price_text::numeric;
+
+  if v_item.attributes ->> 'fragment_price_manual' = 'true' then
+    v_minimum_grams := v_minimum_stars / 0.8;
+  elsif v_item.attributes ->> 'fragment_price_crafted_target' = 'true' then
+    v_price_text := v_item.attributes ->> 'fragment_price_grams';
+    if v_price_text is not null
+      and length(v_price_text) <= 32
+      and v_price_text ~ '^[0-9]+(\.[0-9]+)?$'
+      and v_price_text::numeric > 0 then
+      v_minimum_grams := v_price_text::numeric;
+    else
+      v_minimum_grams := v_minimum_stars / 0.8;
+    end if;
+  else
+    v_price_text := coalesce(
+      v_item.attributes ->> 'fragment_price_fragment_grams',
+      v_item.attributes ->> 'fragment_price_grams'
+    );
+    if v_price_text is not null
+      and length(v_price_text) <= 32
+      and v_price_text ~ '^[0-9]+(\.[0-9]+)?$'
+      and v_price_text::numeric > 0 then
+      v_minimum_grams := v_price_text::numeric;
+    else
+      v_minimum_grams := v_minimum_stars / 0.8;
+    end if;
+  end if;
+
+  if (p_output_fragment_data ->> 'grams')::numeric < v_minimum_grams
+    or (p_output_fragment_data ->> 'stars')::numeric < v_minimum_stars then
+    raise exception 'The upgraded NFT price cannot be lower than the current price';
   end if;
 
   select wallets.id, wallets.balance into v_wallet_id, v_wallet_balance
@@ -102,9 +158,12 @@ begin
   v_attributes := coalesce(v_item.attributes, '{}'::jsonb) || jsonb_build_object(
     'fragment_price_stars', (p_output_fragment_data ->> 'stars')::numeric,
     'fragment_price_grams', (p_output_fragment_data ->> 'grams')::numeric,
+    'fragment_price_fragment_grams', (p_output_fragment_data ->> 'grams')::numeric,
     'fragment_price_fragment_stars', (p_output_fragment_data ->> 'stars')::numeric,
     'fragment_price_manual', false,
     'fragment_price_crafted_total', false,
+    'fragment_price_crafted_target', false,
+    'fragment_price_version', 2,
     'fragment_traits', p_output_fragment_data -> 'traits',
     'fragment_traits_updated_at', now(),
     'crafting', jsonb_build_object(
