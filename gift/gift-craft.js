@@ -17,7 +17,9 @@ const createStarsIcon=()=>{
   return icon;
 };
 const getCraftChance=({attributes={}}={})=>{
-  const value=Number(attributes.fragment_price_stars);
+  const value=Number(attributes.case_reward===true
+    ?attributes.custom_price_stars
+    :attributes.fragment_price_stars);
   if(!Number.isFinite(value)||value<0)return 18;
   if(value<=100)return 18;
   if(value<=200)return 20;
@@ -32,26 +34,30 @@ const mapNft=item=>{
   const attributes={...(item.attributes||{})};
   const fragmentPrice=Number(attributes.fragment_price_fragment_stars);
   const savedPrice=Number(attributes.fragment_price_stars);
-  const effectivePrice=attributes.fragment_price_manual===true||attributes.fragment_price_crafted_target===true
-    ?savedPrice
-    :Number.isFinite(fragmentPrice)&&fragmentPrice>0?fragmentPrice:savedPrice;
+  const caseRewardPrice=Number(attributes.custom_price_stars);
+  const effectivePrice=attributes.case_reward===true
+    ?caseRewardPrice
+    :attributes.fragment_price_manual===true||attributes.fragment_price_crafted_target===true
+      ?savedPrice
+      :Number.isFinite(fragmentPrice)&&fragmentPrice>0?fragmentPrice:savedPrice;
   if(Number.isFinite(effectivePrice)&&effectivePrice>0)attributes.fragment_price_stars=effectivePrice;
+  const isCustomNft=attributes.custom_nft===true;
   return {
     itemId:item.id,
     modelId:model.id||'',
     id,
     name:model.name||collection.name||'NFT',
-    previewUrl:slug&&visualId
+    previewUrl:!isCustomNft&&slug&&visualId
       ?`https://nft.fragment.com/gift/${slug}-${visualId}.webp`
       :model.preview_url||'../assets/placeholder.png',
-    animationUrl:model.animation_url||(slug&&visualId
+    animationUrl:isCustomNft?model.animation_url:model.animation_url||(slug&&visualId
       ?`https://nft.fragment.com/gift/${slug}-${visualId}.tgs`
       :''),
     modelSlug:model.slug||'',
     collectionName:collection.name||'VYRN',
     collectionSlug:slug,
     attributes,
-    pct:getCraftChance(item),
+    pct:getCraftChance({attributes}),
     isListed:(item.market_listings||[]).some(listing=>listing.status==='active')
   };
 };

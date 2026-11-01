@@ -738,6 +738,7 @@ const profileAnonymousNumberValue = profileAnonymousNumber?.querySelector('.prof
 if (profileEditButton && profileEditorDialog && profileEditorForm && profileAvatarElement && profileNameElement
 	&& profileUsernameValue && profileBioValue && profileAnonymousNumber && profileAnonymousNumberValue) {
 	const telegramUser = getTelegramUser();
+	const isBrowserDemoProfile = Boolean(window.VyrnApi?.browserDemo && !window.Telegram?.WebApp?.initData);
 	if (canLoadPlayerData()) beginProfilePageLoad();
 	const storedName = profileNameElement.textContent.trim().split(/\s+/);
 	const defaultProfile = {
@@ -754,13 +755,15 @@ if (profileEditButton && profileEditorDialog && profileEditorForm && profileAvat
 	};
 	let profileData = defaultProfile;
 	let storedProfile;
-	try {
-		storedProfile = JSON.parse(localStorage.getItem('vyrn.profile.editor.v1'));
-		if (storedProfile && typeof storedProfile === 'object') {
-			profileData = { ...defaultProfile, ...storedProfile };
+	if (!isBrowserDemoProfile) {
+		try {
+			storedProfile = JSON.parse(localStorage.getItem('vyrn.profile.editor.v1'));
+			if (storedProfile && typeof storedProfile === 'object') {
+				profileData = { ...defaultProfile, ...storedProfile };
+			}
+		} catch {
+			profileData = defaultProfile;
 		}
-	} catch {
-		profileData = defaultProfile;
 	}
 	const isLegacyPlaceholder = storedProfile?.nameIsCustom === true
 		&& profileData.firstName.trim().toLocaleLowerCase('ru-RU') === 'vyrn'
@@ -1222,10 +1225,9 @@ if (profileEditButton && profileEditorDialog && profileEditorForm && profileAvat
 					phone: nextProfile.phone || null
 				});
 				nextProfile.phone = result.profile.phone || '';
-				localStorage.setItem('vyrn.profile.editor.v1', JSON.stringify(nextProfile));
 				storedProfile = nextProfile;
 			} catch (error) {
-				profileEditorError.textContent = `Не удалось сохранить профиль в этом браузере: ${error.message}`;
+				profileEditorError.textContent = `Не удалось сохранить демо-профиль: ${error.message}`;
 				profileEditorError.hidden = false;
 				return;
 			}
@@ -1318,25 +1320,28 @@ const mapOwnedNft = (item) => {
 		isListed: (item.market_listings || []).some((listing) => listing.status === 'active')
 	};
 };
-const collectionValueRequests = new WeakMap();
+const parseCollectionValue = (value) => {
+	const text = typeof value === 'number' ? String(value) : typeof value === 'string' ? value : '';
+	if (text.length > 32 || !/^[0-9]+(\.[0-9]+)?$/.test(text)) return null;
+	const number = Number(text);
+	return Number.isFinite(number) && number > 0 ? number : null;
+};
 const getSavedFragmentValue = (item) => {
 	const attributes = item.attributes || {};
-	const value = attributes.custom_nft === true
-		? attributes.custom_price_stars
-		: (attributes.fragment_price_crafted_target === true
-			? attributes.fragment_price_stars
-			: attributes.fragment_price_fragment_stars
-			?? (attributes.fragment_price_manual === true || attributes.fragment_price_crafted_total === true
-			? null
-			: attributes.fragment_price_stars));
-	const number = Number(value);
-	return Number.isFinite(number) && number > 0 ? number : null;
+	if (attributes.custom_nft === true) return parseCollectionValue(attributes.custom_price_stars);
+	if (attributes.fragment_price_crafted_target === true || attributes.fragment_price_manual === true) {
+		return parseCollectionValue(attributes.fragment_price_stars);
+	}
+	if (attributes.fragment_price_fragment_stars !== undefined
+		&& attributes.fragment_price_fragment_stars !== null) {
+		return parseCollectionValue(attributes.fragment_price_fragment_stars);
+	}
+	if (attributes.fragment_price_crafted_total === true) return null;
+	return parseCollectionValue(attributes.fragment_price_stars);
 };
 const renderProfileCollectionValue = async (container, items, { manageSkeleton = true } = {}) => {
 	if (!container) return;
 	if (manageSkeleton) setProfilePageSkeleton(container.closest('.profile-page'), true);
-	const requestId = (collectionValueRequests.get(container) || 0) + 1;
-	collectionValueRequests.set(container, requestId);
 	const totalElement = container.querySelector('.profile-collection-value-total');
 	const detailElement = container.querySelector('.profile-collection-value-detail');
 	if (!totalElement || !detailElement) return;
@@ -1348,55 +1353,17 @@ const renderProfileCollectionValue = async (container, items, { manageSkeleton =
 	}
 
 	const prices = new Map();
-	const requests = [];
 	items.forEach((item, index) => {
-		const model = item.nft_models || {};
-		const collection = model.nft_collections || {};
-		const slug = collection.slug || model.slug || '';
-		const giftNumber = item.attributes?.crafting?.visual_external_id || item.external_id;
 		const savedPrice = getSavedFragmentValue(item);
 		if (savedPrice !== null) prices.set(index, savedPrice);
-		if (item.attributes?.fragment_price_crafted_target !== true
-			&& /^[a-z0-9]+$/.test(slug)
-			&& /^\d{1,12}$/.test(String(giftNumber || ''))) {
-			requests.push({ index, collection_slug: slug, gift_number: String(giftNumber) });
-		}
 	});
 
 	totalElement.textContent = 'Считаем…';
-	detailElement.textContent = `${items.length.toLocaleString('ru-RU')} NFT · оценка по ценам`;
-	const freshPrices = new Set();
-	if (!window.VyrnApi?.fragmentPrices || requests.length === 0) {
-		if (collectionValueRequests.get(container) !== requestId) return;
-		renderTotal();
-		return;
-	}
-
-	for (let offset = 0; offset < requests.length; offset += 40) {
-		try {
-			const batch = requests.slice(offset, offset + 40);
-			const results = await window.VyrnApi.fragmentPrices(batch);
-			const resultByKey = new Map(results.map((result) => [
-				`${result.collection_slug}-${result.gift_number}`,
-				result
-			]));
-			batch.forEach((gift) => {
-				const result = resultByKey.get(`${gift.collection_slug}-${gift.gift_number}`);
-				const stars = Number(result?.stars);
-				if (Number.isFinite(stars) && stars > 0) {
-					prices.set(gift.index, stars);
-					freshPrices.add(gift.index);
-				}
-			});
-		} catch (error) {
-			console.warn('Не удалось оценить часть NFT по Fragment:', error);
-		}
-		if (collectionValueRequests.get(container) !== requestId) return;
-	}
+	detailElement.textContent = '';
 
 	function renderTotal() {
 		const total = [...prices.values()].reduce((sum, price) => sum + price, 0);
-		totalElement.replaceChildren(document.createTextNode(total.toLocaleString('ru-RU')));
+		totalElement.replaceChildren(document.createTextNode(total.toLocaleString('ru-RU', { maximumFractionDigits: 2 })));
 		const icon = document.createElement('img');
 		icon.src = './assets/stars.png';
 		icon.alt = 'звёзд';
@@ -1404,14 +1371,8 @@ const renderProfileCollectionValue = async (container, items, { manageSkeleton =
 		totalElement.append(' ', icon);
 		const valuedCount = prices.size;
 		const unvaluedCount = items.length - valuedCount;
-		const freshCount = freshPrices.size;
 		if (unvaluedCount > 0) {
-		} else if (freshCount === 0 && valuedCount > 0) {
-			detailElement.textContent = '';
-		} else if (freshCount < items.length) {
-			detailElement.textContent = `Актуальные цены Fragment для ${freshCount} из ${items.length} NFT`;
-		} else {
-			detailElement.textContent = `Оценка всех ${items.length.toLocaleString('ru-RU')} NFT`;
+			detailElement.textContent = `Оценены ${valuedCount} из ${items.length} NFT`;
 		}
 		if (manageSkeleton) setProfilePageSkeleton(container.closest('.profile-page'), false);
 	}
@@ -2248,7 +2209,7 @@ playerProfileDialog.innerHTML = `
           <span class="profile-collection-value-label">Ценность коллекции</span>
           <strong class="profile-collection-value-total">Считаем…</strong>
         </div>
-        <p class="profile-collection-value-detail">Оценка по ценам</p>
+        <p class="profile-collection-value-detail">Оценка по сохранённым ценам</p>
       </section>
       <section class="profile-nft-grid player-profile-nft-grid" aria-label="NFT игрока"></section>
     </div>

@@ -15,7 +15,9 @@ declare
   fragment_price numeric;
   fragment_price_text text;
 begin
-  if p_attributes ->> 'fragment_price_manual' = 'true'
+  if p_attributes ->> 'case_reward' = 'true' then
+    fragment_price_text := p_attributes ->> 'custom_price_stars';
+  elsif p_attributes ->> 'fragment_price_manual' = 'true'
     or p_attributes ->> 'fragment_price_crafted_target' = 'true' then
     fragment_price_text := p_attributes ->> 'fragment_price_stars';
   elsif coalesce(p_attributes ->> 'fragment_price_fragment_stars', '') ~ '^[0-9]+(\.[0-9]+)?$'
@@ -239,6 +241,13 @@ begin
   into v_input_price_sum, v_priced_input_count
   from (
     select case
+      when items.attributes ->> 'case_reward' = 'true'
+        then case
+          when items.attributes ->> 'custom_price_stars' ~ '^[0-9]+(\.[0-9]+)?$'
+            and (items.attributes ->> 'custom_price_stars')::numeric > 0
+          then (items.attributes ->> 'custom_price_stars')::numeric
+          else null
+        end
       when items.attributes ->> 'fragment_price_manual' = 'true'
         or items.attributes ->> 'fragment_price_crafted_target' = 'true'
         then case

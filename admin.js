@@ -169,9 +169,14 @@ xmasstocking|Xmas Stockings
   const randomQuantityInput = document.querySelector('.admin-random-quantity');
   const randomFilterSelect = document.querySelector('.admin-random-filter');
   const randomCollectionSelect = document.querySelector('.admin-random-collection-select');
+  const randomExclusionSearch = document.querySelector('.admin-random-exclusion-search');
+  const randomExclusionSort = document.querySelector('.admin-random-exclusion-sort');
+  const randomExclusionList = document.querySelector('.admin-random-exclusion-list');
+  const randomExclusionCount = document.querySelector('.admin-random-exclusion-count');
   const randomStatus = document.querySelector('.admin-random-status');
   const randomMarketButton = document.querySelector('.admin-random-market-button');
   const randomPlayerButton = document.querySelector('.admin-random-player-button');
+  const excludedMarketCollections = new Set();
   const taskForm = document.querySelector('.admin-task-form');
   const taskCountForm = document.querySelector('.admin-task-count-form');
   const taskResetButton = document.querySelector('.admin-task-reset-button');
@@ -1013,7 +1018,14 @@ xmasstocking|Xmas Stockings
     const bySlug = new Map(collections.map((collection) => [collection.slug, collection]));
     additionalCollections.forEach((collection) => {
       if (typeof collection?.slug !== 'string' || typeof collection?.name !== 'string') return;
-      bySlug.set(collection.slug, { slug: collection.slug, name: collection.name });
+      const previous = bySlug.get(collection.slug);
+      const rawGiftCount = collection.gift_count ?? collection.fragment_gift_count;
+      const giftCount = (typeof rawGiftCount === 'number' || typeof rawGiftCount === 'string')
+        && /^\d+$/.test(String(rawGiftCount))
+        && Number.isSafeInteger(Number(rawGiftCount))
+        ? Number(rawGiftCount)
+        : previous?.gift_count ?? null;
+      bySlug.set(collection.slug, { slug: collection.slug, name: collection.name, gift_count: giftCount });
     });
     collections = [...bySlug.values()].sort((first, second) => first.name.localeCompare(second.name, 'en'));
     renderRandomCollections();
@@ -1026,6 +1038,65 @@ xmasstocking|Xmas Stockings
       randomCollectionSelect.add(new Option(`${collection.name} · ${collection.slug}`, collection.slug));
     });
     if (collections.some((collection) => collection.slug === currentSlug)) randomCollectionSelect.value = currentSlug;
+    renderRandomCollectionExclusions();
+  };
+
+  const renderRandomCollectionExclusions = () => {
+    const search = randomExclusionSearch.value.trim().toLocaleLowerCase('ru-RU');
+    const sortOrder = randomExclusionSort.value;
+    const filteredCollections = collections
+      .filter((collection) => `${collection.name} ${collection.slug}`.toLocaleLowerCase('ru-RU').includes(search))
+      .sort((first, second) => {
+        if (sortOrder === 'name') return first.name.localeCompare(second.name, 'en');
+        const firstCount = Number.isSafeInteger(first.gift_count) ? first.gift_count : null;
+        const secondCount = Number.isSafeInteger(second.gift_count) ? second.gift_count : null;
+        if (firstCount === null || secondCount === null) {
+          if (firstCount === secondCount) return first.name.localeCompare(second.name, 'en');
+          return firstCount === null ? 1 : -1;
+        }
+        return (sortOrder === 'count-asc' ? firstCount - secondCount : secondCount - firstCount)
+          || first.name.localeCompare(second.name, 'en');
+      });
+    randomExclusionList.replaceChildren();
+    if (!filteredCollections.length) {
+      const empty = document.createElement('p');
+      empty.className = 'admin-empty-result';
+      empty.textContent = collections.length ? 'Коллекции не найдены.' : 'Сначала загрузите каталог коллекций.';
+      randomExclusionList.append(empty);
+    }
+    filteredCollections.forEach((collection) => {
+      const label = document.createElement('label');
+      label.className = 'admin-random-exclusion-option';
+      const checkbox = document.createElement('input');
+      checkbox.type = 'checkbox';
+      checkbox.value = collection.slug;
+      checkbox.checked = excludedMarketCollections.has(collection.slug);
+      checkbox.addEventListener('change', () => {
+        if (checkbox.checked) excludedMarketCollections.add(collection.slug);
+        else excludedMarketCollections.delete(collection.slug);
+        updateRandomExclusionCount();
+      });
+      const name = document.createElement('span');
+      name.className = 'admin-random-exclusion-name';
+      name.textContent = collection.name;
+      const giftCount = Number.isSafeInteger(collection.gift_count) && collection.gift_count >= 0
+        ? `${collection.gift_count.toLocaleString('ru-RU')} подарков`
+        : 'число неизвестно';
+      const count = document.createElement('span');
+      count.className = 'admin-random-exclusion-gift-count';
+      count.textContent = giftCount;
+      label.title = `${collection.name} · ${collection.slug} — ${giftCount}`;
+      label.append(checkbox, name, count);
+      randomExclusionList.append(label);
+    });
+    updateRandomExclusionCount();
+  };
+
+  const updateRandomExclusionCount = () => {
+    const count = excludedMarketCollections.size;
+    randomExclusionCount.textContent = count
+      ? `Исключено коллекций: ${count}. Количество загружается из Fragment; обновить его можно кнопкой «Подгрузить новые NFT из Fragment». Исключения действуют только для публикации на маркет.`
+      : 'Количество подарков загружается из Fragment; исключения действуют только для публикации на маркет.';
   };
 
   const renderCollections = () => {
@@ -1456,6 +1527,10 @@ xmasstocking|Xmas Stockings
       showStatus(randomStatus, 'Выбранная коллекция недоступна. Обнови список коллекций.', true);
       return;
     }
+    if (mode === 'market' && collection && excludedMarketCollections.has(collection.slug)) {
+      showStatus(randomStatus, 'Выбранная коллекция одновременно указана в исключениях. Убери её из исключений или выбери другую.', true);
+      return;
+    }
     const destination = mode === 'market'
       ? 'Выставить случайные NFT на маркет от профиля @vyrn'
       : `Выдать ${quantity} случайных NFT игроку ${selectedPlayer.nickname}`;
@@ -1473,7 +1548,8 @@ xmasstocking|Xmas Stockings
         max_stars: maxPrice,
         quantity,
         fragment_filter: randomFilterSelect.value,
-        collection_slug: collection?.slug || null
+        collection_slug: collection?.slug || null,
+        excluded_collection_slugs: mode === 'market' ? [...excludedMarketCollections] : []
       });
       const listed = result.items.map((item) => `${item.collection_name} #${item.gift_number} · ${item.price_stars} Stars`);
       const action = mode === 'market' ? 'выставлено на маркет' : 'выдано игроку';
@@ -1492,6 +1568,8 @@ xmasstocking|Xmas Stockings
   };
   randomMarketButton.addEventListener('click', () => runRandomGiftAction('market'));
   randomPlayerButton.addEventListener('click', () => runRandomGiftAction('player'));
+  randomExclusionSearch.addEventListener('input', renderRandomCollectionExclusions);
+  randomExclusionSort.addEventListener('change', renderRandomCollectionExclusions);
   adminCaseAddPrizeButton.addEventListener('click', () => {
     if (adminCasePrizeRows.children.length >= 20) {
       showStatus(adminCaseStatus, 'В кейсе можно настроить не более 20 подарков.', true);

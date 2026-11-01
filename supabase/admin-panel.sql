@@ -745,6 +745,25 @@ begin
     end if;
     seen_gifts := array_append(seen_gifts, gift_key);
 
+    perform pg_catalog.pg_advisory_xact_lock(
+      pg_catalog.hashtextextended(clean_slug || ':' || clean_number, 0)
+    );
+    if exists (
+      select 1
+      from public.starter_gift_inventory as inventory
+      where inventory.collection_slug = clean_slug
+        and inventory.gift_number = clean_number
+    ) or exists (
+      select 1
+      from public.nft_items as item
+      join public.nft_models as model on model.id = item.model_id
+      join public.nft_collections as collection on collection.id = model.collection_id
+      where collection.slug = clean_slug
+        and item.external_id = clean_number
+    ) then
+      continue;
+    end if;
+
     insert into public.nft_collections (slug, name)
     values (clean_slug, clean_name)
     on conflict (slug) do update set name = excluded.name
@@ -763,13 +782,6 @@ begin
           preview_url = excluded.preview_url,
           animation_url = excluded.animation_url
     returning id into v_random_model_id;
-
-    if exists (
-      select 1 from public.nft_items as item
-      where item.model_id = v_random_model_id and item.external_id = clean_number
-    ) then
-      raise exception 'One of the selected Fragment gifts was already added. Retry to choose different gifts.';
-    end if;
 
     insert into public.nft_items (model_id, external_id, owner_profile_id, attributes)
     values (

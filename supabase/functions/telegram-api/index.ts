@@ -1549,9 +1549,12 @@ Deno.serve(async (request) => {
 
     const sourceAttributes = ownedItem.data.attributes || {};
     const useSavedPrice = sourceAttributes.fragment_price_manual === true
-      || sourceAttributes.fragment_price_crafted_target === true;
+      || sourceAttributes.fragment_price_crafted_target === true
+      || sourceAttributes.case_reward === true;
     const sourcePriceStars = Number(useSavedPrice
-      ? sourceAttributes.fragment_price_stars
+      ? sourceAttributes.case_reward === true
+        ? sourceAttributes.custom_price_stars
+        : sourceAttributes.fragment_price_stars
       : sourceAttributes.fragment_price_fragment_stars ?? sourceAttributes.fragment_price_stars);
     if (!Number.isFinite(sourcePriceStars) || sourcePriceStars <= 0) {
       return json({ error: 'Сначала обновите цену NFT на Fragment, затем повторите улучшение.' }, 409);
@@ -1735,6 +1738,10 @@ Deno.serve(async (request) => {
     }
     const storedInputPrices = selectedItems.data.map((item: any) => {
       const attributes = item.attributes || {};
+      if (attributes.case_reward === true) {
+        const casePrice = Number(attributes.custom_price_stars);
+        return Number.isFinite(casePrice) && casePrice > 0 ? casePrice : null;
+      }
       const manualPrice = Number(attributes.fragment_price_stars);
       if (attributes.fragment_price_manual === true || attributes.fragment_price_crafted_target === true) {
         return Number.isFinite(manualPrice) && manualPrice > 0 ? manualPrice : null;

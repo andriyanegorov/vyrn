@@ -83,7 +83,9 @@ begin
     raise exception 'Fragment output price or traits are invalid';
   end if;
 
-  if v_item.attributes ->> 'fragment_price_manual' = 'true'
+  if v_item.attributes ->> 'case_reward' = 'true' then
+    v_price_text := v_item.attributes ->> 'custom_price_stars';
+  elsif v_item.attributes ->> 'fragment_price_manual' = 'true'
     or v_item.attributes ->> 'fragment_price_crafted_target' = 'true' then
     v_price_text := v_item.attributes ->> 'fragment_price_stars';
   else
@@ -100,7 +102,8 @@ begin
   end if;
   v_minimum_stars := v_price_text::numeric;
 
-  if v_item.attributes ->> 'fragment_price_manual' = 'true' then
+  if v_item.attributes ->> 'case_reward' = 'true'
+    or v_item.attributes ->> 'fragment_price_manual' = 'true' then
     v_minimum_grams := v_minimum_stars / 0.8;
   elsif v_item.attributes ->> 'fragment_price_crafted_target' = 'true' then
     v_price_text := v_item.attributes ->> 'fragment_price_grams';
@@ -155,7 +158,11 @@ begin
   )
   returning id into v_model_id;
 
-  v_attributes := coalesce(v_item.attributes, '{}'::jsonb) || jsonb_build_object(
+  v_attributes := (coalesce(v_item.attributes, '{}'::jsonb)
+    - 'custom_price_stars'
+    - 'value_stars'
+    - 'case_reward') || jsonb_build_object(
+    'custom_nft', false,
     'fragment_price_stars', (p_output_fragment_data ->> 'stars')::numeric,
     'fragment_price_grams', (p_output_fragment_data ->> 'grams')::numeric,
     'fragment_price_fragment_grams', (p_output_fragment_data ->> 'grams')::numeric,

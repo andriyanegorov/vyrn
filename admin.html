@@ -8,9 +8,9 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Inter:wght@400;500;600;700&family=Manrope:wght@400;500;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="style.css?v=premium-badge-click-v1">
-  <link rel="stylesheet" href="admin.css?v=portal-channel-managers-v1">
+  <link rel="stylesheet" href="admin.css?v=random-market-collection-count-sort-v1">
   <script src="supabase-client-config.js?v=admin-panel-number-media-20261018" defer></script>
-  <script src="admin.js?v=portal-channel-managers-v1" defer></script>
+  <script src="admin.js?v=random-market-collection-count-sort-v1" defer></script>
 </head>
 <body class="admin-page">
   <header class="admin-header">
@@ -171,6 +171,24 @@
             <option value="">Все коллекции</option>
           </select>
         </label>
+      </div>
+      <div class="admin-random-exclusions">
+        <label class="admin-field" for="admin-random-exclusion-search">
+          <span>Исключить коллекции при публикации от @vyrn</span>
+          <input id="admin-random-exclusion-search" class="admin-random-exclusion-search" type="search" placeholder="Найти коллекцию">
+        </label>
+        <label class="admin-field">
+          <span>Сортировка коллекций</span>
+          <select class="admin-random-exclusion-sort" aria-label="Сортировка коллекций для исключения">
+            <option value="count-desc">По количеству: сначала больше</option>
+            <option value="count-asc">По количеству: сначала меньше</option>
+            <option value="name">По названию</option>
+          </select>
+        </label>
+        <div class="admin-random-exclusion-list" role="group" aria-label="Коллекции, исключённые из публикации от VYRN">
+          <p class="admin-empty-result">Сначала загрузите каталог коллекций.</p>
+        </div>
+        <p class="admin-price-note admin-random-exclusion-count">Исключения применяются только при публикации на маркет.</p>
       </div>
       <p class="admin-price-note">Для публикации на маркете каждому NFT случайно назначается отдельная цена из указанного диапазона. При выдаче игроку диапазон, как и раньше, фильтрует автоцену Fragment: GRAM / 10 × 80 Stars.</p>
       <p class="admin-fragment-note">Сканируются только активные объявления Fragment — до 30 страниц по выбранному фильтру. Для выдачи игроку сначала выберите его в разделе «Игрок» выше.</p>

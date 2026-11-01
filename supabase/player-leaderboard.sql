@@ -22,25 +22,35 @@ as $$
       coalesce(stars_wallet.balance, 0)::numeric as stars_balance,
       coalesce(sum(
         case
+          when items.attributes ->> 'custom_nft' = 'true'
+            then case
+              when length(items.attributes ->> 'custom_price_stars') <= 32
+                and items.attributes ->> 'custom_price_stars' ~ '^[0-9]+(\.[0-9]+)?$'
+                then case when (items.attributes ->> 'custom_price_stars')::numeric > 0
+                  then (items.attributes ->> 'custom_price_stars')::numeric end
+            end
           when items.attributes ->> 'fragment_price_crafted_target' = 'true'
-            and length(items.attributes ->> 'fragment_price_stars') <= 32
-            and items.attributes ->> 'fragment_price_stars' ~ '^[0-9]+(\.[0-9]+)?$'
-            then nullif((items.attributes ->> 'fragment_price_stars')::numeric, 0)
-          else coalesce(
-          case
-            when length(items.attributes ->> 'fragment_price_fragment_stars') <= 32
-              and items.attributes ->> 'fragment_price_fragment_stars' ~ '^[0-9]+(\.[0-9]+)?$'
-              then nullif((items.attributes ->> 'fragment_price_fragment_stars')::numeric, 0)
-          end,
-          case
-            when coalesce(items.attributes ->> 'fragment_price_manual', 'false') <> 'true'
-              and coalesce(items.attributes ->> 'fragment_price_crafted_total', 'false') <> 'true'
-              and length(items.attributes ->> 'fragment_price_stars') <= 32
+            or items.attributes ->> 'fragment_price_manual' = 'true'
+            then case
+              when length(items.attributes ->> 'fragment_price_stars') <= 32
+                and items.attributes ->> 'fragment_price_stars' ~ '^[0-9]+(\.[0-9]+)?$'
+                then case when (items.attributes ->> 'fragment_price_stars')::numeric > 0
+                  then (items.attributes ->> 'fragment_price_stars')::numeric end
+            end
+          when items.attributes ->> 'fragment_price_fragment_stars' is not null
+            then case
+              when length(items.attributes ->> 'fragment_price_fragment_stars') <= 32
+                and items.attributes ->> 'fragment_price_fragment_stars' ~ '^[0-9]+(\.[0-9]+)?$'
+                then case when (items.attributes ->> 'fragment_price_fragment_stars')::numeric > 0
+                  then (items.attributes ->> 'fragment_price_fragment_stars')::numeric end
+            end
+          when items.attributes ->> 'fragment_price_crafted_total' = 'true' then null
+          else case
+            when length(items.attributes ->> 'fragment_price_stars') <= 32
               and items.attributes ->> 'fragment_price_stars' ~ '^[0-9]+(\.[0-9]+)?$'
-              then nullif((items.attributes ->> 'fragment_price_stars')::numeric, 0)
-          end,
-          0::numeric
-        )
+              then case when (items.attributes ->> 'fragment_price_stars')::numeric > 0
+                then (items.attributes ->> 'fragment_price_stars')::numeric end
+          end
         end
       ), 0::numeric) as collection_value
     from public.profiles as profiles

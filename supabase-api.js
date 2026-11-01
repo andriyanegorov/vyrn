@@ -15,6 +15,7 @@
   const cacheRefreshes = new Map();
   const cacheGenerations = new Map();
   const accountRequests = new Map();
+  const isBrowserDemo = () => config.browserDemo === true && !window.Telegram?.WebApp?.initData;
   const isValidCachedResult = (action, result) =>
     action !== 'market' || Array.isArray(result?.items);
 
@@ -52,7 +53,7 @@
   };
 
   const getCacheScope = () => {
-    if (config.browserDemo === true && !window.Telegram?.WebApp?.initData) return 'demo';
+    if (isBrowserDemo()) return 'demo';
     const telegramUser = window.Telegram?.WebApp?.initDataUnsafe?.user;
     if (telegramUser?.id) return String(telegramUser.id);
     const initData = window.Telegram?.WebApp?.initData;
@@ -69,6 +70,7 @@
 
   const getAccountCacheKey = (scope) => `${ACCOUNT_CACHE_PREFIX}${scope}`;
   const readCachedAccount = () => {
+    if (isBrowserDemo()) return null;
     const scope = getCacheScope();
     if (!scope) return null;
     try {
@@ -89,6 +91,7 @@
     }
   };
   const writeCachedAccount = (result) => {
+    if (isBrowserDemo()) return;
     const scope = getCacheScope();
     if (!scope || !result?.profile || !Array.isArray(result.wallets)) return;
     try {
@@ -119,7 +122,7 @@
   const cachedRequest = async (action, payload = {}) => {
     const ttl = CACHE_TTL[action];
     const scope = getCacheScope();
-    if (!ttl || !scope) return request(action, payload);
+    if (isBrowserDemo() || !ttl || !scope) return request(action, payload);
 
     const key = getCacheKey(scope, action, payload);
     let cached;

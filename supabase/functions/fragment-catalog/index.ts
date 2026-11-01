@@ -11,7 +11,7 @@ const json = (body: unknown, status = 200) => new Response(JSON.stringify(body),
   headers: { ...corsHeaders, 'Content-Type': 'application/json' },
 });
 
-type FragmentCollection = { slug: string; name: string };
+type FragmentCollection = { slug: string; name: string; gift_count: number | null };
 
 const decodeHtml = (value: string) => value
   .replace(/&nbsp;|&#160;/gi, ' ')
@@ -40,11 +40,38 @@ const parseCollections = (html: string): FragmentCollection[] => {
     const name = decodeHtml(getAttribute(attributes, 'data-keywords') || embeddedName.replace(/<[^>]*>/g, ' '))
       .replace(/\s+/g, ' ')
       .trim();
+    const countHtml = contents.match(/<div\b[^>]*class=["'][^"']*\btm-main-filters-count\b[^"']*["'][^>]*>([\s\S]*?)<\/div>/i)?.[1] || '';
+    const countText = countHtml.replace(/<[^>]*>/g, '').replace(/[,\s]/g, '');
+    const giftCount = /^\d+$/.test(countText) && Number.isSafeInteger(Number(countText))
+      ? Number(countText)
+      : null;
     if (!/^[a-z0-9]+$/.test(slug) || !name || name.length > 100) continue;
-    collections.push({ slug, name });
+    collections.push({ slug, name, gift_count: giftCount });
   }
 
   return [...new Map(collections.map((collection) => [collection.slug, collection])).values()];
+};
+
+const fetchFragmentCollections = async (): Promise<FragmentCollection[]> => {
+  let response: Response;
+  try {
+    response = await fetch('https://fragment.com/gifts', {
+      headers: { 'User-Agent': 'Mozilla/5.0 VYRN Fragment catalog reader' },
+      signal: AbortSignal.timeout(15_000),
+    });
+  } catch {
+    throw new Error('Не удалось подключиться к Fragment.');
+  }
+  if (!response.ok) throw new Error(`Fragment вернул HTTP ${response.status}.`);
+  const contentLength = Number(response.headers.get('content-length') || 0);
+  if (contentLength > 8_000_000) throw new Error('Ответ Fragment слишком большой.');
+  const html = await response.text();
+  if (html.length > 8_000_000) throw new Error('Ответ Fragment слишком большой.');
+  const collections = parseCollections(html);
+  if (collections.length < 20 || collections.length > 500) {
+    throw new Error('Не удалось распознать каталог Fragment.');
+  }
+  return collections;
 };
 
 Deno.serve(async (request) => {
@@ -66,10 +93,13 @@ Deno.serve(async (request) => {
   });
 
   if (input.action === 'list') {
-    const result = await supabase.from('nft_collections').select('slug,name').order('name');
-    return result.error
-      ? json({ error: result.error.message }, 500)
-      : json({ collections: result.data });
+    try {
+      return json({ collections: await fetchFragmentCollections() });
+    } catch (error) {
+      return json({
+        error: error instanceof Error ? error.message : 'Не удалось загрузить каталог Fragment.',
+      }, 502);
+    }
   }
 
   if (input.action !== 'sync') return json({ error: 'Unknown catalog action' }, 400);
@@ -77,24 +107,13 @@ Deno.serve(async (request) => {
     return json({ error: 'Введите пароль администратора.' }, 400);
   }
 
-  let fragmentResponse: Response;
+  let collections: FragmentCollection[];
   try {
-    fragmentResponse = await fetch('https://fragment.com/gifts', {
-      headers: { 'User-Agent': 'Mozilla/5.0 VYRN Fragment catalog reader' },
-      signal: AbortSignal.timeout(15_000),
-    });
-  } catch {
-    return json({ error: 'Не удалось подключиться к Fragment.' }, 502);
-  }
-  if (!fragmentResponse.ok) return json({ error: `Fragment вернул HTTP ${fragmentResponse.status}.` }, 502);
-
-  const contentLength = Number(fragmentResponse.headers.get('content-length') || 0);
-  if (contentLength > 8_000_000) return json({ error: 'Ответ Fragment слишком большой.' }, 502);
-  const html = await fragmentResponse.text();
-  if (html.length > 8_000_000) return json({ error: 'Ответ Fragment слишком большой.' }, 502);
-  const collections = parseCollections(html);
-  if (collections.length < 20 || collections.length > 500) {
-    return json({ error: 'Не удалось распознать каталог Fragment. Список в базе не изменён.' }, 502);
+    collections = await fetchFragmentCollections();
+  } catch (error) {
+    return json({
+      error: `${error instanceof Error ? error.message : 'Не удалось загрузить каталог Fragment.'} Список в базе не изменён.`,
+    }, 502);
   }
 
   const synced = await supabase.rpc('admin_sync_fragment_collections', {
@@ -108,5 +127,12 @@ Deno.serve(async (request) => {
     }, invalidPassword ? 401 : 500);
   }
 
-  return json({ collections: synced.data, synced_count: collections.length });
+  return json({
+    collections: synced.data.map((collection) => ({
+      slug: collection.slug,
+      name: collection.name,
+      gift_count: collection.fragment_gift_count,
+    })),
+    synced_count: collections.length,
+  });
 });

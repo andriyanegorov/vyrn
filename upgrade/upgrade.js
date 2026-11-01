@@ -76,9 +76,10 @@
     const model = getRelated(item.nft_models);
     const collection = getRelated(model.nft_collections);
     const attributes = item.attributes || {};
+    const isCustomNft = attributes.custom_nft === true;
     const visualId = attributes.crafting?.visual_external_id || item.external_id;
     const slug = collection.slug || '';
-    const image = slug && visualId
+    const image = !isCustomNft && slug && visualId
       ? `https://nft.fragment.com/gift/${slug}-${visualId}.webp`
       : model.preview_url || '../assets/placeholder.png';
     const listings = Array.isArray(item.market_listings) ? item.market_listings : [];
@@ -89,7 +90,7 @@
       attributes,
       visualId: String(visualId || ''),
       image,
-      animation: slug && visualId
+      animation: !isCustomNft && slug && visualId
         ? `https://nft.fragment.com/gift/${slug}-${visualId}.tgs`
         : model.animation_url || '',
       name: model.name || collection.name || 'NFT',

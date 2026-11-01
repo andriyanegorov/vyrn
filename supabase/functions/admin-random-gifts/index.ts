@@ -188,6 +188,9 @@ Deno.serve(async (request) => {
   const collectionSlug = typeof input.collection_slug === 'string'
     ? input.collection_slug.trim().toLowerCase()
     : '';
+  const excludedCollectionSlugs = input.excluded_collection_slugs === undefined
+    ? []
+    : input.excluded_collection_slugs;
 
   if (!password || password.length > 256
     || (mode !== 'market' && mode !== 'player')
@@ -196,9 +199,15 @@ Deno.serve(async (request) => {
     || !Number.isSafeInteger(minStars) || minStars < 1
     || !Number.isSafeInteger(maxStars) || maxStars < minStars
     || !Number.isInteger(quantity) || quantity < 1 || quantity > 30
+    || !Array.isArray(excludedCollectionSlugs)
+    || excludedCollectionSlugs.some((slug) => typeof slug !== 'string' || !/^[a-z0-9]+$/.test(slug))
+    || excludedCollectionSlugs.length > 500
     || (collectionSlug && !/^[a-z0-9]+$/.test(collectionSlug))) {
     return json({ error: 'Проверь диапазон Stars, количество NFT, режим и выбранную коллекцию.' }, 400);
   }
+  const excludedCollections = new Set(
+    mode === 'market' ? excludedCollectionSlugs as string[] : [],
+  );
 
   const supabaseUrl = Deno.env.get('SUPABASE_URL');
   const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')
@@ -248,12 +257,16 @@ Deno.serve(async (request) => {
   }));
   const uniqueCandidates = shuffle([...new Map(
     listingsByFilter.flat().map((gift) => [`${gift.slug}-${gift.number}`, gift]),
-  ).values()]).slice(0, 360);
+  ).values()]
+    .filter((gift) => !excludedCollections.has(gift.slug)))
+    .slice(0, 360);
   if (!uniqueCandidates.length) {
     return json({
       error: listingFailures.length
         ? `Не удалось загрузить объявления Fragment: ${listingFailures.join('; ')}`
-        : 'Fragment не вернул активных объявлений с выбранным фильтром и коллекцией.',
+        : excludedCollections.size
+          ? 'Все найденные объявления относятся к исключённым коллекциям. Измени исключения и попробуй снова.'
+          : 'Fragment не вернул активных объявлений с выбранным фильтром и коллекцией.',
       listing_failures: listingFailures,
     }, 502);
   }
@@ -268,7 +281,16 @@ Deno.serve(async (request) => {
     nft_models: { nft_collections: { slug: string } };
   }>;
   const existingGifts = new Set(existingRows.map((item) => `${item.nft_models.nft_collections.slug}-${item.external_id}`));
-  const newCandidates = uniqueCandidates.filter((gift) => !existingGifts.has(`${gift.slug}-${gift.number}`));
+  const inventoryResult = await supabase.from('starter_gift_inventory')
+    .select('collection_slug,gift_number')
+    .in('collection_slug', [...new Set(uniqueCandidates.map((gift) => gift.slug))])
+    .in('gift_number', [...new Set(uniqueCandidates.map((gift) => gift.number))]);
+  if (inventoryResult.error) return json({ error: inventoryResult.error.message }, 500);
+  const reservedGifts = new Set(inventoryResult.data.map((gift) => `${gift.collection_slug}-${gift.gift_number}`));
+  const newCandidates = uniqueCandidates.filter((gift) => {
+    const key = `${gift.slug}-${gift.number}`;
+    return !existingGifts.has(key) && !reservedGifts.has(key);
+  });
 
   const pricedGifts: PricedGift[] = [];
   let priceFailures = 0;
@@ -357,6 +379,11 @@ Deno.serve(async (request) => {
         ? 'Функция массовой публикации не настроена. Примените обновлённый supabase/admin-panel.sql.'
         : published.error.message,
     }, missingFunction ? 503 : 409);
+  }
+  if (!published.data?.length) {
+    return json({
+      error: 'Все выбранные подарки Fragment уже заняты в проекте. Повтори попытку, чтобы выбрать другие NFT.',
+    }, 409);
   }
 
   return json({
